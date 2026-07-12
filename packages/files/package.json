@@ -1,0 +1,26 @@
+{
+  "name": "@lingban/files",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test:smoke:compiled": "node --test tests/*.test.mjs",
+    "test:smoke": "pnpm build && pnpm test:smoke:compiled"
+  },
+  "dependencies": {
+    "@lingban/contracts": "workspace:*",
+    "jszip": "^3.10.1",
+    "mammoth": "^1.12.0",
+    "xlsx": "^0.18.5"
+  }
+}
