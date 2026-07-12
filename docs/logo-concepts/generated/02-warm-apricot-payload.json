@@ -1,0 +1,7 @@
+{
+    "quality":  "auto",
+    "prompt":  "Logo mark for Lingban Ciyuan, an AI task automation product. Create a simple minimal friendly little ghost mascot. Logo-only icon, no Chinese text, no English text, no letters, no watermark. Centered composition, app icon ready, clean vector-friendly shape, generous padding. The ghost should feel intelligent, efficient, trustworthy, and approachable. Avoid scary horror style, complex scene, clutter, mockup, 3D text, photorealistic mascot. Style: warm friendly mobile mini-program icon. Color palette: white ghost, soft apricot orange outline, warm cream rounded-square background, gentle smile.",
+    "model":  "gpt-image-2",
+    "size":  "1024x1024",
+    "n":  1
+}

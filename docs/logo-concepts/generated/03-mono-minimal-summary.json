@@ -1,0 +1,13 @@
+﻿{
+    "name":  "03-mono-minimal",
+    "model":  "gpt-image-2",
+    "size":  "1024x1024",
+    "quality":  "auto",
+    "responseMode":  "b64_json",
+    "imagePath":  "C:\\dev\\copypaste\\agent-workshop\\docs\\logo-concepts\\generated\\lingban-ciyuan-logo-03-mono-minimal.png",
+    "payloadPath":  "C:\\dev\\copypaste\\agent-workshop\\docs\\logo-concepts\\generated\\03-mono-minimal-payload.json",
+    "responsePath":  "C:\\dev\\copypaste\\agent-workshop\\docs\\logo-concepts\\generated\\03-mono-minimal-response.json",
+    "curlInfo":  "HTTP_STATUS:200;TOTAL_TIME:41.639809",
+    "prompt":  "Logo mark for Lingban Ciyuan, an AI task automation product. Create a simple minimal friendly little ghost mascot. Logo-only icon, no Chinese text, no English text, no letters, no watermark. Centered composition, app icon ready, clean vector-friendly shape, generous padding. The ghost should feel intelligent, efficient, trustworthy, and approachable. Avoid scary horror style, complex scene, clutter, mockup, 3D text, photorealistic mascot. Style: premium black-and-white minimal brand mark. Color palette: white ghost on matte black rounded-square background, high contrast, geometric and iconic.",
+    "generatedAt":  "2026-07-06T19:16:29.7656889+08:00"
+}
