@@ -1,0 +1,3073 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>灵办词元</title>
+  <style>
+    :root {
+      --font-body: "Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif;
+      --font-mono: "Consolas", "JetBrains Mono", monospace;
+      --radius-phone: 28px;
+      --radius-card: 18px;
+      --radius-soft: 12px;
+      --radius-pill: 999px;
+    }
+    body[data-theme="dark"] {
+      --bg: #090b0d;
+      --bg-2: #12161b;
+      --phone: #0e1217;
+      --surface: #12161c;
+      --surface-2: #0f141b;
+      --surface-3: #151b24;
+      --line: #272d36;
+      --line-strong: #394350;
+      --text: #edf1f7;
+      --muted: #8993a1;
+      --accent: #7281ff;
+      --accent-soft: rgba(114,129,255,0.12);
+      --success: #9cf17c;
+      --success-soft: rgba(156,241,124,0.1);
+      --warn: #d9a441;
+      --warn-soft: rgba(217,164,65,0.12);
+      --hero: linear-gradient(180deg, rgba(114,129,255,0.12), rgba(114,129,255,0.02));
+      --shadow-soft: 0 28px 80px rgba(0, 0, 0, 0.42);
+      --shadow-card: 0 16px 34px rgba(0, 0, 0, 0.2);
+    }
+    body[data-theme="light"] {
+      --bg: #edf0f5;
+      --bg-2: #dbe2ea;
+      --phone: #f4f7fb;
+      --surface: #ffffff;
+      --surface-2: #edf2f8;
+      --surface-3: #e4ebf5;
+      --line: #c8d1de;
+      --line-strong: #a8b6c7;
+      --text: #18202b;
+      --muted: #657283;
+      --accent: #5366eb;
+      --accent-soft: rgba(83,102,235,0.1);
+      --success: #5caa45;
+      --success-soft: rgba(92,170,69,0.1);
+      --warn: #b98529;
+      --warn-soft: rgba(185,133,41,0.12);
+      --hero: linear-gradient(180deg, rgba(83,102,235,0.1), rgba(83,102,235,0.02));
+      --shadow-soft: 0 24px 70px rgba(26, 34, 48, 0.12);
+      --shadow-card: 0 10px 24px rgba(26, 34, 48, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: linear-gradient(180deg, var(--bg), var(--bg-2));
+      color: var(--text);
+      font-family: var(--font-body);
+      transition: background 180ms ease, color 180ms ease;
+    }
+    button,
+    input {
+      border: 0;
+      margin: 0;
+      font: inherit;
+      color: inherit;
+      background: none;
+    }
+    button {
+      cursor: pointer;
+    }
+    .mono,
+    .brand-sub,
+    .page-eyebrow,
+    .summary-label,
+    .module-tag,
+    .role,
+    .time,
+    .file-meta,
+    .search-input,
+    .task-chip,
+    .nav-label,
+    .pill,
+    .tab-btn,
+    .crumb-btn,
+    .file-name,
+    code {
+      font-family: var(--font-mono);
+    }
+    .phone {
+      width: 390px;
+      max-width: 100%;
+      height: 844px;
+      border-radius: var(--radius-phone);
+      overflow: hidden;
+      background: var(--phone);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow-soft);
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+    .topbar,
+    .hero-card,
+    .workshop-card,
+    .task-card,
+    .task-shell,
+    .message-card,
+    .module-card,
+    .file-card,
+    .profile-card,
+    .service-entry,
+    .resume-entry,
+    .asset-entry,
+    .auth-entry,
+    .workspace-entry,
+    .favorite-entry,
+    .notice-entry,
+    .empty-state,
+    .composer,
+    .bottom-nav,
+    .summary-card,
+    .mini-card,
+    .search-bar,
+    .task-chip,
+    .tab-btn,
+    .crumb-btn,
+    .theme-btn,
+    .icon-btn {
+      border: 1px solid var(--line);
+      background: var(--surface);
+      box-shadow: var(--shadow-card);
+    }
+    .topbar {
+      border-left: 0;
+      border-right: 0;
+      border-top: 0;
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      background: var(--surface-2);
+    }
+    .bar-row,
+    .brand-row,
+    .page-head,
+    .task-top,
+    .message-head,
+    .file-row,
+    .card-row,
+    .composer-row,
+    .bottom-nav,
+    .pill-row,
+    .task-row,
+    .crumb-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .bar-row,
+    .page-head,
+    .message-head,
+    .file-row,
+    .card-row,
+    .composer-row,
+    .task-top {
+      justify-content: space-between;
+    }
+    .brand-row {
+      min-width: 0;
+      flex: 1;
+    }
+    .icon-btn,
+    .theme-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      flex: 0 0 auto;
+    }
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      background: var(--surface-3);
+      flex: 0 0 auto;
+    }
+    .brand-mark img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .brand-title { font-size: 14px; font-weight: 700; }
+    .brand-sub,
+    .page-eyebrow,
+    .summary-label,
+    .module-tag {
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .page-title {
+      margin-top: 3px;
+      font-size: 16px;
+      line-height: 1.35;
+      font-weight: 700;
+    }
+    .screen {
+      position: relative;
+      min-height: 0;
+      overflow: hidden;
+      background: linear-gradient(180deg, rgba(255,255,255,0.01), transparent 18%);
+    }
+    .page {
+      position: absolute;
+      inset: 0;
+      overflow: auto;
+      padding: 12px;
+      display: none;
+      gap: 10px;
+      align-content: start;
+    }
+    .page.active {
+      display: grid;
+    }
+    .hero-card,
+    .workshop-card,
+    .task-card,
+    .task-shell,
+    .message-card,
+    .module-card,
+    .file-card,
+    .profile-card,
+    .service-entry,
+    .resume-entry,
+    .asset-entry,
+    .auth-entry,
+    .workspace-entry,
+    .favorite-entry,
+    .notice-entry,
+    .empty-state,
+    .composer,
+    .summary-card,
+    .mini-card,
+    .search-bar,
+    .crumb-btn,
+    .task-chip,
+    .tab-btn {
+      border-radius: var(--radius-card);
+    }
+    .hero-card {
+      padding: 14px;
+      background: var(--hero), var(--surface);
+      display: grid;
+      gap: 12px;
+    }
+    .hero-card h1 {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.15;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+    .hero-card p,
+    .task-card p,
+    .module-desc,
+    .profile-note,
+    .muted {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.68;
+    }
+    .stats-grid,
+    .summary-grid,
+    .profile-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .mini-card {
+      padding: 10px;
+      background: var(--surface-2);
+    }
+    .mini-value {
+      margin-top: 6px;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+    .task-chip,
+    .pill,
+    .tab-btn,
+    .crumb-btn {
+      border-radius: var(--radius-pill);
+      padding: 6px 10px;
+      font-size: 11px;
+      white-space: nowrap;
+      color: var(--muted);
+      background: var(--surface-2);
+    }
+    .task-chip.active,
+    .pill.active,
+    .tab-btn.active {
+      color: var(--accent);
+      background: var(--accent-soft);
+      border-color: color-mix(in srgb, var(--accent) 26%, var(--line));
+    }
+    .pill.success {
+      color: var(--success);
+      background: var(--success-soft);
+    }
+    .pill.warn {
+      color: var(--warn);
+      background: var(--warn-soft);
+    }
+    .workshop-card {
+      overflow: hidden;
+      background: var(--surface);
+    }
+    .cover {
+      width: 100%;
+      height: 132px;
+      object-fit: cover;
+      display: block;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface-3);
+    }
+    .workshop-body {
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+    }
+    .workshop-title {
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.45;
+    }
+    .page-section,
+    .workshop-toolbar,
+    .workshop-rack,
+    .service-rack,
+    .resume-rack,
+    .asset-rack,
+    .auth-rack,
+    .workspace-rack,
+    .favorite-rack,
+    .notice-rack {
+      display: grid;
+      gap: 10px;
+    }
+    .section-title {
+      margin: 0;
+      font-size: 15px;
+      line-height: 1.4;
+      font-weight: 700;
+    }
+    .section-copy {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.65;
+    }
+    .search-bar {
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface-2);
+    }
+    .workshop-toolbar .pill-row {
+      flex-wrap: wrap;
+    }
+    .search-input {
+      width: 100%;
+      color: var(--text);
+      font-size: 12px;
+      outline: none;
+    }
+    .service-entry,
+    .resume-entry,
+    .asset-entry,
+    .auth-entry,
+    .workspace-entry,
+    .favorite-entry,
+    .notice-entry,
+    .empty-state {
+      padding: 12px;
+      background: var(--surface);
+      display: grid;
+      gap: 10px;
+    }
+    .service-title,
+    .entry-title {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.45;
+      font-weight: 700;
+    }
+    .service-meta,
+    .entry-subtitle,
+    .entry-meta,
+    .empty-copy {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.65;
+    }
+    .entry-chipline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .entry-metrics {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .metric-box {
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface-2);
+    }
+    .metric-box .page-eyebrow {
+      font-size: 10px;
+    }
+    .metric-box .mini-value {
+      margin-top: 4px;
+      font-size: 12px;
+    }
+    .workspace-current-card,
+    .workspace-sheet-card {
+      background: var(--surface);
+    }
+    .sheet-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(4, 8, 12, 0.52);
+      z-index: 20;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 180ms ease;
+    }
+    .sheet-backdrop.is-open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .workspace-sheet {
+      position: absolute;
+      inset: auto 0 0;
+      z-index: 21;
+      padding: 12px;
+      border-top: 1px solid var(--line);
+      background: var(--surface);
+      box-shadow: 0 -18px 40px rgba(0, 0, 0, 0.28);
+      border-top-left-radius: 22px;
+      border-top-right-radius: 22px;
+      display: grid;
+      gap: 12px;
+      max-height: min(78dvh, 640px);
+      overflow: auto;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(calc(100% + 24px));
+      transition: transform 220ms ease, opacity 180ms ease;
+    }
+    .workspace-sheet.is-open {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+    .sheet-handle {
+      width: 52px;
+      height: 5px;
+      border-radius: 999px;
+      background: var(--line-strong);
+      margin: 0 auto 2px;
+    }
+    .workspace-option-list {
+      display: grid;
+      gap: 8px;
+    }
+    .workspace-option {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--surface-2);
+      display: grid;
+      gap: 10px;
+      text-align: left;
+      box-shadow: inset 0 0 0 1px transparent;
+    }
+    .workspace-option.active {
+      border-color: color-mix(in srgb, var(--accent) 30%, var(--line));
+      background: color-mix(in srgb, var(--accent-soft) 62%, var(--surface));
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent);
+    }
+    .workspace-option-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .workspace-option-title {
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.45;
+    }
+    .workspace-option-meta,
+    .workspace-option-note {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.6;
+    }
+    .empty-state {
+      background: var(--surface-2);
+      text-align: center;
+      justify-items: center;
+      padding: 18px 14px;
+    }
+    .empty-state .icon {
+      color: var(--muted);
+    }
+    .filter-block {
+      display: grid;
+      gap: 8px;
+    }
+    .task-subnav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .task-subnav[hidden] {
+      display: none;
+    }
+    .task-list {
+      display: grid;
+      gap: 10px;
+    }
+    .task-card {
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      background: var(--surface);
+      cursor: pointer;
+    }
+    .task-card.hidden {
+      display: none;
+    }
+    .task-card.active {
+      border-color: var(--line-strong);
+      background: var(--surface-2);
+    }
+    .task-title {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.45;
+      font-weight: 700;
+    }
+    .task-meta {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.55;
+    }
+    .task-shell {
+      padding: 0;
+      overflow: hidden;
+      background: var(--surface-2);
+    }
+    .task-shell summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 12px;
+    }
+    .task-shell summary::-webkit-details-marker { display: none; }
+    .task-main { min-width: 0; }
+    .task-shell-title {
+      margin: 0;
+      font-size: 20px;
+      line-height: 1.08;
+      font-weight: 700;
+    }
+    .task-shell-meta {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.55;
+    }
+    .task-toggle {
+      display: grid;
+      justify-items: end;
+      gap: 8px;
+      flex: 0 0 auto;
+    }
+    .chevron-wrap {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      background: var(--surface-3);
+      color: var(--muted);
+      transition: transform 180ms ease;
+    }
+    .task-shell[open] .chevron-wrap {
+      transform: rotate(180deg);
+    }
+    .task-body {
+      padding: 0 12px 12px;
+      border-top: 1px solid var(--line);
+      display: grid;
+      gap: 10px;
+    }
+    .summary-card {
+      padding: 10px;
+      background: var(--surface-3);
+    }
+    .summary-value {
+      margin-top: 6px;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.45;
+    }
+    .subview {
+      display: none;
+      gap: 10px;
+      align-content: start;
+    }
+    .subview.active {
+      display: grid;
+    }
+    .subview .crumb-row {
+      display: none;
+    }
+    .thread {
+      display: grid;
+      gap: 10px;
+    }
+    .message-card {
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      background: var(--surface);
+    }
+    .message-card.agent {
+      border-left: 2px solid var(--accent);
+    }
+    .message-card.user {
+      border-left: 2px solid var(--success);
+    }
+    .avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--surface-2);
+      display: grid;
+      place-items: center;
+      color: var(--accent);
+      flex: 0 0 auto;
+    }
+    .avatar.user { color: var(--success); }
+    .role { font-size: 12px; font-weight: 700; }
+    .time { color: var(--muted); font-size: 11px; }
+    .message-body {
+      font-size: 13px;
+      line-height: 1.78;
+    }
+    .module-card {
+      padding: 10px;
+      display: grid;
+      gap: 10px;
+      background: var(--surface-2);
+    }
+    .module-card.approval {
+      border-color: color-mix(in srgb, var(--warn) 24%, var(--line));
+      background: color-mix(in srgb, var(--warn-soft) 84%, var(--surface));
+    }
+    .module-title {
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.55;
+    }
+    .file-card,
+    .profile-card {
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+    }
+    .file-card h3,
+    .profile-card h3 {
+      margin: 0;
+      font-size: 14px;
+    }
+    .file-row {
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface-2);
+      align-items: flex-start;
+    }
+    .file-name {
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.5;
+    }
+    .file-meta {
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 3px;
+    }
+    .section-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .section-copy,
+    .path-helper {
+      margin: 0;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.68;
+    }
+    .path-switcher-card {
+      background: var(--surface);
+    }
+    .path-option-list {
+      display: grid;
+      gap: 8px;
+    }
+    .path-option {
+      width: 100%;
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--surface-2);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      text-align: left;
+      box-shadow: inset 0 0 0 1px transparent;
+      transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+    }
+    .path-option.active {
+      border-color: color-mix(in srgb, var(--accent) 30%, var(--line));
+      background: color-mix(in srgb, var(--accent-soft) 62%, var(--surface));
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 16%, transparent);
+    }
+    .path-option-main {
+      min-width: 0;
+      display: grid;
+      gap: 4px;
+    }
+    .path-option-label {
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.5;
+      word-break: break-all;
+    }
+    .path-option-meta {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.55;
+    }
+    .path-option-leading {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+    .path-option-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: var(--surface-3);
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      flex: 0 0 auto;
+    }
+    .path-input-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+    }
+    .path-input-shell {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--surface-2);
+      color: var(--muted);
+    }
+    .path-input-shell:focus-within {
+      border-color: color-mix(in srgb, var(--accent) 28%, var(--line));
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
+      color: var(--accent);
+    }
+    .path-input {
+      width: 100%;
+      min-width: 0;
+      outline: none;
+      color: var(--text);
+      font-size: 12px;
+      background: transparent;
+    }
+    .path-input::placeholder {
+      color: var(--muted);
+    }
+    .path-apply-btn {
+      min-width: 92px;
+      padding: 0 14px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      background: var(--accent-soft);
+      border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--line));
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--success);
+      box-shadow: 0 0 0 6px color-mix(in srgb, var(--success) 10%, transparent);
+      flex: 0 0 auto;
+      margin-top: 4px;
+    }
+    .composer {
+      padding: 10px;
+      display: grid;
+      gap: 10px;
+      background: var(--surface-2);
+    }
+    .composer-box {
+      min-height: 48px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      background: var(--surface-3);
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.65;
+    }
+    .send-btn {
+      min-width: 86px;
+      height: 34px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      color: var(--accent);
+      background: var(--accent-soft);
+      border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--line));
+      font-weight: 700;
+    }
+    .bottom-nav {
+      border-left: 0;
+      border-right: 0;
+      border-bottom: 0;
+      padding: 10px 10px calc(12px + env(safe-area-inset-bottom));
+      background: var(--surface);
+      justify-content: space-between;
+    }
+    .nav-btn {
+      flex: 1 1 0;
+      min-height: 48px;
+      border-radius: 14px;
+      display: grid;
+      place-items: center;
+      gap: 4px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .nav-btn.active {
+      color: var(--text);
+      background: var(--surface-2);
+      border-color: var(--line-strong);
+    }
+    .nav-label {
+      font-size: 11px;
+      line-height: 1;
+    }
+    .theme-btn .sun,
+    body[data-theme="dark"] .theme-btn .moon,
+    body[data-theme="light"] .theme-btn .sun {
+      display: none;
+    }
+    body[data-theme="dark"] .theme-btn .sun,
+    body[data-theme="light"] .theme-btn .moon {
+      display: block;
+    }
+    .icon {
+      width: 18px;
+      height: 18px;
+      display: block;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    code {
+      font-size: 12px;
+      word-break: break-all;
+    }
+    @media (max-width: 480px) {
+      body { padding: 0; }
+      .phone {
+        width: 100vw;
+        max-width: none;
+        height: 100dvh;
+        border-radius: 0;
+        border: 0;
+        box-shadow: none;
+      }
+      .stats-grid,
+      .summary-grid,
+      .profile-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    @media (min-width: 481px) {
+      .phone {
+        height: min(844px, calc(100vh - 48px));
+      }
+    }
+  </style>
+</head>
+<body data-theme="dark">
+  <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 10.5L12 4L20 10.5"/><path d="M6 9.5V20H18V9.5"/><path d="M10 20V14H14V20"/></symbol>
+    <symbol id="i-terminal" viewBox="0 0 24 24"><path d="M6 7L10 11L6 15"/><path d="M13 16H18"/><rect x="3" y="4" width="18" height="16" rx="3"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M4 7.5C4 6.67 4.67 6 5.5 6H10L12 8H18.5C19.33 8 20 8.67 20 9.5V17.5C20 18.33 19.33 19 18.5 19H5.5C4.67 19 4 18.33 4 17.5Z"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 19C6.8 15.9 9 14.5 12 14.5C15 14.5 17.2 15.9 19 19"/></symbol>
+    <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="M6 9L12 15L18 9"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M19 14.5A7.5 7.5 0 1 1 9.5 5A6 6 0 0 0 19 14.5Z"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2V4"/><path d="M12 20V22"/><path d="M4.93 4.93L6.34 6.34"/><path d="M17.66 17.66L19.07 19.07"/><path d="M2 12H4"/><path d="M20 12H22"/><path d="M4.93 19.07L6.34 17.66"/><path d="M17.66 6.34L19.07 4.93"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11C6 7.69 8.69 5 12 5C15.31 5 18 7.69 18 11V16"/><path d="M4 16H20"/><path d="M10 19C10.5 20 11.15 20.5 12 20.5C12.85 20.5 13.5 20 14 19"/></symbol>
+    <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M15 6L9 12L15 18"/><path d="M9 12H20"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5V19"/><path d="M5 12H19"/></symbol>
+    <symbol id="i-paperclip" viewBox="0 0 24 24"><path d="M9.5 13.5L15.8 7.2A3 3 0 1 1 20 11.4L11.2 20.2A5 5 0 1 1 4.1 13.1L12.2 5"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="M21 3L10 14"/><path d="M21 3L14 21L10 14L3 10L21 3Z"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3L13.8 8.2L19 10L13.8 11.8L12 17L10.2 11.8L5 10L10.2 8.2Z"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4V15"/><path d="M8 11L12 15L16 11"/><path d="M5 19H19"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18H17C19.76 18 22 15.76 22 13C22 10.62 20.34 8.63 18.11 8.12C17.53 5.76 15.4 4 12.86 4C9.89 4 7.43 6.43 7.11 9.39C4.77 9.87 3 11.94 3 14.42C3 16.95 5.05 19 7.58 19"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="3"/><path d="M10.5 13.5L20 4"/><path d="M16 4H20V8"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3L19 6V11C19 15.5 16.2 18.7 12 20C7.8 18.7 5 15.5 5 11V6Z"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20L16.5 16.5"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 10V16"/><path d="M12 7.5H12.01"/></symbol>
+  </svg>
+
+  <div class="phone">
+    <header class="topbar">
+      <div class="bar-row">
+        <button class="icon-btn" id="backToIndexBtn" type="button" aria-label="返回总览">
+          <svg class="icon"><use href="#i-arrow-left"/></svg>
+        </button>
+        <div class="brand-row">
+          <div class="brand-mark"><img src="./assets/logo.png" alt="灵办词元 logo"></div>
+          <div>
+            <div class="brand-sub">移动入口</div>
+            <div class="brand-title">灵办词元</div>
+          </div>
+        </div>
+        <button class="theme-btn" type="button" aria-label="切换主题">
+          <svg class="icon moon"><use href="#i-moon"/></svg>
+          <svg class="icon sun"><use href="#i-sun"/></svg>
+        </button>
+        <button class="icon-btn" type="button" aria-label="通知">
+          <svg class="icon"><use href="#i-bell"/></svg>
+        </button>
+      </div>
+      <div class="page-head">
+        <div>
+          <div class="page-eyebrow" id="mobileLabel">工坊大厅</div>
+          <div class="page-title" id="mobileTitle">先选工坊，再进入任务列表与具体会话</div>
+        </div>
+        <div class="pill active">移动端</div>
+      </div>
+    </header>
+
+    <main class="screen">
+      <section class="page active" data-page="workshops" data-label="创意工坊" data-title="先选服务，再进入任务对话">
+        <article class="hero-card workshop-hero">
+          <div class="pill-row">
+            <span class="pill active">当前工作区</span>
+            <span class="pill success">轻量启动</span>
+          </div>
+          <div class="section-head">
+            <div>
+              <h1>灵办词元工坊</h1>
+              <p>企业私有工坊和创作者工坊统一分发。服务启动后直接创建任务实例，所需信息由 Codex 在对话里逐步收集。</p>
+            </div>
+            <span class="pill">移动端</span>
+          </div>
+          <div class="stats-grid">
+            <div class="mini-card">
+              <div class="page-eyebrow">当前工作区</div>
+              <div class="mini-value" id="workshopHeroWorkspaceValue">华港财务组</div>
+            </div>
+            <div class="mini-card">
+              <div class="page-eyebrow">运行中</div>
+              <div class="mini-value">12</div>
+            </div>
+            <div class="mini-card">
+              <div class="page-eyebrow">待确认</div>
+              <div class="mini-value">02</div>
+            </div>
+            <div class="mini-card">
+              <div class="page-eyebrow">结果包</div>
+              <div class="mini-value">18</div>
+            </div>
+          </div>
+        </article>
+
+        <div class="search-bar">
+          <svg class="icon"><use href="#i-search"/></svg>
+          <input class="search-input" id="workshopSearch" type="text" placeholder="搜索工坊、服务、标签">
+        </div>
+
+        <div class="workshop-toolbar">
+          <div class="pill-row" id="workshopFilters">
+            <button class="task-chip active" type="button" data-workshop-scope="recommended">推荐</button>
+            <button class="task-chip" type="button" data-workshop-scope="enterprise">企业工坊</button>
+            <button class="task-chip" type="button" data-workshop-scope="creator">创作者工坊</button>
+            <button class="task-chip" type="button" data-workshop-scope="recent">最近使用</button>
+          </div>
+          <div class="card-row">
+            <div class="muted" id="workshopScopeMeta">当前工作区：华港财务组 / 已挂载 4 项账户能力</div>
+            <div class="pill-row">
+              <button class="pill" type="button" data-go-page="profile">去我的</button>
+              <span class="pill">启动后补充资料</span>
+            </div>
+          </div>
+        </div>
+
+        <section class="page-section">
+          <div class="section-head">
+            <div>
+              <div class="page-eyebrow">工坊库</div>
+              <h2 class="section-title" id="workshopSectionTitle">推荐工坊</h2>
+            </div>
+            <span class="pill active" id="workshopCountPill">0 个工坊</span>
+          </div>
+          <div class="workshop-rack" id="workshopRack"></div>
+        </section>
+
+        <section class="page-section">
+          <div class="section-head">
+            <div>
+              <div class="page-eyebrow">即开服务</div>
+              <h2 class="section-title" id="serviceSectionTitle">看到即可启动</h2>
+              <p class="section-copy" id="serviceSectionMeta">启动后直接进入任务对话，由 Codex 继续收集缺失信息。</p>
+            </div>
+            <button class="pill" type="button" id="clearWorkshopFocusBtn" hidden>查看全部</button>
+          </div>
+          <div class="service-rack" id="serviceRack"></div>
+        </section>
+
+        <section class="page-section">
+          <div class="section-head">
+            <div>
+              <div class="page-eyebrow">最近使用</div>
+              <h2 class="section-title">继续处理中的任务</h2>
+            </div>
+            <button class="pill active" type="button" data-go-page="tasks">任务中心</button>
+          </div>
+          <div class="resume-rack" id="resumeRack"></div>
+        </section>
+      </section>
+
+      <section class="page" data-page="tasks" data-label="任务中心" data-title="先在任务列表中筛选实例，再进入具体会话">
+        <div class="subview active" data-subview="list">
+          <div class="search-bar">
+            <svg class="icon"><use href="#i-search"/></svg>
+            <input class="search-input" id="taskSearch" type="text" placeholder="搜索任务名 / 工坊 / 标签">
+          </div>
+
+          <div class="filter-block">
+            <div class="pill-row" id="statusFilters">
+              <button class="task-chip active" type="button" data-status="all">全部</button>
+              <button class="task-chip" type="button" data-status="running">运行中</button>
+              <button class="task-chip" type="button" data-status="approval">待确认</button>
+              <button class="task-chip" type="button" data-status="done">已完成</button>
+            </div>
+            <div class="pill-row" id="tagFilters">
+              <button class="task-chip active" type="button" data-tag="all">全部标签</button>
+              <button class="task-chip" type="button" data-tag="tax">#报税</button>
+              <button class="task-chip" type="button" data-tag="drama">#短剧</button>
+              <button class="task-chip" type="button" data-tag="image">#图像</button>
+              <button class="task-chip" type="button" data-tag="high">#高优</button>
+            </div>
+          </div>
+
+          <div class="task-list" id="taskList">
+            <article class="task-card active" data-task-id="tax-q2" data-status="running" data-tags="tax high finance">
+              <div class="card-row">
+                <div>
+                  <h2 class="task-title">香港有限公司 2026Q2 报税</h2>
+                  <div class="task-meta">工坊：企业报税执行器 / 2 分钟前更新</div>
+                </div>
+                <span class="pill success">运行中</span>
+              </div>
+              <div class="muted">当前等待沿用上一季度结转税项审批，已上传 3 个附件。</div>
+              <div class="pill-row">
+                <span class="pill active">#tax</span>
+                <span class="pill">#high</span>
+                <span class="pill">已传 3 份</span>
+                <span class="pill warn">1 项审批</span>
+              </div>
+              <div class="card-row">
+                <span class="muted">进入当前实例的完整对话</span>
+                <button class="pill active open-task-btn" type="button" data-task-id="tax-q2">打开</button>
+              </div>
+            </article>
+
+            <article class="task-card" data-task-id="drama-ep08" data-status="approval" data-tags="drama storyboard content">
+              <div class="card-row">
+                <div>
+                  <h2 class="task-title">短剧第 8 集分镜确认</h2>
+                  <div class="task-meta">工坊：短剧生成套件 / 9 分钟前更新</div>
+                </div>
+                <span class="pill warn">待确认</span>
+              </div>
+              <div class="muted">等待用户确认视频额度和最终镜头节奏，已生成分镜和镜头清单。</div>
+              <div class="pill-row">
+                <span class="pill active">#drama</span>
+                <span class="pill">#content</span>
+                <span class="pill">18 个镜头</span>
+              </div>
+              <div class="card-row">
+                <span class="muted">进入当前实例的完整对话</span>
+                <button class="pill active open-task-btn" type="button" data-task-id="drama-ep08">打开</button>
+              </div>
+            </article>
+
+            <article class="task-card" data-task-id="poster-batch-17" data-status="done" data-tags="image brand batch">
+              <div class="card-row">
+                <div>
+                  <h2 class="task-title">品牌海报批次 17</h2>
+                  <div class="task-meta">工坊：图像资产批处理 / 26 分钟前更新</div>
+                </div>
+                <span class="pill">已完成</span>
+              </div>
+              <div class="muted">24 张图像已出图并归档，可直接查看结果文件或继续继承该 session。</div>
+              <div class="pill-row">
+                <span class="pill active">#image</span>
+                <span class="pill">#brand</span>
+                <span class="pill">24 份结果</span>
+              </div>
+              <div class="card-row">
+                <span class="muted">进入当前实例的完整对话</span>
+                <button class="pill active open-task-btn" type="button" data-task-id="poster-batch-17">打开</button>
+              </div>
+            </article>
+          </div>
+        </div>
+
+        <div class="task-subnav" id="taskSubnav" hidden>
+          <button class="crumb-btn" type="button" data-back-to="list">返回任务列表</button>
+          <div class="pill-row">
+            <button class="tab-btn active" type="button" data-subview-target="conversation">对话</button>
+            <button class="tab-btn" type="button" data-subview-target="detail">详情</button>
+            <button class="tab-btn" type="button" data-subview-target="files">查看文件</button>
+          </div>
+        </div>
+
+        <div class="subview" data-subview="conversation">
+          <div class="crumb-row">
+            <button class="crumb-btn" type="button" data-back-to="list">返回任务列表</button>
+            <button class="tab-btn active" type="button" data-subview-target="conversation">对话</button>
+            <button class="tab-btn" type="button" data-subview-target="detail">详情</button>
+            <button class="tab-btn" type="button" data-subview-target="files">查看文件</button>
+          </div>
+
+          <details class="task-shell" open>
+            <summary>
+              <div class="task-top">
+                <div class="task-main">
+                  <h2 class="task-shell-title" id="taskShellTitle">香港有限公司 2026Q2 报税</h2>
+                  <div class="task-shell-meta" id="taskShellMeta">工坊：企业报税执行器 / 实例：ctx-2048 / 目录：/workspace/tax-q2/</div>
+                </div>
+                <div class="task-toggle">
+                  <span class="pill success" id="taskStatusPill">运行中</span>
+                  <span class="chevron-wrap"><svg class="icon"><use href="#i-chevron-down"/></svg></span>
+                </div>
+              </div>
+              <div class="pill-row" style="margin-top:10px;">
+                <span class="pill active" id="taskStagePill">阶段：材料核验</span>
+                <span class="pill" id="taskEtaPill">预计完成：04:12</span>
+                <span class="pill warn" id="taskApprovalPill">待审批：1</span>
+              </div>
+            </summary>
+
+            <div class="task-body">
+              <div class="summary-grid">
+                <div class="summary-card">
+                  <div class="summary-label">当前目标</div>
+                  <div class="summary-value" id="summaryObjective">完成申报并输出回执结果包</div>
+                </div>
+                <div class="summary-card">
+                  <div class="summary-label">挂载能力</div>
+                  <div class="summary-value" id="summaryMounted">codex-cli / chrome-mcp / OTP</div>
+                </div>
+                <div class="summary-card">
+                  <div class="summary-label">工作目录</div>
+                  <div class="summary-value" id="summaryTargetPath">/workspace/tax-q2/</div>
+                </div>
+                <div class="summary-card">
+                  <div class="summary-label">任务标签</div>
+                  <div class="summary-value" id="summaryTags">#tax #high</div>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <div class="thread">
+            <article class="message-card agent">
+              <div class="message-head">
+                <div class="task-row">
+                  <div class="avatar"><svg class="icon"><use href="#i-spark"/></svg></div>
+                  <div>
+                    <div class="role">系统引导</div>
+                    <div class="time" id="msg1Time">09:42</div>
+                  </div>
+                </div>
+                <span class="pill active">引导</span>
+              </div>
+              <div class="message-body" id="msg1Body">请先提供报税主体、周期、登录方式，以及当前已准备好的材料清单。</div>
+            </article>
+
+            <article class="message-card user">
+              <div class="message-head">
+                <div class="task-row">
+                  <div class="avatar user"><svg class="icon"><use href="#i-user"/></svg></div>
+                  <div>
+                    <div class="role">你</div>
+                    <div class="time" id="msg2Time">09:43</div>
+                  </div>
+                </div>
+              </div>
+              <div class="message-body" id="msg2Body">主体是香港有限公司，周期 2026Q2，登录走企业邮箱 OTP。材料已准备利润表、银行流水、董事签章。</div>
+            </article>
+
+            <article class="message-card agent">
+              <div class="message-head">
+                <div class="task-row">
+                  <div class="avatar"><svg class="icon"><use href="#i-terminal"/></svg></div>
+                  <div>
+                    <div class="role">运行实例</div>
+                    <div class="time" id="msg3Time">09:44</div>
+                  </div>
+                </div>
+                <span class="pill success" id="msg3Pill">已接收</span>
+              </div>
+              <div class="message-body" id="msg3Body">开始校验字段并准备接管浏览器。敏感操作会回到当前消息流请求审批。</div>
+
+              <div class="module-card" id="attachmentModule">
+                <div class="module-tag">已挂载附件</div>
+                <div class="module-title" id="attachmentTitle">profit-sheet-q2.xlsx / bank-statement.pdf / director-stamp.png</div>
+                <div class="module-desc" id="attachmentDesc">材料已挂载，等待执行</div>
+              </div>
+            </article>
+
+            <article class="message-card agent" id="approvalMessage">
+              <div class="message-head">
+                <div class="task-row">
+                  <div class="avatar"><svg class="icon"><use href="#i-shield"/></svg></div>
+                  <div>
+                    <div class="role">运行实例</div>
+                    <div class="time" id="msg4Time">09:47</div>
+                  </div>
+                </div>
+                <span class="pill warn" id="msg4Pill">待审批</span>
+              </div>
+              <div class="message-body" id="msg4Body">检测到上一季度结转税项，是否沿用？</div>
+
+              <div class="module-card approval">
+                <div class="module-tag">审批请求</div>
+                <div class="module-title" id="approvalTitle">是否沿用上一季度结转税项</div>
+                <div class="module-desc" id="approvalDesc">审批结果会继续在当前对话流中推进。</div>
+                <div class="card-row">
+                  <button class="pill active" type="button" id="approvePrimary">沿用并继续</button>
+                  <button class="pill" type="button" id="approveSecondary">不沿用，重新计算</button>
+                </div>
+              </div>
+            </article>
+          </div>
+
+          <div class="composer">
+            <div class="composer-box" id="composerHint">可直接发送消息、补充附件或回复审批</div>
+            <div class="composer-row">
+              <div class="task-row">
+                <button class="icon-btn" type="button" aria-label="添加"><svg class="icon"><use href="#i-plus"/></svg></button>
+                <button class="icon-btn" type="button" aria-label="附件"><svg class="icon"><use href="#i-paperclip"/></svg></button>
+              </div>
+              <button class="send-btn" type="button">
+                <span class="task-row"><svg class="icon"><use href="#i-send"/></svg><span>发送</span></span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="subview" data-subview="detail">
+          <div class="crumb-row">
+            <button class="crumb-btn" type="button" data-back-to="conversation">返回会话</button>
+            <button class="tab-btn active" type="button">详情</button>
+          </div>
+
+          <article class="file-card">
+            <h3>运行详情 / <span id="detailTaskName">香港有限公司 2026Q2 报税</span></h3>
+            <div class="summary-grid">
+              <div class="summary-card">
+                <div class="summary-label">工坊来源</div>
+                <div class="summary-value" id="detailWorkshop">企业报税执行器</div>
+              </div>
+              <div class="summary-card">
+                <div class="summary-label">实例编号</div>
+                <div class="summary-value" id="detailContainer">ctx-2048</div>
+              </div>
+              <div class="summary-card">
+                <div class="summary-label">当前阶段</div>
+                <div class="summary-value" id="detailPhase">材料核验</div>
+              </div>
+              <div class="summary-card">
+                <div class="summary-label">调度方式</div>
+                <div class="summary-value" id="detailSchedule">手动触发 / 不重复</div>
+              </div>
+            </div>
+          </article>
+
+          <article class="file-card">
+            <h3>挂载能力</h3>
+            <div class="file-row">
+              <div>
+                <div class="file-name" id="detailMounted">codex-cli / chrome-mcp / otp</div>
+                <div class="file-meta">实例启动时自动挂载</div>
+              </div>
+              <span class="pill success">就绪</span>
+            </div>
+            <div class="file-row">
+              <div>
+                <div class="file-name" id="detailThirdParty">已启用外部连接器引用</div>
+                <div class="file-meta">支持按用户账户注入第三方 MCP</div>
+              </div>
+              <span class="pill active">可用</span>
+            </div>
+          </article>
+        </div>
+
+        <div class="subview" data-subview="files">
+          <div class="crumb-row">
+            <button class="crumb-btn" type="button" data-back-to="conversation">返回会话</button>
+            <button class="tab-btn active" type="button">文件</button>
+          </div>
+
+          <article class="file-card">
+            <h3>当前路径 / <span id="filesTargetPath">/workspace/tax-q2/</span></h3>
+            <div class="file-row">
+              <div>
+                <div class="file-name" id="fileName1">receipts / filing-slip.pdf</div>
+                <div class="file-meta" id="fileMeta1">updated 09:52 / 184kb</div>
+              </div>
+              <span class="pill success" id="filePill1">完成</span>
+            </div>
+            <div class="file-row">
+              <div>
+                <div class="file-name" id="fileName2">screenshots / login-step.png</div>
+                <div class="file-meta" id="fileMeta2">updated 09:46 / 612kb</div>
+              </div>
+              <span class="pill" id="filePill2">记录</span>
+            </div>
+            <div class="file-row">
+              <div>
+                <div class="file-name" id="fileName3">output / final-summary.md</div>
+                <div class="file-meta" id="fileMeta3">updated 09:53 / 18kb</div>
+              </div>
+              <span class="pill active" id="filePill3">结果</span>
+            </div>
+            <div class="card-row">
+              <button class="pill active" type="button"><svg class="icon" style="display:inline-block;vertical-align:-3px;"><use href="#i-download"/></svg> 下载全部</button>
+              <button class="pill" type="button">打开目录</button>
+            </div>
+          </article>
+
+          <article class="file-card path-switcher-card">
+            <div class="section-head">
+              <div>
+                <h3>路径切换</h3>
+                <p class="section-copy">你可以直接选择已挂载路径，也可以输入当前工作区内的任意目录。</p>
+              </div>
+              <span class="pill" id="pathScopePill">已挂载</span>
+            </div>
+
+            <div class="path-option-list" id="pathOptionList"></div>
+
+            <div class="path-input-row">
+              <label class="path-input-shell" for="customPathInput">
+                <svg class="icon"><use href="#i-search"/></svg>
+                <input class="path-input mono" id="customPathInput" type="text" placeholder="/workspace/tax-q2/output/">
+              </label>
+              <button class="path-apply-btn" type="button" id="applyPathBtn">切换路径</button>
+            </div>
+
+            <p class="path-helper" id="pathHelperText">预设路径会跟随当前任务实例，自定义路径也会限制在当前工作区内浏览。</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="page" data-page="profile" data-label="我的资产" data-title="结果、授权、收藏与工作区">
+        <article class="hero-card profile-hero">
+          <div class="card-row">
+            <div class="task-row">
+              <div class="avatar user"><svg class="icon"><use href="#i-user"/></svg></div>
+              <div>
+                <h3 class="mono">当前账号</h3>
+                <div class="profile-note">华港财务组 / 移动端入口</div>
+              </div>
+            </div>
+            <span class="pill success">已连接</span>
+          </div>
+          <p>这里长期沉淀结果文件、回执、收藏工坊和账户授权。需要回到当前工作区时，可以直接跳到对应任务或文件页。</p>
+          <div class="profile-grid">
+            <div class="mini-card">
+              <div class="page-eyebrow">文件</div>
+              <div class="mini-value" id="meFilesValue">0</div>
+            </div>
+            <div class="mini-card">
+              <div class="page-eyebrow">回执</div>
+              <div class="mini-value" id="meReceiptsValue">0</div>
+            </div>
+            <div class="mini-card">
+              <div class="page-eyebrow">收藏工坊</div>
+              <div class="mini-value" id="meFavoritesValue">0</div>
+            </div>
+            <div class="mini-card">
+              <div class="page-eyebrow">待处理</div>
+              <div class="mini-value" id="mePendingValue">0</div>
+            </div>
+          </div>
+        </article>
+
+        <section class="page-section">
+          <div class="section-head">
+            <div>
+              <div class="page-eyebrow">工作区</div>
+              <h2 class="section-title">当前工作区</h2>
+            </div>
+            <button class="pill active" type="button" data-open-workspace-switcher="true">切换工作区</button>
+          </div>
+          <article class="profile-card workspace-current-card">
+            <div class="card-row">
+              <div>
+                <h3 id="currentWorkspaceName">华港财务组</h3>
+                <div class="profile-note" id="currentWorkspaceMeta">企业 / 成员 / 已连接 4 项能力</div>
+              </div>
+              <span class="pill success" id="currentWorkspaceTypePill">企业</span>
+            </div>
+            <div class="entry-metrics">
+              <div class="metric-box">
+                <div class="page-eyebrow">角色</div>
+                <div class="mini-value" id="currentWorkspaceRoleValue">成员</div>
+              </div>
+              <div class="metric-box">
+                <div class="page-eyebrow">可见工坊</div>
+                <div class="mini-value" id="currentWorkspaceWorkshopCount">2</div>
+              </div>
+              <div class="metric-box">
+                <div class="page-eyebrow">可见任务</div>
+                <div class="mini-value" id="currentWorkspaceTaskCount">2</div>
+              </div>
+            </div>
+            <div class="file-row">
+              <div>
+                <div class="file-name">默认目录</div>
+                <div class="file-meta mono" id="currentWorkspaceRoot">/workspace/tax-q2/</div>
+              </div>
+              <button class="pill active" type="button" data-open-workspace-switcher="true">选择</button>
+            </div>
+          </article>
+        </section>
+
+        <section class="page-section">
+          <div class="section-head">
+            <div>
+              <div class="page-eyebrow">我的资产</div>
+              <h2 class="section-title">结果与下载</h2>
+            </div>
+            <span class="pill active">任务页同步沉淀</span>
+          </div>
+          <div class="asset-rack" id="assetRack"></div>
+        </section>
+
+        <section class="page-section">
+          <div class="section-head">
+            <div>
+              <div class="page-eyebrow">授权中心</div>
+              <h2 class="section-title">连接与凭证</h2>
+            </div>
+            <span class="pill">按账户绑定</span>
+          </div>
+          <div class="auth-rack" id="authRack"></div>
+        </section>
+
+        <section class="page-section">
+          <div class="section-head">
+            <div>
+              <div class="page-eyebrow">工作区</div>
+              <h2 class="section-title">当前路径与收藏工坊</h2>
+            </div>
+            <span class="pill" id="workspaceCountPill">0 个工作区</span>
+          </div>
+          <div class="workspace-rack" id="workspaceRack"></div>
+          <div class="favorite-rack" id="favoriteRack"></div>
+        </section>
+
+        <section class="page-section">
+          <div class="section-head">
+            <div>
+              <div class="page-eyebrow">通知与待办</div>
+              <h2 class="section-title">需要你处理的动作</h2>
+            </div>
+            <span class="pill warn">跟任务联动</span>
+          </div>
+          <div class="notice-rack" id="noticeRack"></div>
+        </section>
+      </section>
+
+      <div class="sheet-backdrop" id="workspaceSheetBackdrop"></div>
+      <section class="workspace-sheet" id="workspaceSheet" aria-hidden="true">
+        <div class="sheet-handle"></div>
+        <div class="card-row">
+          <div>
+            <div class="page-eyebrow">工作区切换</div>
+            <h2 class="section-title">选择当前工作区</h2>
+          </div>
+          <button class="pill" type="button" data-close-workspace-switcher="true">关闭</button>
+        </div>
+        <article class="profile-card workspace-sheet-card">
+          <div class="page-eyebrow">当前选中</div>
+          <div class="card-row">
+            <div>
+              <h3 id="sheetWorkspaceCurrentName">华港财务组</h3>
+              <div class="profile-note" id="sheetWorkspaceCurrentMeta">企业 / 成员 / 4 项能力</div>
+            </div>
+            <span class="pill success" id="sheetWorkspaceCurrentType">企业</span>
+          </div>
+        </article>
+        <section class="page-section">
+          <div class="page-eyebrow">最近使用</div>
+          <div class="workspace-option-list" id="workspaceRecentList"></div>
+        </section>
+        <section class="page-section">
+          <div class="page-eyebrow">个人空间</div>
+          <div class="workspace-option-list" id="workspacePersonalList"></div>
+        </section>
+        <section class="page-section">
+          <div class="page-eyebrow">企业空间</div>
+          <div class="workspace-option-list" id="workspaceOrganizationList"></div>
+        </section>
+      </section>
+    </main>
+
+    <nav class="bottom-nav">
+      <button class="nav-btn active" type="button" data-target="workshops">
+        <svg class="icon"><use href="#i-home"/></svg>
+        <span class="nav-label">工坊</span>
+      </button>
+      <button class="nav-btn" type="button" data-target="tasks">
+        <svg class="icon"><use href="#i-terminal"/></svg>
+        <span class="nav-label">任务</span>
+      </button>
+      <button class="nav-btn" type="button" data-target="profile">
+        <svg class="icon"><use href="#i-user"/></svg>
+        <span class="nav-label">我的</span>
+      </button>
+    </nav>
+  </div>
+
+  <script>
+    const body = document.body;
+    const backToIndexBtn = document.getElementById("backToIndexBtn");
+    const pages = Array.from(document.querySelectorAll(".page"));
+    const navButtons = Array.from(document.querySelectorAll(".nav-btn"));
+    const subviews = Array.from(document.querySelectorAll("[data-subview]"));
+    const taskSubnav = document.getElementById("taskSubnav");
+    const subviewTabs = Array.from(document.querySelectorAll("#taskSubnav [data-subview-target]"));
+    const statusFilters = Array.from(document.querySelectorAll("#statusFilters .task-chip"));
+    const tagFilters = Array.from(document.querySelectorAll("#tagFilters .task-chip"));
+    const taskCards = Array.from(document.querySelectorAll(".task-card"));
+    const searchInput = document.getElementById("taskSearch");
+    const labelEl = document.getElementById("mobileLabel");
+    const titleEl = document.getElementById("mobileTitle");
+    const themeBtn = document.querySelector(".theme-btn");
+    const filesTargetPathEl = document.getElementById("filesTargetPath");
+    const pathOptionList = document.getElementById("pathOptionList");
+    const customPathInput = document.getElementById("customPathInput");
+    const applyPathBtn = document.getElementById("applyPathBtn");
+    const pathScopePill = document.getElementById("pathScopePill");
+    const pathHelperText = document.getElementById("pathHelperText");
+    const workshopSearchInput = document.getElementById("workshopSearch");
+    const workshopFilterButtons = Array.from(document.querySelectorAll("#workshopFilters [data-workshop-scope]"));
+    const workshopScopeMeta = document.getElementById("workshopScopeMeta");
+    const workshopSectionTitle = document.getElementById("workshopSectionTitle");
+    const workshopCountPill = document.getElementById("workshopCountPill");
+    const serviceSectionTitle = document.getElementById("serviceSectionTitle");
+    const serviceSectionMeta = document.getElementById("serviceSectionMeta");
+    const clearWorkshopFocusBtn = document.getElementById("clearWorkshopFocusBtn");
+    const workshopRack = document.getElementById("workshopRack");
+    const serviceRack = document.getElementById("serviceRack");
+    const resumeRack = document.getElementById("resumeRack");
+    const assetRack = document.getElementById("assetRack");
+    const authRack = document.getElementById("authRack");
+    const workspaceRack = document.getElementById("workspaceRack");
+    const favoriteRack = document.getElementById("favoriteRack");
+    const noticeRack = document.getElementById("noticeRack");
+    const workshopHeroWorkspaceValue = document.getElementById("workshopHeroWorkspaceValue");
+    const currentWorkspaceName = document.getElementById("currentWorkspaceName");
+    const currentWorkspaceMeta = document.getElementById("currentWorkspaceMeta");
+    const currentWorkspaceTypePill = document.getElementById("currentWorkspaceTypePill");
+    const currentWorkspaceRoleValue = document.getElementById("currentWorkspaceRoleValue");
+    const currentWorkspaceWorkshopCount = document.getElementById("currentWorkspaceWorkshopCount");
+    const currentWorkspaceTaskCount = document.getElementById("currentWorkspaceTaskCount");
+    const currentWorkspaceRoot = document.getElementById("currentWorkspaceRoot");
+    const workspaceSheet = document.getElementById("workspaceSheet");
+    const workspaceSheetBackdrop = document.getElementById("workspaceSheetBackdrop");
+    const sheetWorkspaceCurrentName = document.getElementById("sheetWorkspaceCurrentName");
+    const sheetWorkspaceCurrentMeta = document.getElementById("sheetWorkspaceCurrentMeta");
+    const sheetWorkspaceCurrentType = document.getElementById("sheetWorkspaceCurrentType");
+    const workspaceRecentList = document.getElementById("workspaceRecentList");
+    const workspacePersonalList = document.getElementById("workspacePersonalList");
+    const workspaceOrganizationList = document.getElementById("workspaceOrganizationList");
+    const taskState = {
+      status: "all",
+      tag: "all",
+      keyword: "",
+      currentTaskId: "tax-q2",
+      subview: "list",
+      page: "workshops",
+      currentFilePath: ""
+    };
+    const workshopState = {
+      scope: "recommended",
+      keyword: "",
+      focusWorkshopId: null
+    };
+    const workspaceState = {
+      currentWorkspaceId: "workspace-finance",
+      sheetOpen: false
+    };
+
+    const taskData = {
+      "tax-q2": {
+        name: "香港有限公司 2026Q2 报税",
+        workshop: "企业报税执行器",
+        container: "ctx-2048",
+        targetPath: "/workspace/tax-q2/",
+        status: "running",
+        statusLabel: "运行中",
+        statusClass: "success",
+        stage: "材料核验",
+        eta: "04:12",
+        approval: "1",
+        objective: "完成申报并输出回执结果包",
+        mounted: "codex-cli / chrome-mcp / 报税站点 / OTP",
+        tags: "#tax #high",
+        guide: "请先提供报税主体、周期、登录方式，以及当前已准备好的材料清单。",
+        userReply: "主体是香港有限公司，周期 2026Q2，登录走企业邮箱 OTP。材料已准备利润表、银行流水、董事签章。",
+        assistant: "开始校验字段并准备接管浏览器。敏感操作会回到当前消息流请求审批。",
+        attachmentTitle: "profit-sheet-q2.xlsx / bank-statement.pdf / director-stamp.png",
+        attachmentDesc: "材料已挂载，等待执行",
+        approvalText: "检测到上一季度结转税项，是否沿用？",
+        approvalTitle: "是否沿用上一季度结转税项",
+        approvalDesc: "审批结果会继续在当前对话流中推进。",
+        approvalPrimary: "沿用并继续",
+        approvalSecondary: "不沿用，重新计算",
+        schedule: "手动触发 / 不重复",
+        thirdParty: "已启用外部连接器引用",
+        files: [
+          { name: "receipts / filing-slip.pdf", meta: "09:52 更新 / 184kb", pill: "完成", pillClass: "success" },
+          { name: "screenshots / login-step.png", meta: "09:46 更新 / 612kb", pill: "记录", pillClass: "" },
+          { name: "output / final-summary.md", meta: "09:53 更新 / 18kb", pill: "结果", pillClass: "active" }
+        ],
+        pathViews: [
+          {
+            path: "/workspace/tax-q2/",
+            label: "根目录",
+            scope: "实例目录",
+            helper: "查看当前任务实例的根目录以及共享输出内容。",
+            files: [
+              { name: "receipts / filing-slip.pdf", meta: "09:52 更新 / 184kb", pill: "完成", pillClass: "success" },
+              { name: "screenshots / login-step.png", meta: "09:46 更新 / 612kb", pill: "记录", pillClass: "" },
+              { name: "output / final-summary.md", meta: "09:53 更新 / 18kb", pill: "结果", pillClass: "active" }
+            ]
+          },
+          {
+            path: "/workspace/tax-q2/receipts/",
+            label: "回执",
+            scope: "材料目录",
+            helper: "核验上传材料和申报回执时，优先查看这个目录。",
+            files: [
+              { name: "receipts / filing-slip.pdf", meta: "09:52 更新 / 184kb", pill: "完成", pillClass: "success" },
+              { name: "receipts / bank-statement-q2.pdf", meta: "09:41 更新 / 2.1mb", pill: "就绪", pillClass: "" },
+              { name: "receipts / director-stamp.png", meta: "09:39 更新 / 88kb", pill: "素材", pillClass: "active" }
+            ]
+          },
+          {
+            path: "/workspace/tax-q2/output/",
+            label: "输出",
+            scope: "结果目录",
+            helper: "导出最终回执、总结和合规结果包时，优先查看这个目录。",
+            files: [
+              { name: "output / final-summary.md", meta: "09:53 更新 / 18kb", pill: "结果", pillClass: "active" },
+              { name: "output / filing-bundle.zip", meta: "09:54 更新 / 2.8mb", pill: "结果包", pillClass: "success" },
+              { name: "output / audit-log.json", meta: "09:54 更新 / 24kb", pill: "记录", pillClass: "" }
+            ]
+          }
+        ],
+        composerHint: "可直接发送消息、补充附件或回复审批"
+      },
+      "drama-ep08": {
+        name: "短剧第 8 集分镜确认",
+        workshop: "短剧生成套件",
+        container: "ctx-3107",
+        targetPath: "/workspace/drama-ep08/",
+        status: "approval",
+        statusLabel: "待确认",
+        statusClass: "warn",
+        stage: "额度确认",
+        eta: "待补充",
+        approval: "2",
+        objective: "确认额度并定稿分镜结果包",
+        mounted: "codex-cli / seedance-api / image-api / 外部 MCP",
+        tags: "#drama #content",
+        guide: "请先告诉我目标平台、分镜节奏、单集长度，以及是否已有角色设定和参考视频。",
+        userReply: "目标平台是短视频投放，单集 90 秒，角色设定已给，想要更快节奏和强冲突开场。",
+        assistant: "我已生成 18 镜分镜草案，并正在检查可用视频额度和镜头一致性。",
+        attachmentTitle: "storyboard-v2.md / shots-18.json / voice-plan.txt",
+        attachmentDesc: "草案结果已生成，等待继续确认",
+        approvalText: "当前套餐剩余额度不足以一次性渲染全部镜头，是否先渲染前 6 镜用于确认风格？",
+        approvalTitle: "是否先渲染前 6 镜确认风格",
+        approvalDesc: "确认后可先生成前 6 镜验证调性，或等待补充额度后再全量渲染。",
+        approvalPrimary: "先渲染前 6 镜",
+        approvalSecondary: "等待补充额度",
+        schedule: "手动触发 / 额度受限",
+        thirdParty: "已挂载外部风格 MCP",
+        files: [
+          { name: "storyboard / storyboard-v2.md", meta: "10:04 更新 / 42kb", pill: "草稿", pillClass: "active" },
+          { name: "shots / shots-18.json", meta: "10:01 更新 / 12kb", pill: "草稿", pillClass: "" },
+          { name: "voice / voice-plan.txt", meta: "09:58 更新 / 6kb", pill: "方案", pillClass: "" }
+        ],
+        pathViews: [
+          {
+            path: "/workspace/drama-ep08/",
+            label: "根目录",
+            scope: "剧集目录",
+            helper: "查看当前剧集实例目录以及共享的策划输出。",
+            files: [
+              { name: "storyboard / storyboard-v2.md", meta: "10:04 更新 / 42kb", pill: "草稿", pillClass: "active" },
+              { name: "shots / shots-18.json", meta: "10:01 更新 / 12kb", pill: "草稿", pillClass: "" },
+              { name: "voice / voice-plan.txt", meta: "09:58 更新 / 6kb", pill: "方案", pillClass: "" }
+            ]
+          },
+          {
+            path: "/workspace/drama-ep08/storyboard/",
+            label: "分镜",
+            scope: "脚本策划",
+            helper: "查看节奏稿、提示词和分镜迭代记录时，优先进入这个目录。",
+            files: [
+              { name: "storyboard / storyboard-v2.md", meta: "10:04 更新 / 42kb", pill: "草稿", pillClass: "active" },
+              { name: "storyboard / storyboard-v1.md", meta: "09:44 更新 / 39kb", pill: "归档", pillClass: "" },
+              { name: "storyboard / conflict-notes.txt", meta: "09:47 更新 / 5kb", pill: "备注", pillClass: "" }
+            ]
+          },
+          {
+            path: "/workspace/drama-ep08/renders/",
+            label: "渲染",
+            scope: "媒体输出",
+            helper: "查看镜头视频、预览文件和拼接批次时，优先进入这个目录。",
+            files: [
+              { name: "renders / shot-01-preview.mp4", meta: "10:08 更新 / 24mb", pill: "预览", pillClass: "success" },
+              { name: "renders / shot-02-preview.mp4", meta: "10:09 更新 / 21mb", pill: "预览", pillClass: "" },
+              { name: "renders / consistency-report.json", meta: "10:09 更新 / 14kb", pill: "记录", pillClass: "active" }
+            ]
+          }
+        ],
+        composerHint: "可继续回复、审批、补充参考素材或追加导演指令"
+      },
+      "poster-batch-17": {
+        name: "品牌海报批次 17",
+        workshop: "图像资产批处理",
+        container: "ctx-1188",
+        targetPath: "/workspace/poster-batch-17/",
+        status: "done",
+        statusLabel: "已完成",
+        statusClass: "",
+        stage: "已归档",
+        eta: "已完成",
+        approval: "0",
+        objective: "交付 24 张已确认海报并归档原始提示词",
+        mounted: "codex-cli / image-api / 品牌 MCP",
+        tags: "#image #brand",
+        guide: "本次实例已完成。你可以继续追问修改方向，或者直接查看输出文件与提示词归档。",
+        userReply: "我想先看第 3 套海报和横版 KV 的最终文件。",
+        assistant: "结果已归档，当前可直接打开文件目录或继续发起二次变体生成。",
+        attachmentTitle: "poster-set-a.zip / poster-set-b.zip / prompt-archive.json",
+        attachmentDesc: "结果包已归档，可直接查看",
+        approvalText: "当前无待审批项。是否基于现有风格继续生成横版 KV？",
+        approvalTitle: "是否继续生成横版 KV",
+        approvalDesc: "确认后会进入二次派生流程；也可以保持当前归档状态不继续生成。",
+        approvalPrimary: "继续生成横版 KV",
+        approvalSecondary: "保持当前归档",
+        schedule: "归档完成",
+        thirdParty: "当前无需额外挂载品牌风格连接器",
+        files: [
+          { name: "exports / poster-set-a.zip", meta: "09:30 更新 / 18mb", pill: "完成", pillClass: "success" },
+          { name: "exports / poster-set-b.zip", meta: "09:31 更新 / 17mb", pill: "完成", pillClass: "success" },
+          { name: "archive / prompt-archive.json", meta: "09:33 更新 / 54kb", pill: "归档", pillClass: "active" }
+        ],
+        pathViews: [
+          {
+            path: "/workspace/poster-batch-17/",
+            label: "根目录",
+            scope: "批次目录",
+            helper: "查看归档后的批次根目录以及最终交付结果。",
+            files: [
+              { name: "exports / poster-set-a.zip", meta: "09:30 更新 / 18mb", pill: "完成", pillClass: "success" },
+              { name: "exports / poster-set-b.zip", meta: "09:31 更新 / 17mb", pill: "完成", pillClass: "success" },
+              { name: "archive / prompt-archive.json", meta: "09:33 更新 / 54kb", pill: "归档", pillClass: "active" }
+            ]
+          },
+          {
+            path: "/workspace/poster-batch-17/exports/",
+            label: "交付",
+            scope: "交付目录",
+            helper: "查看已打包海报和可直接交付的导出文件时，优先进入这个目录。",
+            files: [
+              { name: "exports / poster-set-a.zip", meta: "09:30 更新 / 18mb", pill: "完成", pillClass: "success" },
+              { name: "exports / poster-set-b.zip", meta: "09:31 更新 / 17mb", pill: "完成", pillClass: "success" },
+              { name: "exports / kv-landscape-final.png", meta: "09:32 更新 / 8.4mb", pill: "终稿", pillClass: "active" }
+            ]
+          },
+          {
+            path: "/workspace/poster-batch-17/archive/",
+            label: "归档",
+            scope: "提示词历史",
+            helper: "查看归档提示词、随机种子和历史生成配置时，优先进入这个目录。",
+            files: [
+              { name: "archive / prompt-archive.json", meta: "09:33 更新 / 54kb", pill: "归档", pillClass: "active" },
+              { name: "archive / seed-map.csv", meta: "09:33 更新 / 8kb", pill: "映射", pillClass: "" },
+              { name: "archive / poster-changelog.md", meta: "09:34 更新 / 11kb", pill: "日志", pillClass: "" }
+            ]
+          }
+        ],
+        composerHint: "可继续提出修改、查看文件或发起新的衍生批次"
+      }
+    };
+
+    const workshopCatalog = [
+      {
+        id: "enterprise-tax",
+        name: "企业财税工坊",
+        description: "集中处理香港报税、资料核验、回执归档和补件沟通，适合财税团队直接分发给一线人员使用。",
+        owner: "华港财务组",
+        kind: "enterprise",
+        services: 4,
+        tags: ["报税", "回执", "浏览器自动化"],
+        cover: "./assets/workshop-tax.svg",
+        success: "成功率 98.2%",
+        freshness: "最近 2 小时更新 1 个流程模板",
+        featured: true,
+        recent: true
+      },
+      {
+        id: "creator-drama",
+        name: "短剧生产工坊",
+        description: "围绕分镜、镜头节奏、角色设定和外部素材能力组织短剧生产服务，适合快速拉起内容实例。",
+        owner: "九又工坊",
+        kind: "creator",
+        services: 3,
+        tags: ["短剧", "分镜", "视频生成"],
+        cover: "./assets/workshop-drama.svg",
+        success: "最近 7 天 126 次启动",
+        freshness: "额度刷新后可继续全量渲染",
+        featured: true,
+        recent: true
+      },
+      {
+        id: "creator-brand",
+        name: "品牌内容工坊",
+        description: "批量海报、KV、图像资产和提示词归档统一沉淀，适合品牌和设计团队复用生成能力。",
+        owner: "拾光品牌组",
+        kind: "creator",
+        services: 5,
+        tags: ["海报", "图像", "品牌内容"],
+        cover: "./assets/workshop-image.svg",
+        success: "24 份结果包可复用",
+        freshness: "最新版本支持横版 KV 批量派生",
+        featured: true,
+        recent: false
+      }
+    ];
+
+    const serviceCatalog = [
+      {
+        id: "service-tax-filing",
+        workshopId: "enterprise-tax",
+        name: "香港季度报税",
+        summary: "启动后由 Codex 收集主体、周期和附件，再自动接管浏览器完成申报。",
+        eta: "8-15 分钟",
+        result: "回执包 / 汇总摘要",
+        auth: "税站登录 / OTP",
+        taskId: "tax-q2",
+        tags: ["报税", "企业"],
+        kind: "enterprise",
+        featured: true,
+        recent: true
+      },
+      {
+        id: "service-tax-check",
+        workshopId: "enterprise-tax",
+        name: "税表资料核验",
+        summary: "先检查上传材料是否齐全，再决定是否进入报税实例，适合补件前快速自检。",
+        eta: "3-6 分钟",
+        result: "缺失项清单 / 校验记录",
+        auth: "只读文件访问",
+        taskId: "tax-q2",
+        tags: ["核验", "材料"],
+        kind: "enterprise",
+        featured: false,
+        recent: true
+      },
+      {
+        id: "service-drama-render",
+        workshopId: "creator-drama",
+        name: "90 秒短剧生成",
+        summary: "从角色设定、平台节奏到镜头规划都在对话里收集，生成后持续回到同一任务里审稿。",
+        eta: "12-25 分钟",
+        result: "分镜包 / 渲染预览 / 语音计划",
+        auth: "Seedance / 图像额度",
+        taskId: "drama-ep08",
+        tags: ["短剧", "镜头"],
+        kind: "creator",
+        featured: true,
+        recent: true
+      },
+      {
+        id: "service-brand-batch",
+        workshopId: "creator-brand",
+        name: "海报批量出图",
+        summary: "围绕品牌约束批量生成海报、KV 和提示词归档，结果包会同时沉淀到任务页和我的资产。",
+        eta: "6-10 分钟",
+        result: "压缩包 / 提示词归档 / KV 成品",
+        auth: "图像生成 Key / 品牌规范",
+        taskId: "poster-batch-17",
+        tags: ["海报", "批量"],
+        kind: "creator",
+        featured: true,
+        recent: false
+      }
+    ];
+
+    const recentTaskCards = [
+      {
+        taskId: "tax-q2",
+        title: "香港季度报税",
+        subtitle: "来自：企业财税工坊",
+        status: "待确认",
+        statusClass: "warn",
+        nextAction: "确认是否沿用上一季度结转税项",
+        updated: "2 分钟前更新"
+      },
+      {
+        taskId: "drama-ep08",
+        title: "短剧分镜与额度确认",
+        subtitle: "来自：短剧生产工坊",
+        status: "待补充",
+        statusClass: "",
+        nextAction: "确认前 6 镜是否先行渲染",
+        updated: "9 分钟前更新"
+      },
+      {
+        taskId: "poster-batch-17",
+        title: "品牌海报批量结果包",
+        subtitle: "来自：品牌内容工坊",
+        status: "已完成",
+        statusClass: "success",
+        nextAction: "查看结果包与归档提示词",
+        updated: "26 分钟前更新"
+      }
+    ];
+
+    const profileData = {
+      stats: {
+        files: "18",
+        receipts: "06",
+        favorites: "04",
+        pending: "02"
+      },
+      assets: [
+        {
+          taskId: "tax-q2",
+          name: "报税回执包.zip",
+          source: "hongkong-tax-q2",
+          status: "最新",
+          statusClass: "success",
+          meta: "回执 / 汇总 / 审计摘要，已沉淀到目标路径 output/",
+          updated: "09:54 更新"
+        },
+        {
+          taskId: "drama-ep08",
+          name: "storyboard-v2.md",
+          source: "drama-ep08-cut1",
+          status: "草稿",
+          statusClass: "active",
+          meta: "18 镜分镜草案，等待额度确认后继续渲染。",
+          updated: "10:04 更新"
+        },
+        {
+          taskId: "poster-batch-17",
+          name: "poster-set-a.zip",
+          source: "poster-batch-17",
+          status: "成品",
+          statusClass: "",
+          meta: "海报导出包已归档，可继续派生横版 KV。",
+          updated: "09:31 更新"
+        }
+      ],
+      auths: [
+        {
+          taskId: "tax-q2",
+          name: "税站登录",
+          detail: "企业邮箱 OTP 已绑定到当前账户",
+          status: "已连接",
+          statusClass: "success"
+        },
+        {
+          taskId: "drama-ep08",
+          name: "Seedance 配额",
+          detail: "当前实例可读取账户额度并发起渲染审批",
+          status: "可用",
+          statusClass: "active"
+        },
+        {
+          taskId: "poster-batch-17",
+          name: "图像生成 Key",
+          detail: "以只读挂载方式注入任务环境，不在移动端暴露原值",
+          status: "已托管",
+          statusClass: "success"
+        },
+        {
+          taskId: "tax-q2",
+          name: "第三方 MCP 连接",
+          detail: "按用户账户绑定，可在任务中直接调用外部能力",
+          status: "已绑定",
+          statusClass: ""
+        }
+      ],
+      workspaces: [
+        {
+          taskId: "tax-q2",
+          name: "当前工作区 / tax-q2",
+          path: "/workspace/tax-q2/output/",
+          detail: "用于查看回执包、审计摘要和浏览器追踪文件。"
+        },
+        {
+          taskId: "poster-batch-17",
+          name: "归档工作区 / poster-batch-17",
+          path: "/workspace/poster-batch-17/archive/",
+          detail: "用于查看提示词归档、种子映射和版本记录。"
+        }
+      ],
+      favorites: [
+        {
+          workshopId: "enterprise-tax",
+          name: "企业财税工坊",
+          detail: "4 项服务 / 华港财务组",
+          kind: "企业"
+        },
+        {
+          workshopId: "creator-drama",
+          name: "短剧生产工坊",
+          detail: "3 项服务 / 九又工坊",
+          kind: "创作者"
+        }
+      ],
+      notices: [
+        {
+          taskId: "tax-q2",
+          title: "有 1 个报税任务待确认",
+          detail: "确认后浏览器会继续提交税项并产出最终回执。"
+        },
+        {
+          taskId: "drama-ep08",
+          title: "短剧工坊额度待确认",
+          detail: "建议先渲染前 6 镜确认风格，再继续全量生成。"
+        }
+      ]
+    };
+
+    const workspaceCatalog = [
+      {
+        id: "workspace-personal",
+        name: "个人空间",
+        type: "personal",
+        role: "所有者",
+        abilities: 3,
+        storageRoot: "/workspace/personal/",
+        visibleWorkshopIds: ["creator-drama", "creator-brand"],
+        visibleTaskIds: ["drama-ep08", "poster-batch-17"],
+        recent: true,
+        note: "个人项目与个人资产独立沉淀"
+      },
+      {
+        id: "workspace-finance",
+        name: "华港财务组",
+        type: "organization",
+        role: "成员",
+        abilities: 4,
+        storageRoot: "/workspace/tax-q2/",
+        visibleWorkshopIds: ["enterprise-tax", "creator-drama"],
+        visibleTaskIds: ["tax-q2", "drama-ep08"],
+        recent: true,
+        note: "企业财税与合规流程空间"
+      },
+      {
+        id: "workspace-brand",
+        name: "品牌内容组",
+        type: "organization",
+        role: "编辑",
+        abilities: 2,
+        storageRoot: "/workspace/poster-batch-17/",
+        visibleWorkshopIds: ["creator-brand"],
+        visibleTaskIds: ["poster-batch-17"],
+        recent: false,
+        note: "品牌内容与图像资产空间"
+      }
+    ];
+
+    const workspaceProfiles = {
+      "workspace-finance": profileData,
+      "workspace-personal": {
+        stats: {
+          files: "09",
+          receipts: "01",
+          favorites: "02",
+          pending: "01"
+        },
+        assets: [
+          {
+            taskId: "drama-ep08",
+            name: "storyboard-v2.md",
+            source: "drama-ep08-cut1",
+            status: "草稿",
+            statusClass: "active",
+            meta: "短剧个人项目当前版本，继续在任务对话里补充镜头要求。",
+            updated: "10:04 更新"
+          },
+          {
+            taskId: "poster-batch-17",
+            name: "prompt-archive.json",
+            source: "poster-batch-17",
+            status: "归档",
+            statusClass: "",
+            meta: "个人品牌实验生成记录，结果文件保存在个人资产目录。",
+            updated: "09:33 更新"
+          }
+        ],
+        auths: [
+          {
+            taskId: "drama-ep08",
+            name: "Seedance 账户",
+            detail: "个人配额可直接注入短剧生成实例。",
+            status: "已连接",
+            statusClass: "success"
+          },
+          {
+            taskId: "poster-batch-17",
+            name: "图像生成 Key",
+            detail: "以只读挂载方式注入个人任务环境。",
+            status: "已托管",
+            statusClass: "active"
+          },
+          {
+            taskId: "drama-ep08",
+            name: "外部 MCP 引用",
+            detail: "当前个人空间绑定 1 个外部工具连接。",
+            status: "可用",
+            statusClass: ""
+          }
+        ],
+        workspaces: [
+          {
+            taskId: "drama-ep08",
+            name: "当前工作区 / 个人短剧项目",
+            path: "/workspace/personal/drama-ep08/",
+            detail: "用于查看分镜草案、渲染预览与配额确认记录。"
+          },
+          {
+            taskId: "poster-batch-17",
+            name: "当前工作区 / 个人品牌实验",
+            path: "/workspace/personal/poster-batch-17/",
+            detail: "用于查看导出包、提示词归档与实验结果。"
+          }
+        ],
+        favorites: [
+          {
+            workshopId: "creator-drama",
+            name: "短剧生产工坊",
+            detail: "3 项服务 / 九又工坊",
+          kind: "创作者"
+          },
+          {
+            workshopId: "creator-brand",
+            name: "品牌内容工坊",
+            detail: "5 项服务 / 拾光品牌组",
+          kind: "创作者"
+          }
+        ],
+        notices: [
+          {
+            taskId: "drama-ep08",
+            title: "个人短剧项目待补充镜头节奏",
+            detail: "继续对话后可确认前 6 镜渲染顺序。"
+          }
+        ]
+      },
+      "workspace-brand": {
+        stats: {
+          files: "14",
+          receipts: "00",
+          favorites: "03",
+          pending: "01"
+        },
+        assets: [
+          {
+            taskId: "poster-batch-17",
+            name: "poster-set-a.zip",
+            source: "poster-batch-17",
+            status: "成品",
+            statusClass: "success",
+            meta: "品牌内容组主交付包，支持继续派生横版 KV。",
+            updated: "09:31 更新"
+          },
+          {
+            taskId: "poster-batch-17",
+            name: "kv-landscape-final.png",
+            source: "poster-batch-17",
+            status: "最终版",
+            statusClass: "active",
+            meta: "横版 KV 最终版已沉淀到品牌工作区。",
+            updated: "09:32 更新"
+          }
+        ],
+        auths: [
+          {
+            taskId: "poster-batch-17",
+            name: "品牌规范连接",
+            detail: "品牌内容组工作区已绑定规范与图像生成能力。",
+            status: "已连接",
+            statusClass: "success"
+          },
+          {
+            taskId: "poster-batch-17",
+            name: "图像生成 Key",
+            detail: "当前工作区共享 2 项图像账户能力。",
+            status: "可用",
+            statusClass: "active"
+          }
+        ],
+        workspaces: [
+          {
+            taskId: "poster-batch-17",
+            name: "当前工作区 / 品牌交付目录",
+            path: "/workspace/poster-batch-17/exports/",
+            detail: "用于查看压缩包、横版 KV 和最终交付素材。"
+          },
+          {
+            taskId: "poster-batch-17",
+            name: "当前工作区 / 品牌归档目录",
+            path: "/workspace/poster-batch-17/archive/",
+            detail: "用于查看提示词、种子映射和版本记录。"
+          }
+        ],
+        favorites: [
+          {
+            workshopId: "creator-brand",
+            name: "品牌内容工坊",
+            detail: "5 项服务 / 拾光品牌组",
+          kind: "创作者"
+          }
+        ],
+        notices: [
+          {
+            taskId: "poster-batch-17",
+            title: "品牌内容组有 1 个结果包待确认",
+            detail: "确认后可继续派生下一轮 KV 版本。"
+          }
+        ]
+      }
+    };
+
+    const workshopScopeLabels = {
+      recommended: "推荐工坊",
+      enterprise: "企业工坊",
+      creator: "创作者工坊",
+      recent: "最近使用"
+    };
+
+    const workshopScopeHints = {
+      recommended: "当前空间：华港财务组 / 推荐可直接启动的高频服务",
+      enterprise: "企业私有工坊按组织空间分发，适合财税、法务、运营等内部场景",
+      creator: "创作者工坊面向内容生产和创意流程，按能力包组织服务",
+      recent: "展示你最近用过的工坊与任务，方便恢复上下文"
+    };
+
+    function getCurrentWorkspace() {
+      return workspaceCatalog.find((item) => item.id === workspaceState.currentWorkspaceId) || workspaceCatalog[0];
+    }
+
+    function getCurrentProfile() {
+      return workspaceProfiles[workspaceState.currentWorkspaceId] || profileData;
+    }
+
+    function getWorkspaceTypeLabel(workspace) {
+      return workspace.type === "personal" ? "个人" : "企业";
+    }
+
+    function syncCurrentWorkspaceText() {
+      const workspace = getCurrentWorkspace();
+      const typeLabel = getWorkspaceTypeLabel(workspace);
+      workshopHeroWorkspaceValue.textContent = workspace.name;
+      currentWorkspaceName.textContent = workspace.name;
+      currentWorkspaceMeta.textContent = `${typeLabel} / ${workspace.role} / 已连接 ${workspace.abilities} 项能力`;
+      currentWorkspaceTypePill.textContent = typeLabel;
+      currentWorkspaceTypePill.className = "pill";
+      if (workspace.type === "personal") currentWorkspaceTypePill.classList.add("active");
+      else currentWorkspaceTypePill.classList.add("success");
+      currentWorkspaceRoleValue.textContent = workspace.role;
+      currentWorkspaceWorkshopCount.textContent = `${workspace.visibleWorkshopIds.length}`;
+      currentWorkspaceTaskCount.textContent = `${workspace.visibleTaskIds.length}`;
+      currentWorkspaceRoot.textContent = workspace.storageRoot;
+      sheetWorkspaceCurrentName.textContent = workspace.name;
+      sheetWorkspaceCurrentMeta.textContent = `${typeLabel} / ${workspace.role} / ${workspace.abilities} 项能力`;
+      sheetWorkspaceCurrentType.textContent = typeLabel;
+      sheetWorkspaceCurrentType.className = "pill";
+      if (workspace.type === "personal") sheetWorkspaceCurrentType.classList.add("active");
+      else sheetWorkspaceCurrentType.classList.add("success");
+    }
+
+    function renderWorkspaceOptionList(container, items) {
+      container.innerHTML = items.length ? items.map((workspace) => {
+        const typeLabel = getWorkspaceTypeLabel(workspace);
+        const activeClass = workspace.id === workspaceState.currentWorkspaceId ? "active" : "";
+        return `
+          <button class="workspace-option ${activeClass}" type="button" data-select-workspace="${workspace.id}">
+            <div class="workspace-option-top">
+              <div>
+                <div class="workspace-option-title">${workspace.name}</div>
+                <div class="workspace-option-meta">${typeLabel} / ${workspace.role} / ${workspace.abilities} 项能力</div>
+              </div>
+              <span class="pill ${workspace.type === "personal" ? "active" : "success"}">${typeLabel}</span>
+            </div>
+            <div class="workspace-option-note">${workspace.note}</div>
+            <div class="entry-chipline">
+              <span class="pill">${workspace.visibleWorkshopIds.length} 个工坊</span>
+              <span class="pill">${workspace.visibleTaskIds.length} 个任务</span>
+              <span class="pill">${workspace.storageRoot}</span>
+            </div>
+          </button>
+        `;
+      }).join("") : renderEmptyState("暂无工作区", "当前分组下没有可切换的工作区。");
+    }
+
+    function renderWorkspaceSheet() {
+      const recent = workspaceCatalog.filter((item) => item.recent);
+      const personal = workspaceCatalog.filter((item) => item.type === "personal");
+      const org = workspaceCatalog.filter((item) => item.type === "organization");
+      syncCurrentWorkspaceText();
+      renderWorkspaceOptionList(workspaceRecentList, recent);
+      renderWorkspaceOptionList(workspacePersonalList, personal);
+      renderWorkspaceOptionList(workspaceOrganizationList, org);
+      bindActionButtons(workspaceSheet);
+    }
+
+    function openWorkspaceSheet() {
+      workspaceState.sheetOpen = true;
+      renderWorkspaceSheet();
+      workspaceSheet.classList.add("is-open");
+      workspaceSheetBackdrop.classList.add("is-open");
+      workspaceSheet.setAttribute("aria-hidden", "false");
+    }
+
+    function closeWorkspaceSheet() {
+      workspaceState.sheetOpen = false;
+      workspaceSheet.classList.remove("is-open");
+      workspaceSheetBackdrop.classList.remove("is-open");
+      workspaceSheet.setAttribute("aria-hidden", "true");
+    }
+
+    function switchWorkspace(workspaceId) {
+      workspaceState.currentWorkspaceId = workspaceId;
+      const workspace = getCurrentWorkspace();
+      if (!workspace.visibleTaskIds.includes(taskState.currentTaskId)) {
+        taskState.currentTaskId = workspace.visibleTaskIds[0] || taskState.currentTaskId;
+      }
+      workshopState.focusWorkshopId = null;
+      workshopState.scope = workspace.type === "personal" ? "creator" : "recommended";
+      renderWorkshopPage();
+      renderProfilePage();
+      filterTasks();
+      closeWorkspaceSheet();
+    }
+
+    function renderEmptyState(title, copy) {
+      return `
+        <article class="empty-state">
+          <svg class="icon"><use href="#i-info"></use></svg>
+          <div class="entry-title">${title}</div>
+          <div class="empty-copy">${copy}</div>
+        </article>
+      `;
+    }
+
+    function matchesWorkshopKeyword(item, keyword) {
+      const haystack = `${item.name} ${item.description} ${item.owner} ${item.tags.join(" ")}`.toLowerCase();
+      return !keyword || haystack.includes(keyword);
+    }
+
+    function matchesWorkshopScope(item, scope) {
+      if (scope === "enterprise") return item.kind === "enterprise";
+      if (scope === "creator") return item.kind === "creator";
+      if (scope === "recent") return item.recent;
+      return item.featured;
+    }
+
+    function getFocusedWorkshop() {
+      return workshopCatalog.find((item) => item.id === workshopState.focusWorkshopId) || null;
+    }
+
+    function renderWorkshopPage() {
+      const workspace = getCurrentWorkspace();
+      const keyword = workshopState.keyword.trim().toLowerCase();
+      const visibleWorkshops = workshopCatalog.filter((item) => {
+        const inWorkspace = workspace.visibleWorkshopIds.includes(item.id);
+        return inWorkspace && matchesWorkshopScope(item, workshopState.scope) && matchesWorkshopKeyword(item, keyword);
+      });
+      const focusedWorkshop = getFocusedWorkshop();
+      const visibleServices = serviceCatalog.filter((item) => {
+        const workshop = workshopCatalog.find((entry) => entry.id === item.workshopId);
+        const haystack = `${item.name} ${item.summary} ${item.auth} ${item.tags.join(" ")} ${workshop?.name || ""}`.toLowerCase();
+        const keywordMatch = !keyword || haystack.includes(keyword);
+        const inWorkspace = workspace.visibleWorkshopIds.includes(item.workshopId);
+        if (!inWorkspace) return false;
+        if (focusedWorkshop) return item.workshopId === focusedWorkshop.id && keywordMatch;
+        if (workshopState.scope === "enterprise") return item.kind === "enterprise" && keywordMatch;
+        if (workshopState.scope === "creator") return item.kind === "creator" && keywordMatch;
+        if (workshopState.scope === "recent") return item.recent && keywordMatch;
+        return item.featured && keywordMatch;
+      });
+      const visibleRecentTasks = recentTaskCards.filter((item) => workspace.visibleTaskIds.includes(item.taskId));
+
+      workshopFilterButtons.forEach((button) => {
+        button.classList.toggle("active", button.dataset.workshopScope === workshopState.scope);
+      });
+      syncCurrentWorkspaceText();
+      workshopSectionTitle.textContent = workshopScopeLabels[workshopState.scope];
+      workshopScopeMeta.textContent = `当前工作区：${workspace.name} / 已挂载 ${workspace.abilities} 项账户能力`;
+      workshopCountPill.textContent = `${visibleWorkshops.length} 个工坊`;
+
+      workshopRack.innerHTML = visibleWorkshops.length ? visibleWorkshops.map((item) => `
+        <article class="workshop-card">
+          <img class="cover" src="${item.cover}" alt="${item.name}">
+          <div class="workshop-body">
+            <div class="entry-chipline">
+              <span class="pill ${item.kind === "creator" ? "active" : "success"}">${item.kind === "creator" ? "创作者" : "企业"}</span>
+              <span class="pill">${item.owner}</span>
+              <span class="pill">${item.services} 项服务</span>
+            </div>
+            <div class="workshop-title">${item.name}</div>
+            <p>${item.description}</p>
+            <div class="entry-chipline">
+              <span class="pill">${item.tags[0]}</span>
+              <span class="pill">${item.tags[1]}</span>
+              <span class="pill">${item.tags[2]}</span>
+            </div>
+            <div class="card-row">
+              <div class="entry-meta">${item.success} / ${item.freshness}</div>
+              <button class="pill active" type="button" data-focus-workshop="${item.id}">查看服务</button>
+            </div>
+          </div>
+        </article>
+      `).join("") : renderEmptyState("没有匹配的工坊", "换个关键词，或切到别的工坊分栏。");
+
+      serviceSectionTitle.textContent = focusedWorkshop ? `${focusedWorkshop.name} / 服务清单` : "看到即可启动";
+      serviceSectionMeta.textContent = focusedWorkshop
+        ? `当前仅展示 ${focusedWorkshop.name} 里的服务。启动后直接进入任务对话，由 Codex 继续收集信息。`
+        : "启动后直接进入任务对话，由 Codex 继续收集缺失信息。";
+      clearWorkshopFocusBtn.hidden = !focusedWorkshop;
+
+      serviceRack.innerHTML = visibleServices.length ? visibleServices.map((item) => `
+        <article class="service-entry">
+          <div class="card-row">
+            <div>
+              <h3 class="service-title">${item.name}</h3>
+              <div class="service-meta">来自：${workshopCatalog.find((entry) => entry.id === item.workshopId)?.name || ""}</div>
+            </div>
+            <span class="pill active">可启动</span>
+          </div>
+          <div class="muted">${item.summary}</div>
+          <div class="entry-metrics">
+            <div class="metric-box">
+              <div class="page-eyebrow">耗时</div>
+              <div class="mini-value">${item.eta}</div>
+            </div>
+            <div class="metric-box">
+              <div class="page-eyebrow">结果</div>
+              <div class="mini-value">${item.result}</div>
+            </div>
+            <div class="metric-box">
+              <div class="page-eyebrow">授权</div>
+              <div class="mini-value">${item.auth}</div>
+            </div>
+          </div>
+          <div class="card-row">
+            <div class="entry-chipline">
+              <span class="pill">${item.tags[0]}</span>
+              <span class="pill">${item.tags[1]}</span>
+            </div>
+            <button class="pill active" type="button" data-open-task="${item.taskId}">立即启动</button>
+          </div>
+        </article>
+      `).join("") : renderEmptyState("当前没有可展示的服务", "清空工坊焦点，或切换分栏查看更多服务。");
+
+      resumeRack.innerHTML = visibleRecentTasks.length ? visibleRecentTasks.map((item) => `
+        <article class="resume-entry">
+          <div class="card-row">
+            <div>
+              <h3 class="entry-title">${item.title}</h3>
+              <div class="entry-subtitle">${item.subtitle}</div>
+            </div>
+            <span class="pill ${item.statusClass}">${item.status}</span>
+          </div>
+          <div class="entry-meta">${item.nextAction}</div>
+          <div class="card-row">
+            <div class="entry-subtitle">${item.updated}</div>
+            <div class="pill-row">
+              <button class="pill" type="button" data-open-task-files="${item.taskId}">文件</button>
+              <button class="pill active" type="button" data-open-task="${item.taskId}">继续对话</button>
+            </div>
+          </div>
+        </article>
+      `).join("") : renderEmptyState("当前工作区暂无最近任务", "启动一个服务后，这里会沉淀你的任务恢复入口。");
+
+      bindActionButtons(document.querySelector('[data-page="workshops"]'));
+    }
+
+    function renderProfilePage() {
+      const workspace = getCurrentWorkspace();
+      const profile = getCurrentProfile();
+      syncCurrentWorkspaceText();
+      document.getElementById("meFilesValue").textContent = profile.stats.files;
+      document.getElementById("meReceiptsValue").textContent = profile.stats.receipts;
+      document.getElementById("meFavoritesValue").textContent = profile.stats.favorites;
+      document.getElementById("mePendingValue").textContent = profile.stats.pending;
+      document.getElementById("workspaceCountPill").textContent = `${profile.workspaces.length} 个工作区`;
+
+      assetRack.innerHTML = profile.assets.map((item) => `
+        <article class="asset-entry">
+          <div class="card-row">
+            <div>
+              <h3 class="entry-title">${item.name}</h3>
+              <div class="entry-subtitle">来自：${item.source}</div>
+            </div>
+            <span class="pill ${item.statusClass}">${item.status}</span>
+          </div>
+          <div class="entry-meta">${item.meta}</div>
+          <div class="card-row">
+            <div class="entry-subtitle">${item.updated}</div>
+            <div class="pill-row">
+              <button class="pill" type="button" data-open-task="${item.taskId}">任务</button>
+              <button class="pill active" type="button" data-open-task-files="${item.taskId}">查看文件</button>
+            </div>
+          </div>
+        </article>
+      `).join("");
+
+      authRack.innerHTML = profile.auths.map((item) => `
+        <article class="auth-entry">
+          <div class="card-row">
+            <div>
+              <h3 class="entry-title">${item.name}</h3>
+              <div class="entry-subtitle">${item.detail}</div>
+            </div>
+            <span class="pill ${item.statusClass}">${item.status}</span>
+          </div>
+          <div class="card-row">
+            <div class="entry-meta">授权状态随账户生效，启动对应服务时直接复用。</div>
+            <button class="pill active" type="button" data-open-task="${item.taskId}">去任务处理</button>
+          </div>
+        </article>
+      `).join("");
+
+      workspaceRack.innerHTML = profile.workspaces.map((item) => `
+        <article class="workspace-entry">
+          <div>
+            <h3 class="entry-title">${item.name}</h3>
+            <div class="entry-subtitle mono">${item.path}</div>
+          </div>
+          <div class="entry-meta">${item.detail}</div>
+          <div class="card-row">
+            <button class="pill" type="button" data-open-task="${item.taskId}">回到任务</button>
+            <button class="pill active" type="button" data-open-task-files="${item.taskId}" data-file-path="${item.path}">打开文件页</button>
+          </div>
+        </article>
+      `).join("");
+
+      favoriteRack.innerHTML = profile.favorites.map((item) => `
+        <article class="favorite-entry">
+          <div class="card-row">
+            <div>
+              <h3 class="entry-title">${item.name}</h3>
+              <div class="entry-subtitle">${item.detail}</div>
+            </div>
+            <span class="pill ${item.kind === "创作者" ? "active" : ""}">${item.kind}</span>
+          </div>
+          <div class="card-row">
+            <div class="entry-meta">收藏后可在工坊页快速恢复到该工坊的服务清单。</div>
+            <button class="pill active" type="button" data-focus-workshop="${item.workshopId}">进入工坊</button>
+          </div>
+        </article>
+      `).join("");
+
+      noticeRack.innerHTML = profile.notices.map((item) => `
+        <article class="notice-entry">
+          <div class="card-row">
+            <div>
+              <h3 class="entry-title">${item.title}</h3>
+              <div class="entry-subtitle">${item.detail}</div>
+            </div>
+            <span class="pill warn">待处理</span>
+          </div>
+          <div class="card-row">
+            <div class="entry-meta">处理动作会继续回到对应任务对话里执行。</div>
+            <button class="pill active" type="button" data-open-task="${item.taskId}">立即处理</button>
+          </div>
+        </article>
+      `).join("");
+
+      currentWorkspaceMeta.textContent = `${getWorkspaceTypeLabel(workspace)} / ${workspace.role} / 已连接 ${workspace.abilities} 项能力`;
+      bindActionButtons(document.querySelector('[data-page="profile"]'));
+    }
+
+    function normalizePath(path, fallbackPath) {
+      const raw = (path || "").trim();
+      if (!raw) return fallbackPath;
+      return raw.endsWith("/") ? raw : `${raw}/`;
+    }
+
+    function getCustomPathFiles(path) {
+      return [
+        { name: `${path}session.log`, meta: "路径预览 / 28kb", pill: "记录", pillClass: "" },
+        { name: `${path}artifacts/`, meta: "目录预览 / 可浏览", pill: "目录", pillClass: "active" },
+        { name: `${path}.codex-index.json`, meta: "路径索引 / 4kb", pill: "索引", pillClass: "" }
+      ];
+    }
+
+    function getPathView(task, path) {
+      const targetPath = normalizePath(path, task.targetPath);
+      const match = (task.pathViews || []).find((view) => view.path === targetPath);
+      if (match) return match;
+      return {
+        path: targetPath,
+        label: "自定义",
+        scope: "手动输入",
+        helper: "当前仅预览这个自定义路径下的文件内容，浏览范围仍限制在当前工作区内。",
+        files: getCustomPathFiles(targetPath)
+      };
+    }
+
+    function renderPathOptions(task, activePath) {
+      pathOptionList.replaceChildren();
+      (task.pathViews || []).forEach((view) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "path-option";
+        button.dataset.path = view.path;
+        if (view.path === activePath) button.classList.add("active");
+
+        const leading = document.createElement("span");
+        leading.className = "path-option-leading";
+
+        const iconWrap = document.createElement("span");
+        iconWrap.className = "path-option-icon";
+        iconWrap.innerHTML = '<svg class="icon"><use href="#i-folder"></use></svg>';
+
+        const main = document.createElement("span");
+        main.className = "path-option-main";
+
+        const label = document.createElement("span");
+        label.className = "path-option-label mono";
+        label.textContent = view.path;
+
+        const meta = document.createElement("span");
+        meta.className = "path-option-meta";
+        meta.textContent = `${view.label} / ${view.scope}`;
+
+        main.append(label, meta);
+        leading.append(iconWrap, main);
+
+        const pill = document.createElement("span");
+        pill.className = "pill";
+        if (view.path === activePath) pill.classList.add("active");
+        pill.textContent = view.label;
+
+        button.append(leading, pill);
+        pathOptionList.appendChild(button);
+      });
+    }
+
+    function renderFilesForPath(task, path) {
+      const view = getPathView(task, path);
+      task.fileBrowsePath = view.path;
+      taskState.currentFilePath = view.path;
+
+      filesTargetPathEl.textContent = view.path;
+      pathScopePill.textContent = view.label;
+      pathHelperText.textContent = view.helper;
+      customPathInput.value = view.path;
+      renderPathOptions(task, view.path);
+
+      const fileRows = view.files.slice(0, 3);
+      fileRows.forEach((file, index) => {
+        const i = index + 1;
+        document.getElementById(`fileName${i}`).textContent = file.name;
+        document.getElementById(`fileMeta${i}`).textContent = file.meta;
+        const pill = document.getElementById(`filePill${i}`);
+        pill.textContent = file.pill;
+        pill.className = "pill";
+        if (file.pillClass) pill.classList.add(file.pillClass);
+      });
+    }
+
+    function setPage(page) {
+      taskState.page = page;
+      pages.forEach((pageNode) => {
+        const active = pageNode.dataset.page === page;
+        pageNode.classList.toggle("active", active);
+        if (active) {
+          labelEl.textContent = pageNode.dataset.label;
+          titleEl.textContent = pageNode.dataset.title;
+        }
+      });
+      navButtons.forEach((button) => {
+        button.classList.toggle("active", button.dataset.target === page);
+      });
+    }
+
+    function setSubview(name) {
+      taskState.subview = name;
+      subviews.forEach((node) => {
+        node.classList.toggle("active", node.dataset.subview === name);
+      });
+      taskSubnav.hidden = name === "list";
+      const taskPage = document.querySelector('[data-page="tasks"]');
+      if (name === "list") {
+        taskPage.dataset.label = "任务中心";
+        taskPage.dataset.title = "先在任务列表中筛选实例，再进入具体会话";
+      } else if (name === "conversation") {
+        taskPage.dataset.label = "任务会话";
+        taskPage.dataset.title = "在完整对话流中继续当前实例";
+      } else if (name === "detail") {
+        taskPage.dataset.label = "任务详情";
+        taskPage.dataset.title = "查看当前实例的运行详情与挂载信息";
+      } else if (name === "files") {
+        taskPage.dataset.label = "任务文件";
+        taskPage.dataset.title = "查看当前实例的目标路径和输出文件";
+      }
+      if (taskState.page === "tasks") {
+        labelEl.textContent = taskPage.dataset.label;
+        titleEl.textContent = taskPage.dataset.title;
+      }
+      subviewTabs.forEach((button) => {
+        button.classList.toggle("active", button.dataset.subviewTarget === name);
+      });
+    }
+
+    function renderTask(taskId) {
+      const task = taskData[taskId];
+      taskState.currentTaskId = taskId;
+      document.getElementById("taskShellTitle").textContent = task.name;
+      document.getElementById("taskShellMeta").textContent = `工坊：${task.workshop} / 实例：${task.container} / 目录：${task.targetPath}`;
+      const taskStatusPill = document.getElementById("taskStatusPill");
+      taskStatusPill.textContent = task.statusLabel;
+      taskStatusPill.className = "pill";
+      if (task.statusClass) taskStatusPill.classList.add(task.statusClass);
+      document.getElementById("taskStagePill").textContent = `阶段：${task.stage}`;
+      document.getElementById("taskEtaPill").textContent = `预计：${task.eta}`;
+      document.getElementById("taskApprovalPill").textContent = task.approval === "0" ? "无需审批" : `待审批：${task.approval}`;
+      document.getElementById("summaryObjective").textContent = task.objective;
+      document.getElementById("summaryMounted").textContent = task.mounted;
+      document.getElementById("summaryTargetPath").textContent = task.targetPath;
+      document.getElementById("summaryTags").textContent = task.tags;
+      document.getElementById("msg1Body").textContent = task.guide;
+      document.getElementById("msg2Body").textContent = task.userReply;
+      document.getElementById("msg3Body").textContent = task.assistant;
+      document.getElementById("attachmentTitle").textContent = task.attachmentTitle;
+      document.getElementById("attachmentDesc").textContent = task.attachmentDesc;
+      document.getElementById("msg4Body").textContent = task.approvalText;
+      document.getElementById("approvalTitle").textContent = task.approvalTitle;
+      document.getElementById("approvalDesc").textContent = task.approvalDesc;
+      document.getElementById("approvePrimary").textContent = task.approvalPrimary || "确认并继续";
+      document.getElementById("approveSecondary").textContent = task.approvalSecondary || "暂不继续";
+      document.getElementById("composerHint").textContent = task.composerHint;
+
+      document.getElementById("detailTaskName").textContent = task.name;
+      document.getElementById("detailWorkshop").textContent = task.workshop;
+      document.getElementById("detailContainer").textContent = task.container;
+      document.getElementById("detailPhase").textContent = task.stage;
+      document.getElementById("detailSchedule").textContent = task.schedule;
+      document.getElementById("detailMounted").textContent = task.mounted;
+      document.getElementById("detailThirdParty").textContent = task.thirdParty;
+      renderFilesForPath(task, task.fileBrowsePath || task.targetPath);
+
+      taskCards.forEach((card) => {
+        card.classList.toggle("active", card.dataset.taskId === taskId);
+      });
+    }
+
+    function filterTasks() {
+      const workspace = getCurrentWorkspace();
+      const keyword = taskState.keyword.trim().toLowerCase();
+      taskCards.forEach((card) => {
+        const workspaceMatch = workspace.visibleTaskIds.includes(card.dataset.taskId);
+        const statusMatch = taskState.status === "all" || card.dataset.status === taskState.status;
+        const tagMatch = taskState.tag === "all" || card.dataset.tags.includes(taskState.tag);
+        const text = `${card.dataset.taskId} ${card.dataset.tags} ${card.textContent}`.toLowerCase();
+        const keywordMatch = !keyword || text.includes(keyword);
+        card.classList.toggle("hidden", !(workspaceMatch && statusMatch && tagMatch && keywordMatch));
+      });
+    }
+
+    function openTask(taskId) {
+      renderTask(taskId);
+      setPage("tasks");
+      setSubview("conversation");
+    }
+
+    function openTaskFiles(taskId, path) {
+      renderTask(taskId);
+      setPage("tasks");
+      setSubview("files");
+      if (path) {
+        renderFilesForPath(taskData[taskId], path);
+      }
+    }
+
+    function goToPage(page) {
+      setPage(page);
+      if (page === "tasks") {
+        setSubview("list");
+      }
+    }
+
+    function goToWorkshop(workshopId) {
+      const workshop = workshopCatalog.find((item) => item.id === workshopId);
+      if (workshop) {
+        workshopState.scope = workshop.kind === "enterprise" ? "enterprise" : "creator";
+      }
+      workshopState.focusWorkshopId = workshopId;
+      setPage("workshops");
+      renderWorkshopPage();
+    }
+
+    function bindActionButtons(root) {
+      if (!root) return;
+
+      root.querySelectorAll("[data-open-task]").forEach((button) => {
+        if (button.dataset.boundOpenTask === "true") return;
+        button.dataset.boundOpenTask = "true";
+        button.addEventListener("click", (event) => {
+          event.stopPropagation();
+          openTask(button.dataset.openTask);
+        });
+      });
+
+      root.querySelectorAll("[data-open-task-files]").forEach((button) => {
+        if (button.dataset.boundOpenTaskFiles === "true") return;
+        button.dataset.boundOpenTaskFiles = "true";
+        button.addEventListener("click", (event) => {
+          event.stopPropagation();
+          openTaskFiles(button.dataset.openTaskFiles, button.dataset.filePath);
+        });
+      });
+
+      root.querySelectorAll("[data-go-page]").forEach((button) => {
+        if (button.dataset.boundGoPage === "true") return;
+        button.dataset.boundGoPage = "true";
+        button.addEventListener("click", (event) => {
+          event.stopPropagation();
+          goToPage(button.dataset.goPage);
+        });
+      });
+
+      root.querySelectorAll("[data-focus-workshop]").forEach((button) => {
+        if (button.dataset.boundFocusWorkshop === "true") return;
+        button.dataset.boundFocusWorkshop = "true";
+        button.addEventListener("click", (event) => {
+          event.stopPropagation();
+          goToWorkshop(button.dataset.focusWorkshop);
+        });
+      });
+
+      root.querySelectorAll("[data-open-workspace-switcher]").forEach((button) => {
+        if (button.dataset.boundWorkspaceOpen === "true") return;
+        button.dataset.boundWorkspaceOpen = "true";
+        button.addEventListener("click", (event) => {
+          event.stopPropagation();
+          openWorkspaceSheet();
+        });
+      });
+
+      root.querySelectorAll("[data-close-workspace-switcher]").forEach((button) => {
+        if (button.dataset.boundWorkspaceClose === "true") return;
+        button.dataset.boundWorkspaceClose = "true";
+        button.addEventListener("click", (event) => {
+          event.stopPropagation();
+          closeWorkspaceSheet();
+        });
+      });
+
+      root.querySelectorAll("[data-select-workspace]").forEach((button) => {
+        if (button.dataset.boundWorkspaceSelect === "true") return;
+        button.dataset.boundWorkspaceSelect = "true";
+        button.addEventListener("click", (event) => {
+          event.stopPropagation();
+          switchWorkspace(button.dataset.selectWorkspace);
+        });
+      });
+    }
+
+    navButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        setPage(button.dataset.target);
+        if (button.dataset.target === "tasks") {
+          setSubview("list");
+        }
+      });
+    });
+
+    backToIndexBtn.addEventListener("click", () => {
+      window.location.href = "./index.html";
+    });
+
+    taskCards.forEach((card) => {
+      card.addEventListener("click", () => openTask(card.dataset.taskId));
+    });
+
+    document.querySelectorAll(".open-task-btn, [data-open-task]").forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        openTask(button.dataset.taskId || button.dataset.openTask);
+      });
+    });
+
+    document.querySelectorAll("[data-back-to]").forEach((button) => {
+      button.addEventListener("click", () => setSubview(button.dataset.backTo));
+    });
+
+    subviewTabs.forEach((button) => {
+      button.addEventListener("click", () => setSubview(button.dataset.subviewTarget));
+    });
+
+    statusFilters.forEach((button) => {
+      button.addEventListener("click", () => {
+        taskState.status = button.dataset.status;
+        statusFilters.forEach((item) => item.classList.toggle("active", item === button));
+        filterTasks();
+      });
+    });
+
+    tagFilters.forEach((button) => {
+      button.addEventListener("click", () => {
+        taskState.tag = button.dataset.tag;
+        tagFilters.forEach((item) => item.classList.toggle("active", item === button));
+        filterTasks();
+      });
+    });
+
+    searchInput.addEventListener("input", (event) => {
+      taskState.keyword = event.target.value;
+      filterTasks();
+    });
+
+    workshopSearchInput.addEventListener("input", (event) => {
+      workshopState.keyword = event.target.value;
+      renderWorkshopPage();
+    });
+
+    workshopFilterButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        workshopState.scope = button.dataset.workshopScope;
+        workshopState.focusWorkshopId = null;
+        renderWorkshopPage();
+      });
+    });
+
+    clearWorkshopFocusBtn.addEventListener("click", () => {
+      workshopState.focusWorkshopId = null;
+      renderWorkshopPage();
+    });
+
+    workspaceSheetBackdrop.addEventListener("click", () => {
+      closeWorkspaceSheet();
+    });
+
+    themeBtn.addEventListener("click", () => {
+      body.dataset.theme = body.dataset.theme === "dark" ? "light" : "dark";
+    });
+
+    pathOptionList.addEventListener("click", (event) => {
+      const button = event.target.closest(".path-option");
+      if (!button) return;
+      renderFilesForPath(taskData[taskState.currentTaskId], button.dataset.path);
+    });
+
+    applyPathBtn.addEventListener("click", () => {
+      renderFilesForPath(taskData[taskState.currentTaskId], customPathInput.value);
+    });
+
+    customPathInput.addEventListener("keydown", (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      applyPathBtn.click();
+    });
+
+    setPage(taskState.page);
+    renderWorkshopPage();
+    renderProfilePage();
+    renderWorkspaceSheet();
+    closeWorkspaceSheet();
+    renderTask(taskState.currentTaskId);
+    filterTasks();
+  </script>
+</body>
+</html>

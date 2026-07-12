@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>灵办词元 - 原型总入口</title>
+  <style>
+    :root {
+      --bg: #0c1118;
+      --panel: #121925;
+      --panel-2: #192232;
+      --text: #edf2fb;
+      --muted: #90a0b8;
+      --line: #25324a;
+      --accent: #6c83ff;
+      --accent-2: #87f3d3;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(108,131,255,0.18), transparent 22%),
+        radial-gradient(circle at top right, rgba(135,243,211,0.14), transparent 20%),
+        var(--bg);
+      color: var(--text);
+    }
+    .wrap {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 40px 24px 56px;
+    }
+    .hero {
+      display: grid;
+      gap: 14px;
+      margin-bottom: 28px;
+    }
+    .eyebrow {
+      color: var(--accent-2);
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 0;
+      font-size: 42px;
+      line-height: 1.06;
+    }
+    .hero p {
+      margin: 0;
+      max-width: 760px;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1.7;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      border-radius: 18px;
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+    .card h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+    .meta {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    .links {
+      display: grid;
+      gap: 10px;
+    }
+    a {
+      color: var(--text);
+      text-decoration: none;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 12px;
+      padding: 12px 14px;
+      transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
+    }
+    a:hover {
+      transform: translateY(-1px);
+      border-color: var(--accent);
+      background: var(--panel-2);
+    }
+    .foot {
+      margin-top: 22px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    @media (max-width: 980px) {
+      .grid { grid-template-columns: 1fr; }
+      h1 { font-size: 32px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <div class="eyebrow">总入口</div>
+      <h1>灵办词元原型总览</h1>
+      <p>这批页面全部为可直接打开的单文件原型。当前以本页作为总入口，分别查看三种风格下的 Dashboard 与 H5 表现，并对比同一套业务内容在不同界面语言中的呈现差异。</p>
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <div>
+          <h2>风格 A / Infra Paper</h2>
+          <div class="meta">浅底基础设施工坊。参考 CopyPaste 的理性浅色、编辑式标题、蓝色信号与线性结构。</div>
+        </div>
+        <div class="links">
+          <a href="./style-a-infra-dashboard.html">打开 Dashboard 原型</a>
+          <a href="./style-a-infra-h5.html">打开 H5 原型</a>
+        </div>
+      </section>
+
+      <section class="card">
+        <div>
+          <h2>风格 B / Protocol Glass</h2>
+          <div class="meta">深色协议工坊。参考 ShadowBank 的暗色氛围、软浮雕控制板、运行态聚焦与状态发光。</div>
+        </div>
+        <div class="links">
+          <a href="./style-b-protocol-dashboard.html">打开 Dashboard 原型</a>
+          <a href="./style-b-protocol-h5.html">打开 H5 原型</a>
+        </div>
+      </section>
+
+      <section class="card">
+        <div>
+          <h2>风格 C / Operator Terminal</h2>
+          <div class="meta">重度操作台。参考 lastpush/dashboard 的深色控制台、紧凑分栏、工程密度和运维感。</div>
+        </div>
+        <div class="links">
+          <a href="./style-c-operator-dashboard.html">打开 Dashboard 原型</a>
+          <a href="./style-c-operator-h5.html">打开 H5 原型</a>
+        </div>
+      </section>
+    </div>
+
+    <div class="foot">建议先从这里进入各原型页面；H5 内顶部返回按钮也会回到本总入口。</div>
+  </div>
+</body>
+</html>
