@@ -1,0 +1,17 @@
+{
+  "servers": {
+    "mbd_browser-playwright": {
+      "type": "local-process",
+      "command": "node",
+      "args": [
+        "/workspace/mcp/playwright-browser-helper.js"
+      ],
+      "auth_file": "/workspace/secrets/browser/browser-storage-state.json"
+    },
+    "mbd_figma-mcp": {
+      "type": "remote-unmanaged",
+      "url": "https://third-party-mcp.example.org/figma/sse",
+      "auth_env": "LB_FIGMA_PAT"
+    }
+  }
+}

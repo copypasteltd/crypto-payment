@@ -1,0 +1,9 @@
+{
+  "runId": "run_00000003",
+  "workspaceId": "wsp_00000004",
+  "targetPath": "/workspace/target",
+  "initialPrompt": "请问你需要我提供什么信息给你。\n当前任务标题：Runtime Smoke\n目标路径：C:\\dev\\copypaste\\agent-workshop\\.tmp\\runtime-smoke\\target\n请基于当前任务目标，明确告诉用户继续执行前需要的资料、账号、授权、审批和补充说明。",
+  "requestedInitialMessage": "run the smoke sequence",
+  "credentialMounts": [],
+  "mcpBindings": []
+}

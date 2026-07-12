@@ -1,0 +1,7 @@
+Error: File not found: 
+    at new WindowsPtyAgent (C:\dev\copypaste\agent-workshop\node_modules\.pnpm\node-pty@1.1.0\node_modules\node-pty\lib\windowsPtyAgent.js:58:36)
+    at new WindowsTerminal (C:\dev\copypaste\agent-workshop\node_modules\.pnpm\node-pty@1.1.0\node_modules\node-pty\lib\windowsTerminal.js:51:24)
+    at Module.spawn (C:\dev\copypaste\agent-workshop\node_modules\.pnpm\node-pty@1.1.0\node_modules\node-pty\lib\index.js:30:12)
+    at CodexSession.start (file:///C:/dev/copypaste/agent-workshop/app/container-bridge/dist/bridge/codex-session.js:47:25)
+    at Object.start (file:///C:/dev/copypaste/agent-workshop/app/container-bridge/dist/index.js:81:26)
+    at async main (file:///C:/dev/copypaste/agent-workshop/app/container-bridge/dist/cli.js:131:9)

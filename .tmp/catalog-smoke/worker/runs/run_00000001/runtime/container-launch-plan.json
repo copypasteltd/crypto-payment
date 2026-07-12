@@ -1,0 +1,180 @@
+{
+  "runId": "run_00000001",
+  "image": "ghcr.io/lingban/runner:latest",
+  "containerName": "lingban-run-run_00000001",
+  "workingDirectory": "/workspace/target",
+  "entrypoint": [
+    "/usr/local/bin/lingban-runner-entrypoint"
+  ],
+  "env": {
+    "HOME": "/workspace/home",
+    "CODEX_HOME": "/workspace/codex-home",
+    "TMPDIR": "/workspace/tmp",
+    "TARGET_PATH": "/workspace/target",
+    "PLAYWRIGHT_BROWSERS_PATH": "/ms-playwright",
+    "RUN_ID": "run_00000001",
+    "WORKSPACE_ID": "wsp_brand_content",
+    "MCP_CONFIG_PATH": "/workspace/runtime/mcp-config.json",
+    "BRIDGE_CONTEXT_PATH": "/workspace/runtime/bridge-context.container.json",
+    "RUNTIME_CONFIG_PATH": "/workspace/runtime/runtime-config.json",
+    "BRIDGE_CONTROL_HOST": "0.0.0.0",
+    "BRIDGE_CONTROL_PORT": "3800",
+    "LINGBAN_API_BASE_URL": "http://127.0.0.1:3311",
+    "LINGBAN_INTERNAL_AUTH_TOKEN": "catalog-smoke-token"
+  },
+  "labels": {
+    "lingban.run_id": "run_00000001",
+    "lingban.workspace_id": "wsp_brand_content",
+    "lingban.task_version_id": "tsv_poster_batch",
+    "lingban.session_version_id": "sev_brand_poster_suite"
+  },
+  "mounts": [
+    {
+      "source": "C:\\workspace\\poster-batch-17\\runs\\poster-batch-20260707202204",
+      "target": "/workspace/target",
+      "readOnly": false
+    },
+    {
+      "source": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\inputs",
+      "target": "/workspace/inputs",
+      "readOnly": false
+    },
+    {
+      "source": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\outputs",
+      "target": "/workspace/outputs",
+      "readOnly": false
+    },
+    {
+      "source": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\state",
+      "target": "/workspace/state",
+      "readOnly": false
+    },
+    {
+      "source": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\runtime",
+      "target": "/workspace/runtime",
+      "readOnly": false
+    },
+    {
+      "source": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\codex-home",
+      "target": "/workspace/codex-home",
+      "readOnly": false
+    },
+    {
+      "source": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\home",
+      "target": "/workspace/home",
+      "readOnly": false
+    },
+    {
+      "source": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\tmp",
+      "target": "/workspace/tmp",
+      "readOnly": false
+    },
+    {
+      "source": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\browser-profile",
+      "target": "/workspace/browser-profile",
+      "readOnly": false
+    },
+    {
+      "source": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\mcp",
+      "target": "/workspace/mcp",
+      "readOnly": false
+    },
+    {
+      "source": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\secrets",
+      "target": "/workspace/secrets",
+      "readOnly": true
+    },
+    {
+      "source": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\logs",
+      "target": "/workspace/logs",
+      "readOnly": false
+    }
+  ],
+  "network": "lingban-egress-default",
+  "resources": {
+    "cpus": "2",
+    "memory": "4g",
+    "pidsLimit": 512
+  },
+  "removeOnExit": true,
+  "commandPreview": [
+    "docker",
+    "run",
+    "--rm",
+    "--name",
+    "lingban-run-run_00000001",
+    "--hostname",
+    "run-run_00000001",
+    "--cpus",
+    "2",
+    "--memory",
+    "4g",
+    "--pids-limit",
+    "512",
+    "--network",
+    "lingban-egress-default",
+    "--workdir",
+    "/workspace/target",
+    "--label",
+    "lingban.run_id=run_00000001",
+    "--label",
+    "lingban.workspace_id=wsp_brand_content",
+    "--label",
+    "lingban.task_version_id=tsv_poster_batch",
+    "--label",
+    "lingban.session_version_id=sev_brand_poster_suite",
+    "--mount",
+    "type=bind,source=C:\\workspace\\poster-batch-17\\runs\\poster-batch-20260707202204,target=/workspace/target",
+    "--mount",
+    "type=bind,source=C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\inputs,target=/workspace/inputs",
+    "--mount",
+    "type=bind,source=C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\outputs,target=/workspace/outputs",
+    "--mount",
+    "type=bind,source=C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\state,target=/workspace/state",
+    "--mount",
+    "type=bind,source=C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\runtime,target=/workspace/runtime",
+    "--mount",
+    "type=bind,source=C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\codex-home,target=/workspace/codex-home",
+    "--mount",
+    "type=bind,source=C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\home,target=/workspace/home",
+    "--mount",
+    "type=bind,source=C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\tmp,target=/workspace/tmp",
+    "--mount",
+    "type=bind,source=C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\browser-profile,target=/workspace/browser-profile",
+    "--mount",
+    "type=bind,source=C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\mcp,target=/workspace/mcp",
+    "--mount",
+    "type=bind,source=C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\secrets,target=/workspace/secrets,readonly",
+    "--mount",
+    "type=bind,source=C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\logs,target=/workspace/logs",
+    "-e",
+    "HOME=/workspace/home",
+    "-e",
+    "CODEX_HOME=/workspace/codex-home",
+    "-e",
+    "TMPDIR=/workspace/tmp",
+    "-e",
+    "TARGET_PATH=/workspace/target",
+    "-e",
+    "PLAYWRIGHT_BROWSERS_PATH=/ms-playwright",
+    "-e",
+    "RUN_ID=run_00000001",
+    "-e",
+    "WORKSPACE_ID=wsp_brand_content",
+    "-e",
+    "MCP_CONFIG_PATH=/workspace/runtime/mcp-config.json",
+    "-e",
+    "BRIDGE_CONTEXT_PATH=/workspace/runtime/bridge-context.container.json",
+    "-e",
+    "RUNTIME_CONFIG_PATH=/workspace/runtime/runtime-config.json",
+    "-e",
+    "BRIDGE_CONTROL_HOST=0.0.0.0",
+    "-e",
+    "BRIDGE_CONTROL_PORT=3800",
+    "-e",
+    "LINGBAN_API_BASE_URL=http://127.0.0.1:3311",
+    "-e",
+    "LINGBAN_INTERNAL_AUTH_TOKEN=catalog-smoke-token",
+    "ghcr.io/lingban/runner:latest"
+  ]
+}

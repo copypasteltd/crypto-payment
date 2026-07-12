@@ -1,0 +1,165 @@
+{
+  "run": {
+    "runId": "run_00000001",
+    "workspaceId": "wsp_personal",
+    "taskVersionId": "tsv_storyboard_001",
+    "sessionVersionId": "sev_storyboard_001",
+    "requestedByUserId": "usr_demo_001",
+    "title": "E2E launch 2",
+    "targetPath": "C:/dev/copypaste/agent-workshop/.tmp/runtime-e2e-target-2",
+    "entrySurface": "dashboard",
+    "status": "SUCCEEDED",
+    "statusReason": "Codex CLI 正常退出",
+    "createdAt": "2026-07-07T10:19:23.074Z",
+    "updatedAt": "2026-07-07T10:19:25.465Z"
+  },
+  "messages": [
+    {
+      "messageId": "msg_00000001",
+      "runId": "run_00000001",
+      "role": "system",
+      "kind": "prompt",
+      "text": "请问你需要我提供什么信息给你。\n当前任务标题：E2E launch 2\n目标路径：C:/dev/copypaste/agent-workshop/.tmp/runtime-e2e-target-2\n请基于当前任务目标，明确告诉用户继续执行前需要的资料、账号、授权、审批和补充说明。",
+      "attachments": [],
+      "createdAt": "2026-07-07T10:19:23.078Z"
+    },
+    {
+      "messageId": "msg_00000002",
+      "runId": "run_00000001",
+      "role": "user",
+      "kind": "text",
+      "text": "user payload",
+      "attachments": [],
+      "createdAt": "2026-07-07T10:19:23.085Z"
+    },
+    {
+      "messageId": "msg_b60456a3-cd3c-4e54-804c-bdbfe20e09bb",
+      "runId": "run_00000001",
+      "role": "agent",
+      "kind": "text",
+      "text": "\u001b[?9001h\u001b[?1004h\u001b[?25l\u001b[2J\u001b[m\u001b[Hboot",
+      "attachments": [],
+      "createdAt": "2026-07-07T10:19:23.246Z"
+    },
+    {
+      "messageId": "msg_1d33a096-17fc-4b19-b003-68df3416efb0",
+      "runId": "run_00000001",
+      "role": "agent",
+      "kind": "text",
+      "text": "\u001b]0;D:\\Program Files\\nodejs\\node.exe\u0007\u001b[?25h请问你需要我提供什么信息给你。当前任务标题：E2E launch 2目标路径：C:/dev/copypaste/agent-workshop/.tmp/runtime-e2e-target-2请基于当前任务目标，明确告诉用户继续执行前需要的资料、账号、授权、审批和补充说明。user payload",
+      "attachments": [],
+      "createdAt": "2026-07-07T10:19:25.463Z"
+    }
+  ],
+  "files": [
+    {
+      "path": "C:/dev/copypaste/agent-workshop/.tmp/runtime-e2e-target-2/",
+      "name": "runtime-e2e-target-2",
+      "kind": "output",
+      "sizeBytes": null,
+      "updatedAt": "2026-07-07T10:19:23.105Z"
+    },
+    {
+      "path": "C:/dev/copypaste/agent-workshop/.tmp/runtime-e2e-target-2/output/",
+      "name": "output",
+      "kind": "output",
+      "sizeBytes": null,
+      "updatedAt": "2026-07-07T10:19:23.105Z"
+    }
+  ],
+  "artifacts": [
+    {
+      "artifactId": "art_00000001",
+      "runId": "run_00000001",
+      "label": "receipts",
+      "file": {
+        "path": "C:/dev/copypaste/agent-workshop/.tmp/runtime-e2e-target-2/receipts/",
+        "name": "receipts",
+        "kind": "receipt",
+        "sizeBytes": null,
+        "updatedAt": "2026-07-07T10:19:23.077Z"
+      },
+      "status": "pending",
+      "downloadUrl": null
+    },
+    {
+      "artifactId": "art_00000002",
+      "runId": "run_00000001",
+      "label": "output",
+      "file": {
+        "path": "C:/dev/copypaste/agent-workshop/.tmp/runtime-e2e-target-2/output/",
+        "name": "output",
+        "kind": "output",
+        "sizeBytes": null,
+        "updatedAt": "2026-07-07T10:19:23.077Z"
+      },
+      "status": "pending",
+      "downloadUrl": null
+    },
+    {
+      "artifactId": "art_00000003",
+      "runId": "run_00000001",
+      "label": "archive",
+      "file": {
+        "path": "C:/dev/copypaste/agent-workshop/.tmp/runtime-e2e-target-2/archive/",
+        "name": "archive",
+        "kind": "archive",
+        "sizeBytes": null,
+        "updatedAt": "2026-07-07T10:19:23.077Z"
+      },
+      "status": "pending",
+      "downloadUrl": null
+    }
+  ],
+  "approvals": [
+    {
+      "approvalId": "apr_00000001",
+      "runId": "run_00000001",
+      "prompt": "Confirm any sensitive operation before execution continues.",
+      "state": "pending",
+      "requestedAt": "2026-07-07T10:19:23.079Z",
+      "decidedAt": null,
+      "note": null
+    }
+  ],
+  "input": {
+    "workspaceId": "wsp_personal",
+    "taskVersionId": "tsv_storyboard_001",
+    "sessionVersionId": "sev_storyboard_001",
+    "requestedByUserId": "usr_demo_001",
+    "title": "E2E launch 2",
+    "targetPath": "C:/dev/copypaste/agent-workshop/.tmp/runtime-e2e-target-2",
+    "entrySurface": "dashboard",
+    "initialMessage": null,
+    "bindings": {
+      "firstPartyMcpIds": [],
+      "externalConnectorRefs": [],
+      "credentialIds": []
+    }
+  },
+  "startJob": {
+    "run": {
+      "runId": "run_00000001",
+      "workspaceId": "wsp_personal",
+      "taskVersionId": "tsv_storyboard_001",
+      "sessionVersionId": "sev_storyboard_001",
+      "requestedByUserId": "usr_demo_001",
+      "title": "E2E launch 2",
+      "targetPath": "C:/dev/copypaste/agent-workshop/.tmp/runtime-e2e-target-2",
+      "entrySurface": "dashboard",
+      "status": "CREATED",
+      "statusReason": null,
+      "createdAt": "2026-07-07T10:19:23.074Z",
+      "updatedAt": "2026-07-07T10:19:23.074Z"
+    },
+    "initialPrompt": "请问你需要我提供什么信息给你。\n当前任务标题：E2E launch 2\n目标路径：C:/dev/copypaste/agent-workshop/.tmp/runtime-e2e-target-2\n请基于当前任务目标，明确告诉用户继续执行前需要的资料、账号、授权、审批和补充说明。",
+    "requestedInitialMessage": null,
+    "bindings": {
+      "firstPartyMcpIds": [],
+      "externalConnectorRefs": [],
+      "credentialIds": []
+    },
+    "credentialMounts": [],
+    "mcpBindings": []
+  }
+}

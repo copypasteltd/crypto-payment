@@ -1,0 +1,27 @@
+{
+  "runId": "run_00000001",
+  "bindings": [
+    {
+      "bindingId": "mbd_image-gpt-image-2",
+      "source": "first-party",
+      "transport": "stdio",
+      "ref": "/workspace/mcp/imagegen-helper.js",
+      "credentialId": "cred_openai_image_api_key",
+      "authMode": "env",
+      "authRef": "LB_OPENAI_IMAGE_API_KEY",
+      "networkPolicyRef": "np_image-gpt-image-2",
+      "approvalRequired": false
+    },
+    {
+      "bindingId": "mbd_asset-library",
+      "source": "third-party",
+      "transport": "http",
+      "ref": "https://third-party-mcp.example.org/assets",
+      "credentialId": "cred_asset_library_api_key",
+      "authMode": "env",
+      "authRef": "LB_ASSET_LIBRARY_API_KEY",
+      "networkPolicyRef": "np_asset-library",
+      "approvalRequired": true
+    }
+  ]
+}

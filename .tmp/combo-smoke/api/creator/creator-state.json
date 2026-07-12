@@ -1,0 +1,436 @@
+{
+  "packages": [
+    {
+      "packageId": "chrome-tax-runner",
+      "title": {
+        "zh": "chrome-tax-runner.session",
+        "en": "chrome-tax-runner.session"
+      },
+      "source": {
+        "zh": "来源：华港财务组 / 实例：tax-q2",
+        "en": "Source: Harbor Finance Team / instance: tax-q2"
+      },
+      "state": "audited",
+      "statusLabel": {
+        "zh": "已审计",
+        "en": "Audited"
+      },
+      "tone": "success",
+      "ownerLabel": {
+        "zh": "华港财务组",
+        "en": "Harbor Finance Team"
+      },
+      "updatedAt": "2026-07-07 09:54",
+      "releaseChannel": {
+        "zh": "企业财税工坊 / 私有发布",
+        "en": "Enterprise tax workshop / private release"
+      },
+      "workspaceContextKeys": [
+        "harbor-finance"
+      ],
+      "linkedWorkshopIds": [
+        "enterprise-tax"
+      ],
+      "linkedServiceIds": [
+        "tax-filing"
+      ],
+      "session": {
+        "summary": {
+          "zh": "这份 package 保留了真实会话中的用户提问顺序、审批节点、路径结构和结果回流逻辑。",
+          "en": "This package preserves the real conversation order, approval nodes, path structure, and result callback logic from the original run."
+        },
+        "items": [
+          {
+            "zh": "完整对话流保留，不压缩成技能摘要。",
+            "en": "The full conversation flow is preserved instead of being collapsed into a skill summary."
+          },
+          {
+            "zh": "审批节点与目标路径一并保存。",
+            "en": "Approval nodes are saved together with target paths."
+          },
+          {
+            "zh": "脱敏后再进入发布通道。",
+            "en": "Desensitization happens before release."
+          }
+        ]
+      },
+      "runtime": {
+        "summary": {
+          "zh": "标准镜像中包含 codex-cli、Node、Python、浏览器自动化与系统依赖。",
+          "en": "The standard image contains codex-cli, Node, Python, browser automation, and system dependencies."
+        },
+        "items": [
+          {
+            "zh": "基础镜像：ubuntu:24.04",
+            "en": "Base image: ubuntu:24.04"
+          },
+          {
+            "zh": "核心运行层：codex-cli / node / python",
+            "en": "Core runtime: codex-cli / node / python"
+          },
+          {
+            "zh": "浏览器层：playwright / browser bridge",
+            "en": "Browser layer: playwright / browser bridge"
+          }
+        ]
+      },
+      "connectors": {
+        "summary": {
+          "zh": "能力注入优先采用第一方 MCP、第三方 connector ref 和只读 secret mount。",
+          "en": "Capability injection prioritizes first-party MCP, third-party connector refs, and readonly secret mounts."
+        },
+        "items": [
+          {
+            "zh": "第一方 MCP：实例启动即挂载。",
+            "en": "First-party MCP: mounted at boot."
+          },
+          {
+            "zh": "第三方 MCP：只记录 connector ref。",
+            "en": "Third-party MCP: only the connector ref is stored."
+          },
+          {
+            "zh": "图像 Key / OTP：会话级只读挂载。",
+            "en": "Image keys / OTP channels: session-level readonly mounts."
+          }
+        ]
+      },
+      "release": {
+        "summary": {
+          "zh": "发布单元由 session 包、工作区模板、镜像依赖、MCP 策略和输出契约共同组成。",
+          "en": "The release unit is made of the session package, workspace template, image dependencies, MCP policy, and output contract."
+        },
+        "items": [
+          {
+            "zh": "企业财税工坊",
+            "en": "Enterprise tax workshop"
+          },
+          {
+            "zh": "私有预览通道",
+            "en": "Private preview channel"
+          },
+          {
+            "zh": "审计清单 A-01 ~ A-05 全部通过",
+            "en": "Audit checklist A-01 to A-05 passed"
+          }
+        ]
+      },
+      "versionLine": [
+        "sev_chrome_tax_runner@2026.07.1",
+        "tsv_tax_filing@2026.07.3",
+        "img: lingban-codex-runtime:2026.07"
+      ],
+      "dependencies": [
+        {
+          "zh": "浏览器自动化 / OTP 凭证 / 审批节点",
+          "en": "Browser automation / OTP credentials / approval nodes"
+        },
+        {
+          "zh": "受控目标路径写入：receipts / output / archive",
+          "en": "Controlled target-path writes: receipts / output / archive"
+        }
+      ]
+    },
+    {
+      "packageId": "creator-drama-suite",
+      "title": {
+        "zh": "creator-drama-suite.session",
+        "en": "creator-drama-suite.session"
+      },
+      "source": {
+        "zh": "来源：品牌内容组 / 实例：drama-ep08",
+        "en": "Source: Brand Content Team / instance: drama-ep08"
+      },
+      "state": "pending_release",
+      "statusLabel": {
+        "zh": "待发布",
+        "en": "Pending release"
+      },
+      "tone": "warn",
+      "ownerLabel": {
+        "zh": "内容导演组",
+        "en": "Content Director Group"
+      },
+      "updatedAt": "2026-07-07 14:51",
+      "releaseChannel": {
+        "zh": "Creator 工坊 / 灰度",
+        "en": "Creator workshop / staged rollout"
+      },
+      "workspaceContextKeys": [
+        "personal",
+        "brand-lab"
+      ],
+      "linkedWorkshopIds": [
+        "creator-drama"
+      ],
+      "linkedServiceIds": [
+        "drama-storyboard"
+      ],
+      "session": {
+        "summary": {
+          "zh": "适合保留分镜修订回路、导演意见回流和素材补录逻辑。",
+          "en": "Best suited to preserve storyboard revision loops, director feedback, and asset backfill logic."
+        },
+        "items": [
+          {
+            "zh": "保留分镜与素材双线程对话。",
+            "en": "Preserves dual-thread conversation for storyboard and asset work."
+          },
+          {
+            "zh": "待补一轮预算控制规则。",
+            "en": "Needs one more pass on budget control rules."
+          }
+        ]
+      },
+      "runtime": {
+        "summary": {
+          "zh": "以同一标准镜像扩展 Seedance 等内容能力。",
+          "en": "Extends the same standard image with content capabilities such as Seedance."
+        },
+        "items": [
+          {
+            "zh": "增加外部内容能力挂载。",
+            "en": "Adds external content capability mounts."
+          }
+        ]
+      },
+      "connectors": {
+        "summary": {
+          "zh": "以第三方 connector ref 为主。",
+          "en": "Primarily uses third-party connector refs."
+        },
+        "items": [
+          {
+            "zh": "Seedance connector ref",
+            "en": "Seedance connector ref"
+          }
+        ]
+      },
+      "release": {
+        "summary": {
+          "zh": "优先进入 creator 工坊灰度。",
+          "en": "Prioritized for creator-studio limited rollout."
+        },
+        "items": [
+          {
+            "zh": "目标通道：Creator 工坊内测",
+            "en": "Target channel: creator studio preview"
+          }
+        ]
+      },
+      "versionLine": [
+        "sev_creator_drama_suite@2026.07.2",
+        "tsv_drama_storyboard@2026.07.4",
+        "img: lingban-codex-runtime:2026.07"
+      ],
+      "dependencies": [
+        {
+          "zh": "Seedance / 导演审稿回流 / 外部素材引用",
+          "en": "Seedance / director review callbacks / external asset references"
+        },
+        {
+          "zh": "长对话上下文与版本回放",
+          "en": "Long-form conversation context and replay"
+        }
+      ]
+    },
+    {
+      "packageId": "brand-poster-suite",
+      "title": {
+        "zh": "brand-poster-suite.session",
+        "en": "brand-poster-suite.session"
+      },
+      "source": {
+        "zh": "来源：品牌内容组 / 实例：poster-batch-17",
+        "en": "Source: Brand Content Team / instance: poster-batch-17"
+      },
+      "state": "ready",
+      "statusLabel": {
+        "zh": "可发布",
+        "en": "Ready"
+      },
+      "tone": "active",
+      "ownerLabel": {
+        "zh": "品牌内容组",
+        "en": "Brand Content Team"
+      },
+      "updatedAt": "2026-07-07 19:12",
+      "releaseChannel": {
+        "zh": "品牌内容工坊 / 正式发布",
+        "en": "Brand content workshop / production"
+      },
+      "workspaceContextKeys": [
+        "personal",
+        "brand-lab"
+      ],
+      "linkedWorkshopIds": [
+        "brand-poster-suite"
+      ],
+      "linkedServiceIds": [
+        "poster-batch"
+      ],
+      "session": {
+        "summary": {
+          "zh": "适合保留批量出图、选图回流和结果交付逻辑。",
+          "en": "Best suited to preserve batch generation, selection callbacks, and delivery logic."
+        },
+        "items": [
+          {
+            "zh": "批量出图与选图逻辑稳定。",
+            "en": "Batch generation and selection logic are stable."
+          }
+        ]
+      },
+      "runtime": {
+        "summary": {
+          "zh": "主要扩展图像生成能力挂载。",
+          "en": "Mainly extends image generation capability mounts."
+        },
+        "items": [
+          {
+            "zh": "增加图像服务只读密钥挂载。",
+            "en": "Adds readonly image-service key mounts."
+          }
+        ]
+      },
+      "connectors": {
+        "summary": {
+          "zh": "私有图像能力按用户或工作区绑定。",
+          "en": "Private image capabilities are bound per user or workspace."
+        },
+        "items": [
+          {
+            "zh": "connector://imagegen/private-brand-key",
+            "en": "connector://imagegen/private-brand-key"
+          }
+        ]
+      },
+      "release": {
+        "summary": {
+          "zh": "适合面向品牌团队正式发布。",
+          "en": "Suitable for release to brand teams."
+        },
+        "items": [
+          {
+            "zh": "目标通道：品牌内容工坊",
+            "en": "Target channel: brand content workshop"
+          }
+        ]
+      },
+      "versionLine": [
+        "sev_brand_poster_suite@2026.07.5",
+        "tsv_poster_batch@2026.07.6",
+        "img: lingban-codex-runtime:2026.07"
+      ],
+      "dependencies": [
+        {
+          "zh": "GPT Image 2 / 资产库引用 / 结果包回写",
+          "en": "GPT Image 2 / asset-library refs / bundle callback writes"
+        },
+        {
+          "zh": "私有图像 key 只读挂载",
+          "en": "Readonly private image-key mounts"
+        }
+      ]
+    }
+  ],
+  "releases": [
+    {
+      "releaseId": "rel_chrome_tax_runner_private",
+      "packageId": "chrome-tax-runner",
+      "targetWorkspaceContextKey": "harbor-finance",
+      "state": "private",
+      "channelLabel": {
+        "zh": "企业财税工坊 / 私有发布",
+        "en": "Enterprise tax workshop / private release"
+      },
+      "gateSummary": [
+        {
+          "zh": "审计清单 A-01 ~ A-05 全部通过",
+          "en": "Audit checklist A-01 to A-05 passed"
+        },
+        {
+          "zh": "OTP 轮换计划 7 天内复核",
+          "en": "OTP rotation plan to be rechecked within 7 days"
+        }
+      ],
+      "updatedAt": "2026-07-07 09:54"
+    },
+    {
+      "releaseId": "rel_creator_drama_stage",
+      "packageId": "creator-drama-suite",
+      "targetWorkspaceContextKey": "brand-lab",
+      "state": "staged",
+      "channelLabel": {
+        "zh": "Creator 工坊 / 灰度",
+        "en": "Creator workshop / staged rollout"
+      },
+      "gateSummary": [
+        {
+          "zh": "剩余 1 项脱敏检查",
+          "en": "One desensitization check remains"
+        },
+        {
+          "zh": "预算控制规则待补齐",
+          "en": "Budget control rules still need completion"
+        }
+      ],
+      "updatedAt": "2026-07-07 14:51"
+    },
+    {
+      "releaseId": "rel_brand_poster_prod",
+      "packageId": "brand-poster-suite",
+      "targetWorkspaceContextKey": "brand-lab",
+      "state": "production",
+      "channelLabel": {
+        "zh": "品牌内容工坊 / 正式发布",
+        "en": "Brand content workshop / production"
+      },
+      "gateSummary": [
+        {
+          "zh": "图像额度策略已接入",
+          "en": "Image quota policy is in place"
+        },
+        {
+          "zh": "批量轮次策略待持续观测",
+          "en": "Batch-round policy remains under observation"
+        }
+      ],
+      "updatedAt": "2026-07-07 19:12"
+    }
+  ],
+  "replays": [
+    {
+      "replayId": "rpl_tax_q2",
+      "packageId": "chrome-tax-runner",
+      "sourceRunId": "run_tax_q2",
+      "state": "ready",
+      "summary": {
+        "zh": "可回放审批节点、浏览器写入路径与回执输出。",
+        "en": "Can replay approval nodes, browser path writes, and receipt outputs."
+      },
+      "updatedAt": "2026-07-07 10:03"
+    },
+    {
+      "replayId": "rpl_drama_ep08",
+      "packageId": "creator-drama-suite",
+      "sourceRunId": "run_drama_ep08",
+      "state": "ready",
+      "summary": {
+        "zh": "可回放导演意见回流与分镜修订差异。",
+        "en": "Can replay director-feedback callbacks and storyboard diff loops."
+      },
+      "updatedAt": "2026-07-07 15:04"
+    },
+    {
+      "replayId": "rpl_poster_batch_17",
+      "packageId": "brand-poster-suite",
+      "sourceRunId": "run_poster_batch_17",
+      "state": "ready",
+      "summary": {
+        "zh": "可回放批量出图、筛选结果与归档写入差异。",
+        "en": "Can replay batch generation, selection results, and archive write diffs."
+      },
+      "updatedAt": "2026-07-07 19:24"
+    }
+  ]
+}

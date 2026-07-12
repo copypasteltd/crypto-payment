@@ -1,0 +1,156 @@
+{
+  "run": {
+    "runId": "run_00000001",
+    "workspaceId": "wsp_personal",
+    "taskVersionId": "tsv_storyboard_001",
+    "sessionVersionId": "sev_storyboard_001",
+    "requestedByUserId": "usr_demo_001",
+    "title": "E2E launch 5",
+    "targetPath": "C:/dev/copypaste/agent-workshop/.tmp/runtime-e2e-target-5",
+    "entrySurface": "dashboard",
+    "status": "RUNNING",
+    "statusReason": "container bridge established the Codex session",
+    "createdAt": "2026-07-07T10:26:51.219Z",
+    "updatedAt": "2026-07-07T10:26:51.349Z"
+  },
+  "messages": [
+    {
+      "messageId": "msg_00000001",
+      "runId": "run_00000001",
+      "role": "system",
+      "kind": "prompt",
+      "text": "请问你需要我提供什么信息给你。\n当前任务标题：E2E launch 5\n目标路径：C:/dev/copypaste/agent-workshop/.tmp/runtime-e2e-target-5\n请基于当前任务目标，明确告诉用户继续执行前需要的资料、账号、授权、审批和补充说明。",
+      "attachments": [],
+      "createdAt": "2026-07-07T10:26:51.223Z"
+    },
+    {
+      "messageId": "msg_00000002",
+      "runId": "run_00000001",
+      "role": "user",
+      "kind": "text",
+      "text": "user payload",
+      "attachments": [],
+      "createdAt": "2026-07-07T10:26:51.234Z"
+    },
+    {
+      "messageId": "msg_c658173d-28fa-40bc-a5bb-6a74fcdd1deb",
+      "runId": "run_00000001",
+      "role": "agent",
+      "kind": "text",
+      "text": "boot",
+      "attachments": [],
+      "createdAt": "2026-07-07T10:26:51.422Z"
+    }
+  ],
+  "files": [
+    {
+      "path": "C:/dev/copypaste/agent-workshop/.tmp/runtime-e2e-target-5/",
+      "name": "runtime-e2e-target-5",
+      "kind": "output",
+      "sizeBytes": null,
+      "updatedAt": "2026-07-07T10:26:51.254Z"
+    },
+    {
+      "path": "C:/dev/copypaste/agent-workshop/.tmp/runtime-e2e-target-5/output/",
+      "name": "output",
+      "kind": "output",
+      "sizeBytes": null,
+      "updatedAt": "2026-07-07T10:26:51.254Z"
+    }
+  ],
+  "artifacts": [
+    {
+      "artifactId": "art_00000001",
+      "runId": "run_00000001",
+      "label": "receipts",
+      "file": {
+        "path": "C:/dev/copypaste/agent-workshop/.tmp/runtime-e2e-target-5/receipts/",
+        "name": "receipts",
+        "kind": "receipt",
+        "sizeBytes": null,
+        "updatedAt": "2026-07-07T10:26:51.223Z"
+      },
+      "status": "pending",
+      "downloadUrl": null
+    },
+    {
+      "artifactId": "art_00000002",
+      "runId": "run_00000001",
+      "label": "output",
+      "file": {
+        "path": "C:/dev/copypaste/agent-workshop/.tmp/runtime-e2e-target-5/output/",
+        "name": "output",
+        "kind": "output",
+        "sizeBytes": null,
+        "updatedAt": "2026-07-07T10:26:51.223Z"
+      },
+      "status": "pending",
+      "downloadUrl": null
+    },
+    {
+      "artifactId": "art_00000003",
+      "runId": "run_00000001",
+      "label": "archive",
+      "file": {
+        "path": "C:/dev/copypaste/agent-workshop/.tmp/runtime-e2e-target-5/archive/",
+        "name": "archive",
+        "kind": "archive",
+        "sizeBytes": null,
+        "updatedAt": "2026-07-07T10:26:51.223Z"
+      },
+      "status": "pending",
+      "downloadUrl": null
+    }
+  ],
+  "approvals": [
+    {
+      "approvalId": "apr_00000001",
+      "runId": "run_00000001",
+      "prompt": "Confirm any sensitive operation before execution continues.",
+      "state": "pending",
+      "requestedAt": "2026-07-07T10:26:51.225Z",
+      "decidedAt": null,
+      "note": null
+    }
+  ],
+  "input": {
+    "workspaceId": "wsp_personal",
+    "taskVersionId": "tsv_storyboard_001",
+    "sessionVersionId": "sev_storyboard_001",
+    "requestedByUserId": "usr_demo_001",
+    "title": "E2E launch 5",
+    "targetPath": "C:/dev/copypaste/agent-workshop/.tmp/runtime-e2e-target-5",
+    "entrySurface": "dashboard",
+    "initialMessage": null,
+    "bindings": {
+      "firstPartyMcpIds": [],
+      "externalConnectorRefs": [],
+      "credentialIds": []
+    }
+  },
+  "startJob": {
+    "run": {
+      "runId": "run_00000001",
+      "workspaceId": "wsp_personal",
+      "taskVersionId": "tsv_storyboard_001",
+      "sessionVersionId": "sev_storyboard_001",
+      "requestedByUserId": "usr_demo_001",
+      "title": "E2E launch 5",
+      "targetPath": "C:/dev/copypaste/agent-workshop/.tmp/runtime-e2e-target-5",
+      "entrySurface": "dashboard",
+      "status": "CREATED",
+      "statusReason": null,
+      "createdAt": "2026-07-07T10:26:51.219Z",
+      "updatedAt": "2026-07-07T10:26:51.219Z"
+    },
+    "initialPrompt": "请问你需要我提供什么信息给你。\n当前任务标题：E2E launch 5\n目标路径：C:/dev/copypaste/agent-workshop/.tmp/runtime-e2e-target-5\n请基于当前任务目标，明确告诉用户继续执行前需要的资料、账号、授权、审批和补充说明。",
+    "requestedInitialMessage": null,
+    "bindings": {
+      "firstPartyMcpIds": [],
+      "externalConnectorRefs": [],
+      "credentialIds": []
+    },
+    "credentialMounts": [],
+    "mcpBindings": []
+  }
+}

@@ -1,0 +1,154 @@
+{
+  "run": {
+    "runId": "run_00000001",
+    "workspaceId": "wsp_personal",
+    "taskVersionId": "tsv_storyboard_001",
+    "sessionVersionId": "sev_storyboard_001",
+    "requestedByUserId": "usr_demo_001",
+    "title": "Persistence Check",
+    "targetPath": "C:/dev/copypaste/agent-workshop/.tmp/api-persistence-check/workspace/run-01",
+    "entrySurface": "h5",
+    "status": "READY",
+    "statusReason": "用户已补充首次执行信息",
+    "createdAt": "2026-07-07T09:52:46.610Z",
+    "updatedAt": "2026-07-07T09:52:46.620Z"
+  },
+  "messages": [
+    {
+      "messageId": "msg_00000001",
+      "runId": "run_00000001",
+      "role": "system",
+      "kind": "prompt",
+      "text": "请问你需要我提供什么信息给你。\n当前任务标题：Persistence Check\n目标路径：C:/dev/copypaste/agent-workshop/.tmp/api-persistence-check/workspace/run-01\n请基于当前任务目标，明确告诉用户继续执行前需要的资料、账号、授权、审批和补充说明。",
+      "attachments": [],
+      "createdAt": "2026-07-07T09:52:46.614Z"
+    },
+    {
+      "messageId": "msg_00000002",
+      "runId": "run_00000001",
+      "role": "user",
+      "kind": "text",
+      "text": "hello persistence",
+      "attachments": [],
+      "createdAt": "2026-07-07T09:52:46.620Z"
+    }
+  ],
+  "files": [
+    {
+      "path": "C:/dev/copypaste/agent-workshop/.tmp/api-persistence-check/workspace/run-01/receipts/",
+      "name": "receipts",
+      "kind": "receipt",
+      "sizeBytes": null,
+      "updatedAt": "2026-07-07T09:52:46.613Z"
+    },
+    {
+      "path": "C:/dev/copypaste/agent-workshop/.tmp/api-persistence-check/workspace/run-01/output/",
+      "name": "output",
+      "kind": "output",
+      "sizeBytes": null,
+      "updatedAt": "2026-07-07T09:52:46.613Z"
+    },
+    {
+      "path": "C:/dev/copypaste/agent-workshop/.tmp/api-persistence-check/workspace/run-01/archive/",
+      "name": "archive",
+      "kind": "archive",
+      "sizeBytes": null,
+      "updatedAt": "2026-07-07T09:52:46.613Z"
+    }
+  ],
+  "artifacts": [
+    {
+      "artifactId": "art_00000001",
+      "runId": "run_00000001",
+      "label": "receipts",
+      "file": {
+        "path": "C:/dev/copypaste/agent-workshop/.tmp/api-persistence-check/workspace/run-01/receipts/",
+        "name": "receipts",
+        "kind": "receipt",
+        "sizeBytes": null,
+        "updatedAt": "2026-07-07T09:52:46.613Z"
+      },
+      "status": "pending",
+      "downloadUrl": null
+    },
+    {
+      "artifactId": "art_00000002",
+      "runId": "run_00000001",
+      "label": "output",
+      "file": {
+        "path": "C:/dev/copypaste/agent-workshop/.tmp/api-persistence-check/workspace/run-01/output/",
+        "name": "output",
+        "kind": "output",
+        "sizeBytes": null,
+        "updatedAt": "2026-07-07T09:52:46.613Z"
+      },
+      "status": "pending",
+      "downloadUrl": null
+    },
+    {
+      "artifactId": "art_00000003",
+      "runId": "run_00000001",
+      "label": "archive",
+      "file": {
+        "path": "C:/dev/copypaste/agent-workshop/.tmp/api-persistence-check/workspace/run-01/archive/",
+        "name": "archive",
+        "kind": "archive",
+        "sizeBytes": null,
+        "updatedAt": "2026-07-07T09:52:46.613Z"
+      },
+      "status": "pending",
+      "downloadUrl": null
+    }
+  ],
+  "approvals": [
+    {
+      "approvalId": "apr_00000001",
+      "runId": "run_00000001",
+      "prompt": "敏感动作触发时回到对话流请求确认。",
+      "state": "pending",
+      "requestedAt": "2026-07-07T09:52:46.614Z",
+      "decidedAt": null,
+      "note": null
+    }
+  ],
+  "input": {
+    "workspaceId": "wsp_personal",
+    "taskVersionId": "tsv_storyboard_001",
+    "sessionVersionId": "sev_storyboard_001",
+    "requestedByUserId": "usr_demo_001",
+    "title": "Persistence Check",
+    "targetPath": "C:/dev/copypaste/agent-workshop/.tmp/api-persistence-check/workspace/run-01",
+    "entrySurface": "h5",
+    "initialMessage": null,
+    "bindings": {
+      "firstPartyMcpIds": [],
+      "externalConnectorRefs": [],
+      "credentialIds": []
+    }
+  },
+  "startJob": {
+    "run": {
+      "runId": "run_00000001",
+      "workspaceId": "wsp_personal",
+      "taskVersionId": "tsv_storyboard_001",
+      "sessionVersionId": "sev_storyboard_001",
+      "requestedByUserId": "usr_demo_001",
+      "title": "Persistence Check",
+      "targetPath": "C:/dev/copypaste/agent-workshop/.tmp/api-persistence-check/workspace/run-01",
+      "entrySurface": "h5",
+      "status": "CREATED",
+      "statusReason": null,
+      "createdAt": "2026-07-07T09:52:46.610Z",
+      "updatedAt": "2026-07-07T09:52:46.610Z"
+    },
+    "initialPrompt": "请问你需要我提供什么信息给你。\n当前任务标题：Persistence Check\n目标路径：C:/dev/copypaste/agent-workshop/.tmp/api-persistence-check/workspace/run-01\n请基于当前任务目标，明确告诉用户继续执行前需要的资料、账号、授权、审批和补充说明。",
+    "requestedInitialMessage": null,
+    "bindings": {
+      "firstPartyMcpIds": [],
+      "externalConnectorRefs": [],
+      "credentialIds": []
+    },
+    "credentialMounts": [],
+    "mcpBindings": []
+  }
+}

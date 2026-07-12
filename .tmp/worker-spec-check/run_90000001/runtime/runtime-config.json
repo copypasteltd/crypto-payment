@@ -1,0 +1,129 @@
+{
+  "schemaVersion": 1,
+  "runId": "run_90000001",
+  "workspaceId": "wsp_personal",
+  "job": {
+    "run": {
+      "runId": "run_90000001",
+      "workspaceId": "wsp_personal",
+      "taskVersionId": "tsv_storyboard_001",
+      "sessionVersionId": "sev_storyboard_001",
+      "requestedByUserId": "usr_demo_001",
+      "title": "worker spec check",
+      "targetPath": "C:/dev/copypaste/agent-workshop/.tmp/spec-check-target",
+      "entrySurface": "dashboard",
+      "status": "QUEUED",
+      "statusReason": "worker accepted the run into the launch queue",
+      "createdAt": "2026-07-07T10:41:23.998Z",
+      "updatedAt": "2026-07-07T10:41:24.013Z"
+    },
+    "initialPrompt": "collect required info",
+    "requestedInitialMessage": null,
+    "bindings": {
+      "firstPartyMcpIds": [
+        "mcp.browser.playwright"
+      ],
+      "externalConnectorRefs": [
+        "third-party:figma-mcp"
+      ],
+      "credentialIds": [
+        "cred_browser_storage_state",
+        "cred_figma_pat"
+      ]
+    },
+    "credentialMounts": [
+      {
+        "credentialId": "cred_browser_storage_state",
+        "mode": "file",
+        "mountPath": "/workspace/secrets/browser/browser-storage-state.json",
+        "readOnly": true
+      },
+      {
+        "credentialId": "cred_figma_pat",
+        "mode": "env",
+        "envName": "LB_FIGMA_PAT",
+        "readOnly": true
+      }
+    ],
+    "mcpBindings": [
+      {
+        "bindingId": "mbd_browser-playwright",
+        "source": "first-party",
+        "transport": "stdio",
+        "ref": "/workspace/mcp/playwright-browser-helper.js",
+        "credentialId": "cred_browser_storage_state",
+        "authMode": "file",
+        "authRef": "/workspace/secrets/browser/browser-storage-state.json",
+        "networkPolicyRef": "np_browser-playwright",
+        "approvalRequired": true
+      },
+      {
+        "bindingId": "mbd_figma-mcp",
+        "source": "third-party",
+        "transport": "sse",
+        "ref": "https://third-party-mcp.example.org/figma/sse",
+        "credentialId": "cred_figma_pat",
+        "authMode": "env",
+        "authRef": "LB_FIGMA_PAT",
+        "networkPolicyRef": "np_figma-mcp",
+        "approvalRequired": true
+      }
+    ]
+  },
+  "workspace": {
+    "runId": "run_90000001",
+    "workspaceId": "wsp_personal",
+    "hostPaths": {
+      "runRootPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\worker-spec-check\\run_90000001",
+      "targetPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\spec-check-target",
+      "inputsPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\worker-spec-check\\run_90000001\\inputs",
+      "outputsPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\worker-spec-check\\run_90000001\\outputs",
+      "statePath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\worker-spec-check\\run_90000001\\state",
+      "runtimePath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\worker-spec-check\\run_90000001\\runtime",
+      "codexHomePath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\worker-spec-check\\run_90000001\\codex-home",
+      "homePath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\worker-spec-check\\run_90000001\\home",
+      "tmpPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\worker-spec-check\\run_90000001\\tmp",
+      "browserProfilePath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\worker-spec-check\\run_90000001\\browser-profile",
+      "mcpPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\worker-spec-check\\run_90000001\\mcp",
+      "secretsPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\worker-spec-check\\run_90000001\\secrets",
+      "logsPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\worker-spec-check\\run_90000001\\logs"
+    },
+    "containerPaths": {
+      "workspaceRoot": "/workspace",
+      "targetPath": "/workspace/target",
+      "inputsPath": "/workspace/inputs",
+      "outputsPath": "/workspace/outputs",
+      "statePath": "/workspace/state",
+      "runtimePath": "/workspace/runtime",
+      "codexHomePath": "/workspace/codex-home",
+      "homePath": "/workspace/home",
+      "tmpPath": "/workspace/tmp",
+      "browserProfilePath": "/workspace/browser-profile",
+      "mcpPath": "/workspace/mcp",
+      "secretsPath": "/workspace/secrets",
+      "logsPath": "/workspace/logs"
+    }
+  },
+  "env": {
+    "HOME": "/workspace/home",
+    "CODEX_HOME": "/workspace/codex-home",
+    "TMPDIR": "/workspace/tmp",
+    "TARGET_PATH": "/workspace/target",
+    "PLAYWRIGHT_BROWSERS_PATH": "/ms-playwright",
+    "RUN_ID": "run_90000001",
+    "WORKSPACE_ID": "wsp_personal",
+    "MCP_CONFIG_PATH": "/workspace/runtime/mcp-config.json",
+    "BRIDGE_CONTEXT_PATH": "/workspace/runtime/bridge-context.container.json",
+    "RUNTIME_CONFIG_PATH": "/workspace/runtime/runtime-config.json",
+    "BRIDGE_PORT": "3800"
+  },
+  "files": {
+    "runtimeConfigPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\worker-spec-check\\run_90000001\\runtime\\runtime-config.json",
+    "bridgeContextHostPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\worker-spec-check\\run_90000001\\runtime\\bridge-context.host.json",
+    "bridgeContextContainerPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\worker-spec-check\\run_90000001\\runtime\\bridge-context.container.json",
+    "mcpConfigPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\worker-spec-check\\run_90000001\\runtime\\mcp-config.json",
+    "mcpBindingsPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\worker-spec-check\\run_90000001\\runtime\\mcp-bindings.json",
+    "secretManifestPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\worker-spec-check\\run_90000001\\runtime\\secret-manifest.json",
+    "containerLaunchPlanPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\worker-spec-check\\run_90000001\\runtime\\container-launch-plan.json"
+  }
+}

@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "runId": "run_00000001",
+  "workspaceId": "wsp_brand_content",
+  "job": {
+    "run": {
+      "runId": "run_00000001",
+      "workspaceId": "wsp_brand_content",
+      "taskVersionId": "tsv_poster_batch",
+      "sessionVersionId": "sev_brand_poster_suite",
+      "requestedByUserId": null,
+      "title": "????????",
+      "targetPath": "/workspace/poster-batch-17/runs/poster-batch-20260707202204/",
+      "entrySurface": "dashboard",
+      "status": "QUEUED",
+      "statusReason": "worker accepted the run into the launch queue",
+      "createdAt": "2026-07-07T20:22:04.961Z",
+      "updatedAt": "2026-07-07T20:22:04.978Z"
+    },
+    "initialPrompt": "请问你需要我提供什么信息给你。\n当前任务标题：????????\n目标路径：/workspace/poster-batch-17/runs/poster-batch-20260707202204/\n请基于当前任务目标，明确告诉用户继续执行前需要的资料、账号、授权、审批和补充说明。",
+    "requestedInitialMessage": null,
+    "bindings": {
+      "firstPartyMcpIds": [
+        "mcp.image.gpt-image-2"
+      ],
+      "externalConnectorRefs": [
+        "third-party:asset-library"
+      ],
+      "credentialIds": [
+        "cred_openai_image_api_key",
+        "cred_asset_library_api_key"
+      ]
+    },
+    "credentialMounts": [
+      {
+        "credentialId": "cred_openai_image_api_key",
+        "mode": "env",
+        "envName": "LB_OPENAI_IMAGE_API_KEY",
+        "readOnly": true
+      },
+      {
+        "credentialId": "cred_asset_library_api_key",
+        "mode": "env",
+        "envName": "LB_ASSET_LIBRARY_API_KEY",
+        "readOnly": true
+      }
+    ],
+    "mcpBindings": [
+      {
+        "bindingId": "mbd_image-gpt-image-2",
+        "source": "first-party",
+        "transport": "stdio",
+        "ref": "/workspace/mcp/imagegen-helper.js",
+        "credentialId": "cred_openai_image_api_key",
+        "authMode": "env",
+        "authRef": "LB_OPENAI_IMAGE_API_KEY",
+        "networkPolicyRef": "np_image-gpt-image-2",
+        "approvalRequired": false
+      },
+      {
+        "bindingId": "mbd_asset-library",
+        "source": "third-party",
+        "transport": "http",
+        "ref": "https://third-party-mcp.example.org/assets",
+        "credentialId": "cred_asset_library_api_key",
+        "authMode": "env",
+        "authRef": "LB_ASSET_LIBRARY_API_KEY",
+        "networkPolicyRef": "np_asset-library",
+        "approvalRequired": true
+      }
+    ]
+  },
+  "workspace": {
+    "runId": "run_00000001",
+    "workspaceId": "wsp_brand_content",
+    "hostPaths": {
+      "runRootPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001",
+      "targetPath": "C:\\workspace\\poster-batch-17\\runs\\poster-batch-20260707202204",
+      "inputsPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\inputs",
+      "outputsPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\outputs",
+      "statePath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\state",
+      "runtimePath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\runtime",
+      "codexHomePath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\codex-home",
+      "homePath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\home",
+      "tmpPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\tmp",
+      "browserProfilePath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\browser-profile",
+      "mcpPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\mcp",
+      "secretsPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\secrets",
+      "logsPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\logs"
+    },
+    "containerPaths": {
+      "workspaceRoot": "/workspace",
+      "targetPath": "/workspace/target",
+      "inputsPath": "/workspace/inputs",
+      "outputsPath": "/workspace/outputs",
+      "statePath": "/workspace/state",
+      "runtimePath": "/workspace/runtime",
+      "codexHomePath": "/workspace/codex-home",
+      "homePath": "/workspace/home",
+      "tmpPath": "/workspace/tmp",
+      "browserProfilePath": "/workspace/browser-profile",
+      "mcpPath": "/workspace/mcp",
+      "secretsPath": "/workspace/secrets",
+      "logsPath": "/workspace/logs"
+    }
+  },
+  "env": {
+    "HOME": "/workspace/home",
+    "CODEX_HOME": "/workspace/codex-home",
+    "TMPDIR": "/workspace/tmp",
+    "TARGET_PATH": "/workspace/target",
+    "PLAYWRIGHT_BROWSERS_PATH": "/ms-playwright",
+    "RUN_ID": "run_00000001",
+    "WORKSPACE_ID": "wsp_brand_content",
+    "MCP_CONFIG_PATH": "/workspace/runtime/mcp-config.json",
+    "BRIDGE_CONTEXT_PATH": "/workspace/runtime/bridge-context.container.json",
+    "RUNTIME_CONFIG_PATH": "/workspace/runtime/runtime-config.json",
+    "BRIDGE_CONTROL_HOST": "0.0.0.0",
+    "BRIDGE_CONTROL_PORT": "3800",
+    "LINGBAN_API_BASE_URL": "http://127.0.0.1:3311",
+    "LINGBAN_INTERNAL_AUTH_TOKEN": "catalog-smoke-token"
+  },
+  "files": {
+    "runtimeConfigPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\runtime\\runtime-config.json",
+    "bridgeContextHostPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\runtime\\bridge-context.host.json",
+    "bridgeContextContainerPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\runtime\\bridge-context.container.json",
+    "mcpConfigPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\runtime\\mcp-config.json",
+    "mcpBindingsPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\runtime\\mcp-bindings.json",
+    "secretManifestPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\runtime\\secret-manifest.json",
+    "containerLaunchPlanPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\catalog-smoke\\worker\\runs\\run_00000001\\runtime\\container-launch-plan.json"
+  }
+}

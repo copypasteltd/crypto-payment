@@ -1,0 +1,17 @@
+{
+  "servers": {
+    "mbd_image-gpt-image-2": {
+      "type": "local-process",
+      "command": "node",
+      "args": [
+        "/workspace/mcp/imagegen-helper.js"
+      ],
+      "auth_env": "LB_OPENAI_IMAGE_API_KEY"
+    },
+    "mbd_asset-library": {
+      "type": "remote-unmanaged",
+      "url": "https://third-party-mcp.example.org/assets",
+      "auth_env": "LB_ASSET_LIBRARY_API_KEY"
+    }
+  }
+}

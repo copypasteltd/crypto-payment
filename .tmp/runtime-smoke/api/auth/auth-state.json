@@ -1,0 +1,154 @@
+{
+  "users": [
+    {
+      "userId": "usr_00000001",
+      "email": "smoke@example.com",
+      "displayName": "Smoke User",
+      "createdAt": "2026-07-07T20:00:11.357Z",
+      "updatedAt": "2026-07-07T20:00:11.357Z",
+      "passwordHash": "scrypt$SL-JXX__85wkf2Q1keKE0A$3ac9cd3869a7f9e5a7736be2b6922693d12ade55908bb4db8b0ea61b19b4968bc8919ca85a037b8a0d948ec0b55a6ca089c642d5268e2c8dd7113a05f8c084f7"
+    },
+    {
+      "userId": "usr_00000002",
+      "email": "smoke2@example.com",
+      "displayName": "Smoke User",
+      "createdAt": "2026-07-07T20:00:30.364Z",
+      "updatedAt": "2026-07-07T20:00:30.364Z",
+      "passwordHash": "scrypt$JJZeyIsXXwxN_dX3m_wBTg$6fb2f1e8d203d591bf9c0893a69805200a804fc4c65119e831251ce8c92fbd49b8b11c28f4ebb39353e67d50cc85deaf58336b829417dcfbf0d438498285e24a"
+    },
+    {
+      "userId": "usr_00000003",
+      "email": "smoke3@example.com",
+      "displayName": "Smoke User",
+      "createdAt": "2026-07-07T20:04:50.136Z",
+      "updatedAt": "2026-07-07T20:04:50.136Z",
+      "passwordHash": "scrypt$NQZhJL8PDQvlgCRBlSqeng$6c755ad9f0c2a0ddcd8d4cf5bee70f2cac7b587acb03407d1c9b203fe5470edcb55b0a31775986bde3f66f153f0128e318123486cdec26d84df1520451c42531"
+    },
+    {
+      "userId": "usr_00000004",
+      "email": "smoke4@example.com",
+      "displayName": "Smoke User",
+      "createdAt": "2026-07-07T20:06:47.795Z",
+      "updatedAt": "2026-07-07T20:06:47.795Z",
+      "passwordHash": "scrypt$qw4vUwhmkL_lBE5zTllOOA$70ef7e8e8d24fc1a8691d0625330af428ff2b7b221ebb42b90085c87fed805185a42cacb19c8e041782b78cee2dd93e4bbe3ebcf0dd2d079bef58535f55cd81b"
+    }
+  ],
+  "workspaces": [
+    {
+      "workspaceId": "wsp_00000001",
+      "slug": "smoke-workspace",
+      "name": "Smoke Workspace",
+      "type": "personal",
+      "createdAt": "2026-07-07T20:00:11.357Z",
+      "updatedAt": "2026-07-07T20:00:11.357Z"
+    },
+    {
+      "workspaceId": "wsp_00000002",
+      "slug": "smoke-workspace",
+      "name": "Smoke Workspace",
+      "type": "personal",
+      "createdAt": "2026-07-07T20:00:30.364Z",
+      "updatedAt": "2026-07-07T20:00:30.364Z"
+    },
+    {
+      "workspaceId": "wsp_00000003",
+      "slug": "smoke-workspace",
+      "name": "Smoke Workspace",
+      "type": "personal",
+      "createdAt": "2026-07-07T20:04:50.136Z",
+      "updatedAt": "2026-07-07T20:04:50.136Z"
+    },
+    {
+      "workspaceId": "wsp_00000004",
+      "slug": "smoke-workspace",
+      "name": "Smoke Workspace",
+      "type": "personal",
+      "createdAt": "2026-07-07T20:06:47.795Z",
+      "updatedAt": "2026-07-07T20:06:47.795Z"
+    }
+  ],
+  "memberships": [
+    {
+      "workspaceId": "wsp_00000001",
+      "userId": "usr_00000001",
+      "role": "owner",
+      "status": "active",
+      "createdAt": "2026-07-07T20:00:11.357Z",
+      "updatedAt": "2026-07-07T20:00:11.357Z"
+    },
+    {
+      "workspaceId": "wsp_00000002",
+      "userId": "usr_00000002",
+      "role": "owner",
+      "status": "active",
+      "createdAt": "2026-07-07T20:00:30.364Z",
+      "updatedAt": "2026-07-07T20:00:30.364Z"
+    },
+    {
+      "workspaceId": "wsp_00000003",
+      "userId": "usr_00000003",
+      "role": "owner",
+      "status": "active",
+      "createdAt": "2026-07-07T20:04:50.136Z",
+      "updatedAt": "2026-07-07T20:04:50.136Z"
+    },
+    {
+      "workspaceId": "wsp_00000004",
+      "userId": "usr_00000004",
+      "role": "owner",
+      "status": "active",
+      "createdAt": "2026-07-07T20:06:47.795Z",
+      "updatedAt": "2026-07-07T20:06:47.795Z"
+    }
+  ],
+  "sessions": [
+    {
+      "sessionId": "ses_00000001",
+      "userId": "usr_00000001",
+      "currentWorkspaceId": "wsp_00000001",
+      "accessTokenExpiresAt": "2026-07-07T20:15:11.444Z",
+      "refreshTokenExpiresAt": "2026-08-06T20:00:11.444Z",
+      "createdAt": "2026-07-07T20:00:11.443Z",
+      "updatedAt": "2026-07-07T20:00:11.443Z",
+      "accessTokenHash": "58e4dfa4fa967969ebf8618a0cc59737ebcbb5026c2c95b67d0c9aa33f21f967",
+      "refreshTokenHash": "04e06725c647ff29ff81f52559926a6e6def793fa8b6e0705711af09a0cbc1fe",
+      "revokedAt": null
+    },
+    {
+      "sessionId": "ses_00000002",
+      "userId": "usr_00000002",
+      "currentWorkspaceId": "wsp_00000002",
+      "accessTokenExpiresAt": "2026-07-07T20:15:30.438Z",
+      "refreshTokenExpiresAt": "2026-08-06T20:00:30.438Z",
+      "createdAt": "2026-07-07T20:00:30.437Z",
+      "updatedAt": "2026-07-07T20:00:30.437Z",
+      "accessTokenHash": "94b9c5daa6c4a69119589056dd1ff94417c872d40f66eacbb79aab747be5f1a6",
+      "refreshTokenHash": "ae3c6d10279c75a07c42ab4df8adaf31c7cab917cf0ec670e853b259c088b2ae",
+      "revokedAt": null
+    },
+    {
+      "sessionId": "ses_00000003",
+      "userId": "usr_00000003",
+      "currentWorkspaceId": "wsp_00000003",
+      "accessTokenExpiresAt": "2026-07-07T20:19:50.216Z",
+      "refreshTokenExpiresAt": "2026-08-06T20:04:50.216Z",
+      "createdAt": "2026-07-07T20:04:50.215Z",
+      "updatedAt": "2026-07-07T20:04:50.215Z",
+      "accessTokenHash": "433be4b85c7dcb76c93ee68e336fcfd18dc74f93e187b0916588ed63a8373f5b",
+      "refreshTokenHash": "27373801ec5b2e2f853713e74bf91678a6391a762628c6e38229e14a5d8828d2",
+      "revokedAt": null
+    },
+    {
+      "sessionId": "ses_00000004",
+      "userId": "usr_00000004",
+      "currentWorkspaceId": "wsp_00000004",
+      "accessTokenExpiresAt": "2026-07-07T20:21:47.938Z",
+      "refreshTokenExpiresAt": "2026-08-06T20:06:47.938Z",
+      "createdAt": "2026-07-07T20:06:47.937Z",
+      "updatedAt": "2026-07-07T20:06:47.937Z",
+      "accessTokenHash": "b46cc7c948a1a275b9f9267ecb4e9ee707f454212a9c6dc5c253df87cdc83e26",
+      "refreshTokenHash": "d5b072cf61e502dddd049d18684b081dd1ea2713336957b0ead736e2601eee7e",
+      "revokedAt": null
+    }
+  ]
+}
