@@ -1,0 +1,35 @@
+{
+  "name": "agent-workshop-sdk-workspace",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@10.0.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@parcel/watcher",
+      "@swc/core",
+      "@tarojs/binding",
+      "@tarojs/cli",
+      "core-js",
+      "core-js-pure",
+      "esbuild",
+      "msgpackr-extract",
+      "node-pty"
+    ]
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@types/node": "^22.17.2",
+    "turbo": "^2.0.14",
+    "typescript": "~5.8.3"
+  },
+  "scripts": {
+    "start:runtime": "pnpm -C app/container-bridge run start:runtime",
+    "build:local": "pnpm --filter @lingban/config --filter @lingban/contracts --filter @lingban/mcp --filter @lingban/shared build && pnpm -C app/container-bridge run build:local",
+    "build": "pnpm --filter @lingban/config --filter @lingban/contracts --filter @lingban/mcp --filter @lingban/shared build && pnpm -C app/container-bridge run build",
+    "typecheck": "pnpm --filter @lingban/config --filter @lingban/contracts --filter @lingban/mcp --filter @lingban/shared build && pnpm -C app/container-bridge run typecheck",
+    "test:compiled": "pnpm -C app/container-bridge run test:compiled",
+    "test": "pnpm -C app/container-bridge run test",
+    "validate": "pnpm run test"
+  }
+}

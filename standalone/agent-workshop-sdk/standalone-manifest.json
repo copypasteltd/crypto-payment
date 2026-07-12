@@ -1,0 +1,28 @@
+{
+  "target": "sdk",
+  "bundleDirName": "agent-workshop-sdk",
+  "sourceDir": "app/container-bridge",
+  "validateCommand": "pnpm run test",
+  "includedPackages": [
+    {
+      "name": "@lingban/container-bridge",
+      "relativeDir": "app/container-bridge"
+    },
+    {
+      "name": "@lingban/config",
+      "relativeDir": "packages/config"
+    },
+    {
+      "name": "@lingban/contracts",
+      "relativeDir": "packages/contracts"
+    },
+    {
+      "name": "@lingban/mcp",
+      "relativeDir": "packages/mcp"
+    },
+    {
+      "name": "@lingban/shared",
+      "relativeDir": "packages/shared"
+    }
+  ]
+}

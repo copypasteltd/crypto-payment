@@ -1,0 +1,40 @@
+{
+  "target": "run-worker",
+  "bundleDirName": "agent-workshop-run-worker",
+  "sourceDir": "app/run-worker",
+  "validateCommand": "pnpm run test",
+  "includedPackages": [
+    {
+      "name": "@lingban/container-bridge",
+      "relativeDir": "app/container-bridge"
+    },
+    {
+      "name": "@lingban/run-worker",
+      "relativeDir": "app/run-worker"
+    },
+    {
+      "name": "@lingban/config",
+      "relativeDir": "packages/config"
+    },
+    {
+      "name": "@lingban/contracts",
+      "relativeDir": "packages/contracts"
+    },
+    {
+      "name": "@lingban/domain-models",
+      "relativeDir": "packages/domain-models"
+    },
+    {
+      "name": "@lingban/mcp",
+      "relativeDir": "packages/mcp"
+    },
+    {
+      "name": "@lingban/session-pack",
+      "relativeDir": "packages/session-pack"
+    },
+    {
+      "name": "@lingban/shared",
+      "relativeDir": "packages/shared"
+    }
+  ]
+}

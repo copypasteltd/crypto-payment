@@ -1,0 +1,40 @@
+{
+  "name": "agent-workshop-backend-workspace",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@10.0.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@parcel/watcher",
+      "@swc/core",
+      "@tarojs/binding",
+      "@tarojs/cli",
+      "core-js",
+      "core-js-pure",
+      "esbuild",
+      "msgpackr-extract",
+      "node-pty"
+    ]
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@types/node": "^22.17.2",
+    "turbo": "^2.0.14",
+    "typescript": "~5.8.3"
+  },
+  "scripts": {
+    "start": "pnpm -C app/api run start",
+    "build:local": "pnpm --filter @lingban/container-bridge --filter @lingban/run-worker --filter @lingban/config --filter @lingban/contracts --filter @lingban/credential --filter @lingban/db --filter @lingban/domain-models --filter @lingban/files --filter @lingban/mcp --filter @lingban/session-pack --filter @lingban/shared build && pnpm -C app/api run build:local",
+    "build": "pnpm --filter @lingban/container-bridge --filter @lingban/run-worker --filter @lingban/config --filter @lingban/contracts --filter @lingban/credential --filter @lingban/db --filter @lingban/domain-models --filter @lingban/files --filter @lingban/mcp --filter @lingban/session-pack --filter @lingban/shared build && pnpm -C app/api run build",
+    "typecheck": "pnpm --filter @lingban/container-bridge --filter @lingban/run-worker --filter @lingban/config --filter @lingban/contracts --filter @lingban/credential --filter @lingban/db --filter @lingban/domain-models --filter @lingban/files --filter @lingban/mcp --filter @lingban/session-pack --filter @lingban/shared build && pnpm -C app/api run typecheck",
+    "migrate": "pnpm -C app/api run migrate",
+    "migrate:status": "pnpm -C app/api run migrate:status",
+    "migrate:dry-run": "pnpm -C app/api run migrate:dry-run",
+    "migrate:reset": "pnpm -C app/api run migrate:reset",
+    "migrate:seed": "pnpm -C app/api run migrate:seed",
+    "test:smoke:compiled": "pnpm -C app/api run test:smoke:compiled",
+    "test:smoke": "pnpm -C app/api run test:smoke",
+    "validate": "pnpm run build && pnpm run test:smoke:compiled"
+  }
+}

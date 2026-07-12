@@ -1,0 +1,37 @@
+{
+  "name": "agent-workshop-app-workspace",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@10.0.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@parcel/watcher",
+      "@swc/core",
+      "@tarojs/binding",
+      "@tarojs/cli",
+      "core-js",
+      "core-js-pure",
+      "esbuild",
+      "msgpackr-extract",
+      "node-pty"
+    ]
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "@types/node": "^22.17.2",
+    "turbo": "^2.0.14",
+    "typescript": "~5.8.3"
+  },
+  "scripts": {
+    "new": "pnpm -C app/mobile run new",
+    "typecheck": "pnpm --filter @lingban/api-sdk --filter @lingban/contracts --filter @lingban/domain-models --filter @lingban/realtime --filter @lingban/ui-tokens build && pnpm -C app/mobile run typecheck",
+    "build:weapp": "pnpm --filter @lingban/api-sdk --filter @lingban/contracts --filter @lingban/domain-models --filter @lingban/realtime --filter @lingban/ui-tokens build && pnpm -C app/mobile run build:weapp",
+    "build:alipay": "pnpm --filter @lingban/api-sdk --filter @lingban/contracts --filter @lingban/domain-models --filter @lingban/realtime --filter @lingban/ui-tokens build && pnpm -C app/mobile run build:alipay",
+    "build:h5": "pnpm --filter @lingban/api-sdk --filter @lingban/contracts --filter @lingban/domain-models --filter @lingban/realtime --filter @lingban/ui-tokens build && pnpm -C app/mobile run build:h5",
+    "dev:weapp": "pnpm -C app/mobile run dev:weapp",
+    "dev:alipay": "pnpm -C app/mobile run dev:alipay",
+    "dev:h5": "pnpm -C app/mobile run dev:h5",
+    "validate": "pnpm run typecheck && pnpm run build:h5"
+  }
+}

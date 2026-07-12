@@ -1,0 +1,32 @@
+{
+  "target": "app",
+  "bundleDirName": "agent-workshop-app",
+  "sourceDir": "app/mobile",
+  "validateCommand": "pnpm run typecheck && pnpm run build:h5",
+  "includedPackages": [
+    {
+      "name": "lingban-mobile",
+      "relativeDir": "app/mobile"
+    },
+    {
+      "name": "@lingban/api-sdk",
+      "relativeDir": "packages/api-sdk"
+    },
+    {
+      "name": "@lingban/contracts",
+      "relativeDir": "packages/contracts"
+    },
+    {
+      "name": "@lingban/domain-models",
+      "relativeDir": "packages/domain-models"
+    },
+    {
+      "name": "@lingban/realtime",
+      "relativeDir": "packages/realtime"
+    },
+    {
+      "name": "@lingban/ui-tokens",
+      "relativeDir": "packages/ui-tokens"
+    }
+  ]
+}
