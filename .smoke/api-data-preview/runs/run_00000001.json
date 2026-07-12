@@ -1,0 +1,166 @@
+{
+  "run": {
+    "runId": "run_00000001",
+    "workspaceId": "wsp_00000001",
+    "taskVersionId": "tsv_00000001",
+    "sessionVersionId": "sev_00000001",
+    "requestedByUserId": "usr_00000001",
+    "title": "Preview smoke run",
+    "targetPath": "C:/workspace/preview-smoke-run/target",
+    "entrySurface": "h5",
+    "status": "FAILED",
+    "statusReason": "bridge launch failed: docker bridge runtime exited before health check succeeded (exit=127, signal=null)",
+    "createdAt": "2026-07-07T23:05:34.156Z",
+    "updatedAt": "2026-07-07T23:05:35.484Z"
+  },
+  "messages": [
+    {
+      "messageId": "msg_00000001",
+      "runId": "run_00000001",
+      "role": "system",
+      "kind": "prompt",
+      "text": "请问你需要我提供什么信息给你。\n当前任务标题：Preview smoke run\n目标路径：C:/workspace/preview-smoke-run/target\n请基于当前任务目标，明确告诉用户继续执行前需要的资料、账号、授权、审批和补充说明。",
+      "attachments": [],
+      "createdAt": "2026-07-07T23:05:34.159Z"
+    }
+  ],
+  "files": [
+    {
+      "path": "C:/workspace/preview-smoke-run/target/",
+      "name": "target",
+      "kind": "output",
+      "sizeBytes": null,
+      "updatedAt": "2026-07-07T23:05:34.475Z"
+    },
+    {
+      "path": "C:/workspace/preview-smoke-run/target/uploads/",
+      "name": "uploads",
+      "kind": "output",
+      "sizeBytes": null,
+      "updatedAt": "2026-07-07T23:05:34.534Z"
+    },
+    {
+      "path": "C:/workspace/preview-smoke-run/target/uploads/upl_00000001/",
+      "name": "upl_00000001",
+      "kind": "output",
+      "sizeBytes": null,
+      "updatedAt": "2026-07-07T23:05:34.478Z"
+    },
+    {
+      "path": "C:/workspace/preview-smoke-run/target/uploads/upl_00000001/notes.txt",
+      "name": "notes.txt",
+      "kind": "output",
+      "sizeBytes": 31,
+      "updatedAt": "2026-07-07T23:05:34.452Z"
+    },
+    {
+      "path": "C:/workspace/preview-smoke-run/target/uploads/upl_00000002/",
+      "name": "upl_00000002",
+      "kind": "output",
+      "sizeBytes": null,
+      "updatedAt": "2026-07-07T23:05:34.534Z"
+    },
+    {
+      "path": "C:/workspace/preview-smoke-run/target/uploads/upl_00000002/pixel.png",
+      "name": "pixel.png",
+      "kind": "screenshot",
+      "sizeBytes": 68,
+      "updatedAt": "2026-07-07T23:05:34.529Z"
+    }
+  ],
+  "artifacts": [
+    {
+      "artifactId": "art_00000001",
+      "runId": "run_00000001",
+      "label": "receipts",
+      "file": {
+        "path": "C:/workspace/preview-smoke-run/target/receipts/",
+        "name": "receipts",
+        "kind": "receipt",
+        "sizeBytes": null,
+        "updatedAt": "2026-07-07T23:05:34.158Z"
+      },
+      "status": "pending",
+      "downloadUrl": null
+    },
+    {
+      "artifactId": "art_00000002",
+      "runId": "run_00000001",
+      "label": "output",
+      "file": {
+        "path": "C:/workspace/preview-smoke-run/target/output/",
+        "name": "output",
+        "kind": "output",
+        "sizeBytes": null,
+        "updatedAt": "2026-07-07T23:05:34.158Z"
+      },
+      "status": "pending",
+      "downloadUrl": null
+    },
+    {
+      "artifactId": "art_00000003",
+      "runId": "run_00000001",
+      "label": "archive",
+      "file": {
+        "path": "C:/workspace/preview-smoke-run/target/archive/",
+        "name": "archive",
+        "kind": "archive",
+        "sizeBytes": null,
+        "updatedAt": "2026-07-07T23:05:34.158Z"
+      },
+      "status": "pending",
+      "downloadUrl": null
+    }
+  ],
+  "approvals": [
+    {
+      "approvalId": "apr_00000001",
+      "runId": "run_00000001",
+      "prompt": "Confirm any sensitive operation before execution continues.",
+      "state": "pending",
+      "requestedAt": "2026-07-07T23:05:34.160Z",
+      "decidedAt": null,
+      "note": null
+    }
+  ],
+  "input": {
+    "workspaceId": "wsp_00000001",
+    "taskVersionId": "tsv_00000001",
+    "sessionVersionId": "sev_00000001",
+    "requestedByUserId": "usr_00000001",
+    "title": "Preview smoke run",
+    "targetPath": "C:/workspace/preview-smoke-run/target",
+    "entrySurface": "h5",
+    "initialMessage": null,
+    "bindings": {
+      "firstPartyMcpIds": [],
+      "externalConnectorRefs": [],
+      "credentialIds": []
+    }
+  },
+  "startJob": {
+    "run": {
+      "runId": "run_00000001",
+      "workspaceId": "wsp_00000001",
+      "taskVersionId": "tsv_00000001",
+      "sessionVersionId": "sev_00000001",
+      "requestedByUserId": "usr_00000001",
+      "title": "Preview smoke run",
+      "targetPath": "C:/workspace/preview-smoke-run/target",
+      "entrySurface": "h5",
+      "status": "CREATED",
+      "statusReason": null,
+      "createdAt": "2026-07-07T23:05:34.156Z",
+      "updatedAt": "2026-07-07T23:05:34.156Z"
+    },
+    "initialPrompt": "请问你需要我提供什么信息给你。\n当前任务标题：Preview smoke run\n目标路径：C:/workspace/preview-smoke-run/target\n请基于当前任务目标，明确告诉用户继续执行前需要的资料、账号、授权、审批和补充说明。",
+    "requestedInitialMessage": null,
+    "bindings": {
+      "firstPartyMcpIds": [],
+      "externalConnectorRefs": [],
+      "credentialIds": []
+    },
+    "credentialMounts": [],
+    "mcpBindings": []
+  }
+}

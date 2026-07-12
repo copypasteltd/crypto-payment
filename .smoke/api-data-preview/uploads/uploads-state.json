@@ -1,0 +1,52 @@
+{
+  "uploads": [
+    {
+      "uploadId": "upl_00000001",
+      "runId": "run_00000001",
+      "workspaceId": "wsp_00000001",
+      "fileName": "notes.txt",
+      "contentType": "text/plain; charset=utf-8",
+      "declaredSizeBytes": 31,
+      "storedSizeBytes": 31,
+      "sha256": "201937b4258c1738c5b478d79a8845cfdb2c1f99b3f14acc295cf796ba2d65af",
+      "objectKey": "runs/run_00000001/uploads/fa566828-54e9-4219-9fb0-52601993aa47/notes.txt",
+      "status": "attached",
+      "attachedPath": "C:/workspace/preview-smoke-run/target/uploads/upl_00000001/notes.txt",
+      "attachedLabel": "notes",
+      "createdAt": "2026-07-07T23:05:34.246Z",
+      "updatedAt": "2026-07-07T23:05:34.480Z"
+    },
+    {
+      "uploadId": "upl_00000002",
+      "runId": "run_00000001",
+      "workspaceId": "wsp_00000001",
+      "fileName": "pixel.png",
+      "contentType": "image/png",
+      "declaredSizeBytes": 68,
+      "storedSizeBytes": 68,
+      "sha256": "eead83e5514c971544978d4b92badb2b11825488cccf61a01ed7a75ba7ebe212",
+      "objectKey": "runs/run_00000001/uploads/5bdf8228-ecc5-404e-bad8-ec04dbc63a77/pixel.png",
+      "status": "attached",
+      "attachedPath": "C:/workspace/preview-smoke-run/target/uploads/upl_00000002/pixel.png",
+      "attachedLabel": "pixel",
+      "createdAt": "2026-07-07T23:05:34.522Z",
+      "updatedAt": "2026-07-07T23:05:34.535Z"
+    }
+  ],
+  "downloadTickets": [
+    {
+      "ticketId": "dlt_00000001",
+      "runId": "run_00000001",
+      "workspaceId": "wsp_00000001",
+      "path": "C:/workspace/preview-smoke-run/target/uploads/upl_00000002/pixel.png",
+      "fileName": "pixel.png",
+      "mimeType": "image/png",
+      "sourceKind": "uploaded-object",
+      "objectKey": "runs/run_00000001/uploads/5bdf8228-ecc5-404e-bad8-ec04dbc63a77/pixel.png",
+      "uploadId": "upl_00000002",
+      "expiresAt": "2026-07-07T23:15:34.563Z",
+      "createdAt": "2026-07-07T23:05:34.563Z",
+      "createdByUserId": "usr_00000001"
+    }
+  ]
+}

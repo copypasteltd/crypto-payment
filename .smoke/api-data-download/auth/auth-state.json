@@ -1,0 +1,46 @@
+{
+  "users": [
+    {
+      "userId": "usr_00000001",
+      "email": "smoke-1783463019152@example.com",
+      "displayName": "Smoke Download",
+      "createdAt": "2026-07-07T22:23:39.202Z",
+      "updatedAt": "2026-07-07T22:23:39.202Z",
+      "passwordHash": "scrypt$t5QSDJXXgLXAX0ZUTBGO2A$c75d9c7797540537741a20eb54e97de69bd3e85e76a2e59052d10ea7ee56847afb7f35d97494f9f00a847c040aa101bea0bacef4da038737d5268225e21f7ffc"
+    }
+  ],
+  "workspaces": [
+    {
+      "workspaceId": "wsp_00000001",
+      "slug": "smoke-download-workspace",
+      "name": "Smoke Download Workspace",
+      "type": "personal",
+      "createdAt": "2026-07-07T22:23:39.202Z",
+      "updatedAt": "2026-07-07T22:23:39.202Z"
+    }
+  ],
+  "memberships": [
+    {
+      "workspaceId": "wsp_00000001",
+      "userId": "usr_00000001",
+      "role": "owner",
+      "status": "active",
+      "createdAt": "2026-07-07T22:23:39.202Z",
+      "updatedAt": "2026-07-07T22:23:39.202Z"
+    }
+  ],
+  "sessions": [
+    {
+      "sessionId": "ses_00000001",
+      "userId": "usr_00000001",
+      "currentWorkspaceId": "wsp_00000001",
+      "accessTokenExpiresAt": "2026-07-07T22:38:39.279Z",
+      "refreshTokenExpiresAt": "2026-08-06T22:23:39.279Z",
+      "createdAt": "2026-07-07T22:23:39.278Z",
+      "updatedAt": "2026-07-07T22:23:39.278Z",
+      "accessTokenHash": "1da523e757d0202547df9e28a05d80c8e492d771cf543c86f0a6de56cd2c42d9",
+      "refreshTokenHash": "03490cb5be6efcf8f3d807163883dabc442e5db393cd719775faadabe6054978",
+      "revokedAt": null
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "files": [
+    {
+      "path": "C:/dev/copypaste/agent-workshop/.smoke/objectify/target-workspace/",
+      "name": "target-workspace",
+      "kind": "output",
+      "sizeBytes": null,
+      "updatedAt": "2026-07-07T23:22:48.794Z",
+      "runId": "run_00000001",
+      "workspaceId": "wsp_00000001",
+      "logicalPath": "/",
+      "source": "runtime-output",
+      "mimeType": null,
+      "objectKey": null,
+      "uploadId": null,
+      "checksum": null,
+      "previewMode": "none",
+      "previewable": false,
+      "downloadable": false,
+      "indexedAt": "2026-07-07T23:23:02.546Z"
+    },
+    {
+      "path": "C:/dev/copypaste/agent-workshop/.smoke/objectify/target-workspace/output/",
+      "name": "output",
+      "kind": "output",
+      "sizeBytes": null,
+      "updatedAt": "2026-07-07T23:22:48.794Z",
+      "runId": "run_00000001",
+      "workspaceId": "wsp_00000001",
+      "logicalPath": "/output/",
+      "source": "runtime-output",
+      "mimeType": null,
+      "objectKey": null,
+      "uploadId": null,
+      "checksum": null,
+      "previewMode": "none",
+      "previewable": false,
+      "downloadable": false,
+      "indexedAt": "2026-07-07T23:23:02.546Z"
+    },
+    {
+      "path": "C:/dev/copypaste/agent-workshop/.smoke/objectify/target-workspace/output/report.txt",
+      "name": "report.txt",
+      "kind": "output",
+      "sizeBytes": 21,
+      "updatedAt": "2026-07-07T23:22:48.795Z",
+      "runId": "run_00000001",
+      "workspaceId": "wsp_00000001",
+      "logicalPath": "/output/report.txt",
+      "source": "runtime-output",
+      "mimeType": "text/plain; charset=utf-8",
+      "objectKey": "runs/run_00000001/indexed/runtime-output/output/report.txt",
+      "uploadId": null,
+      "checksum": "bf240e33fcb6ab04345a0d4d07f7b142a0a1715498e545e1ca7e4aa853d9a991",
+      "previewMode": "text",
+      "previewable": true,
+      "downloadable": true,
+      "indexedAt": "2026-07-07T23:23:02.546Z"
+    }
+  ]
+}
