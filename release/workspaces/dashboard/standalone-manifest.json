@@ -1,0 +1,32 @@
+{
+  "target": "dashboard",
+  "bundleDirName": "agent-workshop-dashboard",
+  "sourceDir": "app/dashboard",
+  "validateCommand": "pnpm run lint && pnpm run build",
+  "includedPackages": [
+    {
+      "name": "dashboard",
+      "relativeDir": "app/dashboard"
+    },
+    {
+      "name": "@lingban/api-sdk",
+      "relativeDir": "packages/api-sdk"
+    },
+    {
+      "name": "@lingban/contracts",
+      "relativeDir": "packages/contracts"
+    },
+    {
+      "name": "@lingban/domain-models",
+      "relativeDir": "packages/domain-models"
+    },
+    {
+      "name": "@lingban/realtime",
+      "relativeDir": "packages/realtime"
+    },
+    {
+      "name": "@lingban/ui-tokens",
+      "relativeDir": "packages/ui-tokens"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "generatedAt": "2026-07-12T16:27:12.162Z",
+  "workspaceRoot": "C:\\dev\\copypaste\\agent-workshop",
+  "artifacts": {
+    "static": {
+      "dashboard": "static/dashboard",
+      "mobileH5": "static/mobile-h5"
+    },
+    "workspaces": {
+      "backend": "workspaces/backend",
+      "runWorker": "workspaces/run-worker",
+      "dashboard": "workspaces/dashboard",
+      "app": "workspaces/app"
+    },
+    "deployAssets": "deploy"
+  },
+  "postDeployChecklist": [
+    "Install dependencies inside release/workspaces/backend and release/workspaces/run-worker.",
+    "Build backend and run-worker standalone workspaces on the target Linux host.",
+    "Run backend database migrations before restarting services.",
+    "Serve release/static/dashboard and release/static/mobile-h5 through Nginx or another static host.",
+    "Restart lingban-api and lingban-run-worker systemd services after updating the current symlink."
+  ]
+}

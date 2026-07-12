@@ -1,0 +1,56 @@
+{
+  "target": "backend",
+  "bundleDirName": "agent-workshop-backend",
+  "sourceDir": "app/api",
+  "validateCommand": "pnpm run build && pnpm run test:smoke:compiled",
+  "includedPackages": [
+    {
+      "name": "@lingban/api",
+      "relativeDir": "app/api"
+    },
+    {
+      "name": "@lingban/container-bridge",
+      "relativeDir": "app/container-bridge"
+    },
+    {
+      "name": "@lingban/run-worker",
+      "relativeDir": "app/run-worker"
+    },
+    {
+      "name": "@lingban/config",
+      "relativeDir": "packages/config"
+    },
+    {
+      "name": "@lingban/contracts",
+      "relativeDir": "packages/contracts"
+    },
+    {
+      "name": "@lingban/credential",
+      "relativeDir": "packages/credential"
+    },
+    {
+      "name": "@lingban/db",
+      "relativeDir": "packages/db"
+    },
+    {
+      "name": "@lingban/domain-models",
+      "relativeDir": "packages/domain-models"
+    },
+    {
+      "name": "@lingban/files",
+      "relativeDir": "packages/files"
+    },
+    {
+      "name": "@lingban/mcp",
+      "relativeDir": "packages/mcp"
+    },
+    {
+      "name": "@lingban/session-pack",
+      "relativeDir": "packages/session-pack"
+    },
+    {
+      "name": "@lingban/shared",
+      "relativeDir": "packages/shared"
+    }
+  ]
+}
