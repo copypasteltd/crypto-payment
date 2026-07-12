@@ -1,0 +1,47 @@
+{
+  "name": "@lingban/api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "start": "node dist/index.js",
+    "build:local": "tsc -p tsconfig.json",
+    "build": "pnpm -C ../.. --filter @lingban/config --filter @lingban/contracts --filter @lingban/credential --filter @lingban/mcp --filter @lingban/domain-models --filter @lingban/db --filter @lingban/files --filter @lingban/shared --filter @lingban/session-pack --filter @lingban/run-worker --filter @lingban/container-bridge build && tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "migrate": "node dist/migrate.js up",
+    "migrate:status": "node dist/migrate.js status",
+    "migrate:dry-run": "node dist/migrate.js dry-run",
+    "migrate:reset": "node dist/migrate.js reset --confirm-reset",
+    "migrate:seed": "node dist/migrate.js seed",
+    "test:smoke:compiled": "node --experimental-test-isolation=process --test --test-concurrency=1 tests/database-migrations.smoke.test.mjs tests/session-pack-archive.smoke.test.mjs tests/run-information-collection.smoke.test.mjs tests/session-archives-postgres.smoke.test.mjs tests/batch-runs.smoke.test.mjs tests/batch-runs-postgres.smoke.test.mjs tests/credential-broker-vault.smoke.test.mjs tests/credential-broker-aws-kms.smoke.test.mjs tests/credential-lifecycle-callback.smoke.test.mjs tests/credential-lifecycle-callback-oauth.smoke.test.mjs tests/credential-lifecycle-callback-mtls.smoke.test.mjs tests/file-chain.smoke.test.mjs tests/file-chain-postgres.smoke.test.mjs tests/file-security.smoke.test.mjs tests/file-security-postgres.smoke.test.mjs tests/run-file-lifecycle.smoke.test.mjs tests/run-file-lifecycle-postgres.smoke.test.mjs tests/upload-retention.smoke.test.mjs tests/upload-retention-postgres.smoke.test.mjs tests/internal-bridge-idempotency.smoke.test.mjs tests/runtime-orchestrator.smoke.test.mjs tests/bridge-registry-http-controller.smoke.test.mjs tests/bridge-registry-persistence.smoke.test.mjs tests/bridge-registry-persistence-postgres.smoke.test.mjs tests/runtime-recovery-internal.smoke.test.mjs tests/internal-runtime-diagnostics.smoke.test.mjs tests/readiness-metrics.smoke.test.mjs tests/readiness-worker-ops.smoke.test.mjs tests/mcp-credentials.smoke.test.mjs tests/mcp-health-probe.smoke.test.mjs tests/mcp-call-audit-postgres.smoke.test.mjs tests/creator-release-replay.smoke.test.mjs tests/creator-launch-template-activation.smoke.test.mjs tests/creator-rbac.smoke.test.mjs tests/auth-workspace-context.smoke.test.mjs tests/me-notices.smoke.test.mjs tests/me-profile-assets-authorizations.smoke.test.mjs tests/search-postgres.smoke.test.mjs tests/notifications.smoke.test.mjs tests/notifications-postgres.smoke.test.mjs tests/workspace-membership-invitations.smoke.test.mjs tests/workspace-membership-invitations-postgres.smoke.test.mjs tests/quota-governance.smoke.test.mjs tests/quota-execution-points.smoke.test.mjs tests/billing-ledger.smoke.test.mjs tests/runtime-local-process-system.smoke.test.mjs",
+    "test:smoke": "pnpm -C ../.. build:backend && pnpm test:smoke:compiled"
+  },
+  "dependencies": {
+    "@aws-sdk/client-kms": "^3.883.0",
+    "@aws-sdk/client-s3": "^3.883.0",
+    "@aws-sdk/s3-request-presigner": "^3.883.0",
+    "@fastify/websocket": "^11.2.0",
+    "@lingban/config": "workspace:*",
+    "@lingban/container-bridge": "workspace:*",
+    "@lingban/contracts": "workspace:*",
+    "@lingban/credential": "workspace:*",
+    "@lingban/db": "workspace:*",
+    "@lingban/domain-models": "workspace:*",
+    "@lingban/files": "workspace:*",
+    "@lingban/mcp": "workspace:*",
+    "@lingban/run-worker": "workspace:*",
+    "@lingban/shared": "workspace:*",
+    "@lingban/session-pack": "workspace:*",
+    "fastify": "^5.6.0",
+    "jszip": "^3.10.1",
+    "mammoth": "^1.12.0",
+    "pg": "^8.16.3",
+    "xlsx": "^0.18.5",
+    "zod": "^4.1.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.17.2",
+    "@types/pg": "^8.15.5",
+    "typescript": "~5.8.3"
+  }
+}
