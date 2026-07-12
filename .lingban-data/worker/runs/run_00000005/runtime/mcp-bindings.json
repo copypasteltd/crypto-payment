@@ -1,0 +1,33 @@
+{
+  "runId": "run_00000005",
+  "bindings": [
+    {
+      "bindingId": "mbd_governed-assets",
+      "mcpId": "third-party:governed-assets",
+      "displayName": "Governed Asset Library",
+      "source": "third-party",
+      "transport": "http",
+      "ref": "https://third-party-mcp.example.org/governed-assets",
+      "riskLevel": "high",
+      "credentialId": null,
+      "authMode": null,
+      "authRef": null,
+      "networkPolicyRef": "np_governed_assets",
+      "approvalRequired": true
+    },
+    {
+      "bindingId": "mbd_00000001",
+      "mcpId": "workspace:seedance-api",
+      "displayName": "Seedance Workspace Connector",
+      "source": "workspace-managed",
+      "transport": "http",
+      "ref": "https://mcp.workspace.internal/seedance",
+      "riskLevel": "medium",
+      "credentialId": "cred_00000001",
+      "authMode": "env",
+      "authRef": "LB_00000001",
+      "networkPolicyRef": "np_seedance_workspace",
+      "approvalRequired": false
+    }
+  ]
+}

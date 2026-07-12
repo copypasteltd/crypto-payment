@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>灵办词元</title>
+  <style>
+    :root {
+      --radius-phone: 34px;
+      --radius-card: 22px;
+      --radius-soft: 16px;
+      --radius-pill: 999px;
+      --font-display: "Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif;
+      --font-body: "Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif;
+      --font-mono: "Consolas", "JetBrains Mono", monospace;
+    }
+    body[data-theme="dark"] {
+      --bg: #07111b;
+      --bg-2: #0b1522;
+      --phone: rgba(8, 15, 24, 0.94);
+      --surface: rgba(13, 21, 33, 0.88);
+      --surface-2: rgba(17, 29, 43, 0.92);
+      --surface-3: rgba(23, 37, 55, 0.95);
+      --line: rgba(124, 147, 172, 0.22);
+      --line-strong: rgba(124, 147, 172, 0.36);
+      --text: #eff6ff;
+      --muted: #91a7c0;
+      --accent: #74f2ce;
+      --accent-soft: rgba(116, 242, 206, 0.1);
+      --accent-2: #6075ff;
+      --warn: #f0be66;
+      --warn-soft: rgba(240, 190, 102, 0.12);
+      --success: #74f2ce;
+      --success-soft: rgba(116, 242, 206, 0.08);
+      --hero: linear-gradient(180deg, rgba(96,117,255,0.18), rgba(116,242,206,0.03));
+      --shadow-soft: 0 28px 80px rgba(0, 0, 0, 0.42);
+      --shadow-card: 0 18px 50px rgba(0, 0, 0, 0.24);
+    }
+    body[data-theme="light"] {
+      --bg: #edf6fb;
+      --bg-2: #dff0f1;
+      --phone: rgba(248, 252, 255, 0.98);
+      --surface: rgba(255, 255, 255, 0.88);
+      --surface-2: rgba(240, 248, 251, 0.96);
+      --surface-3: rgba(231, 243, 248, 0.96);
+      --line: rgba(102, 139, 156, 0.22);
+      --line-strong: rgba(102, 139, 156, 0.34);
+      --text: #112233;
+      --muted: #648091;
+      --accent: #1cae93;
+      --accent-soft: rgba(28, 174, 147, 0.1);
+      --accent-2: #4d66eb;
+      --warn: #c4892c;
+      --warn-soft: rgba(196, 137, 44, 0.12);
+      --success: #1cae93;
+      --success-soft: rgba(28, 174, 147, 0.08);
+      --hero: linear-gradient(180deg, rgba(77,102,235,0.08), rgba(28,174,147,0.03));
+      --shadow-soft: 0 24px 70px rgba(31, 68, 84, 0.16);
+      --shadow-card: 0 14px 40px rgba(31, 68, 84, 0.1);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background:
+        radial-gradient(circle at top left, rgba(96,117,255,0.16), transparent 22%),
+        radial-gradient(circle at top right, rgba(116,242,206,0.12), transparent 20%),
+        linear-gradient(180deg, var(--bg), var(--bg-2));
+      color: var(--text);
+      font-family: var(--font-body);
+      transition: background 180ms ease, color 180ms ease;
+    }
+    button {
+      border: 0;
+      margin: 0;
+      font: inherit;
+      color: inherit;
+      background: none;
+      cursor: pointer;
+    }
+    .phone {
+      width: 390px;
+      max-width: 100%;
+      height: 844px;
+      border-radius: var(--radius-phone);
+      overflow: hidden;
+      background: var(--phone);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow-soft);
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      backdrop-filter: blur(18px);
+    }
+    .topbar,
+    .hero-card,
+    .filter-row,
+    .workshop-card,
+    .task-shell,
+    .message-card,
+    .module-card,
+    .file-card,
+    .profile-card,
+    .composer,
+    .bottom-nav,
+    .summary-card,
+    .mini-card {
+      border: 1px solid var(--line);
+      background: var(--surface);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), var(--shadow-card);
+      backdrop-filter: blur(18px);
+    }
+    .topbar {
+      border-left: 0;
+      border-right: 0;
+      border-top: 0;
+      padding: 12px 14px;
+      display: grid;
+      gap: 10px;
+    }
+    .bar-row,
+    .brand-row,
+    .page-head,
+    .task-top,
+    .message-head,
+    .file-row,
+    .card-row,
+    .composer-row,
+    .bottom-nav,
+    .pill-row,
+    .task-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .bar-row,
+    .page-head,
+    .message-head,
+    .file-row,
+    .card-row,
+    .composer-row,
+    .task-top {
+      justify-content: space-between;
+    }
+    .brand-row {
+      min-width: 0;
+      flex: 1;
+    }
+    .icon-btn,
+    .theme-btn,
+    .nav-btn,
+    .mini-btn,
+    .seg,
+    .pill {
+      border: 1px solid var(--line);
+      background: color-mix(in srgb, var(--surface-2) 82%, transparent);
+    }
+    .icon-btn,
+    .theme-btn,
+    .mini-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      color: var(--muted);
+      flex: 0 0 auto;
+    }
+    .brand-mark {
+      width: 36px;
+      height: 36px;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(116,242,206,0.16), rgba(96,117,255,0.18));
+      flex: 0 0 auto;
+    }
+    .brand-mark img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .brand-title {
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .brand-sub,
+    .page-eyebrow,
+    .module-tag,
+    .summary-label {
+      color: var(--muted);
+      font-size: 11px;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+    }
+    .page-title {
+      margin-top: 3px;
+      font-size: 18px;
+      line-height: 1.3;
+      font-weight: 700;
+    }
+    .screen {
+      position: relative;
+      min-height: 0;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at top right, rgba(96,117,255,0.1), transparent 18%),
+        linear-gradient(180deg, rgba(255,255,255,0.02), transparent 18%);
+    }
+    .page {
+      position: absolute;
+      inset: 0;
+      overflow: auto;
+      padding: 14px;
+      display: none;
+      gap: 12px;
+      align-content: start;
+    }
+    .page.active {
+      display: grid;
+    }
+    .hero-card,
+    .workshop-card,
+    .task-shell,
+    .message-card,
+    .module-card,
+    .file-card,
+    .profile-card,
+    .composer,
+    .summary-card,
+    .mini-card {
+      border-radius: var(--radius-card);
+    }
+    .hero-card {
+      padding: 16px;
+      background: var(--hero), var(--surface);
+      display: grid;
+      gap: 12px;
+    }
+    .hero-card h1 {
+      margin: 0;
+      font-size: 27px;
+      line-height: 1.12;
+      letter-spacing: 0;
+    }
+    .hero-card p,
+    .workshop-card p,
+    .module-desc,
+    .profile-note,
+    .muted {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+    }
+    .filter-row {
+      border-radius: 18px;
+      padding: 10px;
+      display: flex;
+      gap: 8px;
+      overflow: auto;
+      background: color-mix(in srgb, var(--surface-2) 72%, transparent);
+    }
+    .seg,
+    .pill {
+      border-radius: var(--radius-pill);
+      padding: 7px 12px;
+      font-size: 12px;
+      white-space: nowrap;
+      color: var(--muted);
+    }
+    .seg.active,
+    .pill.active {
+      color: var(--accent);
+      background: var(--accent-soft);
+      border-color: color-mix(in srgb, var(--accent) 26%, var(--line));
+    }
+    .pill.success {
+      color: var(--success);
+      background: var(--success-soft);
+    }
+    .pill.warn {
+      color: var(--warn);
+      background: var(--warn-soft);
+    }
+    .workshop-card {
+      overflow: hidden;
+      background: var(--surface);
+    }
+    .cover {
+      width: 100%;
+      height: 148px;
+      object-fit: cover;
+      display: block;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface-3);
+    }
+    .workshop-body {
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+    }
+    .workshop-title {
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+    .mini-card {
+      padding: 12px;
+      background: color-mix(in srgb, var(--surface-2) 76%, transparent);
+    }
+    .mini-value {
+      margin-top: 6px;
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.35;
+      color: var(--text);
+    }
+    .stats-grid,
+    .summary-grid,
+    .profile-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .task-shell {
+      padding: 0;
+      overflow: hidden;
+      background: color-mix(in srgb, var(--surface-2) 88%, transparent);
+    }
+    .task-shell summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 14px;
+    }
+    .task-shell summary::-webkit-details-marker { display: none; }
+    .task-main { min-width: 0; }
+    .task-title {
+      margin: 0;
+      font-size: 22px;
+      line-height: 1.1;
+      font-weight: 700;
+    }
+    .task-meta {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+      font-family: var(--font-mono);
+    }
+    .task-toggle {
+      display: grid;
+      justify-items: end;
+      gap: 8px;
+      flex: 0 0 auto;
+    }
+    .chevron-wrap {
+      width: 34px;
+      height: 34px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      background: color-mix(in srgb, var(--surface-3) 84%, transparent);
+      color: var(--muted);
+      transition: transform 180ms ease;
+    }
+    .task-shell[open] .chevron-wrap { transform: rotate(180deg); }
+    .task-body {
+      padding: 0 14px 14px;
+      border-top: 1px solid var(--line);
+      display: grid;
+      gap: 10px;
+    }
+    .summary-card {
+      padding: 12px;
+      background: color-mix(in srgb, var(--surface-3) 80%, transparent);
+    }
+    .summary-value {
+      margin-top: 6px;
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+    .thread {
+      display: grid;
+      gap: 12px;
+    }
+    .message-card {
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      background: color-mix(in srgb, var(--surface) 92%, transparent);
+    }
+    .message-card.agent {
+      border-left: 3px solid var(--accent-2);
+      background: color-mix(in srgb, var(--accent-2) 8%, var(--surface));
+    }
+    .message-card.user {
+      border-left: 3px solid var(--accent);
+      background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+    }
+    .avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: color-mix(in srgb, var(--surface-3) 82%, transparent);
+      display: grid;
+      place-items: center;
+      color: var(--accent-2);
+      flex: 0 0 auto;
+    }
+    .avatar.user { color: var(--accent); }
+    .role { font-size: 13px; font-weight: 700; }
+    .time {
+      color: var(--muted);
+      font-size: 11px;
+      font-family: var(--font-mono);
+    }
+    .message-body {
+      font-size: 14px;
+      line-height: 1.78;
+    }
+    .module-card {
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+    }
+    .module-card.approval {
+      border-color: color-mix(in srgb, var(--warn) 24%, var(--line));
+      background: color-mix(in srgb, var(--warn-soft) 82%, var(--surface));
+    }
+    .module-title {
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.45;
+    }
+    .file-card,
+    .profile-card {
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+    .file-card h3,
+    .profile-card h3 { margin: 0; font-size: 15px; }
+    .file-row {
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: color-mix(in srgb, var(--surface-2) 78%, transparent);
+      align-items: flex-start;
+    }
+    .file-name {
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.45;
+    }
+    .file-meta {
+      color: var(--muted);
+      font-size: 11px;
+      margin-top: 3px;
+      font-family: var(--font-mono);
+    }
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--success);
+      box-shadow: 0 0 0 6px color-mix(in srgb, var(--success) 10%, transparent);
+      flex: 0 0 auto;
+      margin-top: 4px;
+    }
+    .composer {
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      background: color-mix(in srgb, var(--surface) 92%, transparent);
+    }
+    .composer-box {
+      min-height: 52px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px;
+      background: color-mix(in srgb, var(--surface-2) 84%, transparent);
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.65;
+    }
+    .send-btn {
+      min-width: 92px;
+      height: 36px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      color: var(--accent);
+      background: var(--accent-soft);
+      border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--line));
+      font-weight: 700;
+    }
+    .bottom-nav {
+      border-left: 0;
+      border-right: 0;
+      border-bottom: 0;
+      padding: 10px 10px calc(12px + env(safe-area-inset-bottom));
+      background: color-mix(in srgb, var(--surface) 90%, transparent);
+      justify-content: space-between;
+    }
+    .nav-btn {
+      flex: 1 1 0;
+      min-height: 52px;
+      border-radius: 16px;
+      display: grid;
+      place-items: center;
+      gap: 4px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+    .nav-btn.active {
+      color: var(--accent);
+      background: var(--accent-soft);
+      border-color: color-mix(in srgb, var(--accent) 20%, var(--line));
+    }
+    .nav-label { font-size: 11px; line-height: 1; }
+    .theme-btn .sun,
+    body[data-theme="dark"] .theme-btn .moon,
+    body[data-theme="light"] .theme-btn .sun {
+      display: none;
+    }
+    body[data-theme="dark"] .theme-btn .sun,
+    body[data-theme="light"] .theme-btn .moon {
+      display: block;
+    }
+    .icon {
+      width: 18px;
+      height: 18px;
+      display: block;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    code {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      word-break: break-all;
+      color: var(--text);
+    }
+    @media (max-width: 480px) {
+      body { padding: 0; }
+      .phone {
+        width: 100vw;
+        max-width: none;
+        height: 100dvh;
+        border-radius: 0;
+        border: 0;
+        box-shadow: none;
+      }
+      .stats-grid,
+      .summary-grid,
+      .profile-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    @media (min-width: 481px) {
+      .phone {
+        height: min(844px, calc(100vh - 48px));
+      }
+    }
+  </style>
+</head>
+<body data-theme="dark">
+  <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M4 10.5L12 4L20 10.5"/><path d="M6 9.5V20H18V9.5"/><path d="M10 20V14H14V20"/></symbol>
+    <symbol id="i-terminal" viewBox="0 0 24 24"><path d="M6 7L10 11L6 15"/><path d="M13 16H18"/><rect x="3" y="4" width="18" height="16" rx="3"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M4 7.5C4 6.67 4.67 6 5.5 6H10L12 8H18.5C19.33 8 20 8.67 20 9.5V17.5C20 18.33 19.33 19 18.5 19H5.5C4.67 19 4 18.33 4 17.5Z"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 19C6.8 15.9 9 14.5 12 14.5C15 14.5 17.2 15.9 19 19"/></symbol>
+    <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="M6 9L12 15L18 9"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M19 14.5A7.5 7.5 0 1 1 9.5 5A6 6 0 0 0 19 14.5Z"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2V4"/><path d="M12 20V22"/><path d="M4.93 4.93L6.34 6.34"/><path d="M17.66 17.66L19.07 19.07"/><path d="M2 12H4"/><path d="M20 12H22"/><path d="M4.93 19.07L6.34 17.66"/><path d="M17.66 6.34L19.07 4.93"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11C6 7.69 8.69 5 12 5C15.31 5 18 7.69 18 11V16"/><path d="M4 16H20"/><path d="M10 19C10.5 20 11.15 20.5 12 20.5C12.85 20.5 13.5 20 14 19"/></symbol>
+    <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M15 6L9 12L15 18"/><path d="M9 12H20"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5V19"/><path d="M5 12H19"/></symbol>
+    <symbol id="i-paperclip" viewBox="0 0 24 24"><path d="M9.5 13.5L15.8 7.2A3 3 0 1 1 20 11.4L11.2 20.2A5 5 0 1 1 4.1 13.1L12.2 5"/></symbol>
+    <symbol id="i-send" viewBox="0 0 24 24"><path d="M21 3L10 14"/><path d="M21 3L14 21L10 14L3 10L21 3Z"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3L13.8 8.2L19 10L13.8 11.8L12 17L10.2 11.8L5 10L10.2 8.2Z"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4V15"/><path d="M8 11L12 15L16 11"/><path d="M5 19H19"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18H17C19.76 18 22 15.76 22 13C22 10.62 20.34 8.63 18.11 8.12C17.53 5.76 15.4 4 12.86 4C9.89 4 7.43 6.43 7.11 9.39C4.77 9.87 3 11.94 3 14.42C3 16.95 5.05 19 7.58 19"/></symbol>
+    <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8" cy="15" r="3"/><path d="M10.5 13.5L20 4"/><path d="M16 4H20V8"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3L19 6V11C19 15.5 16.2 18.7 12 20C7.8 18.7 5 15.5 5 11V6Z"/></symbol>
+  </svg>
+
+  <div class="phone">
+    <header class="topbar">
+      <div class="bar-row">
+        <button class="icon-btn" id="backToIndexBtn" type="button" aria-label="返回总览"><svg class="icon"><use href="#i-arrow-left"/></svg></button>
+        <div class="brand-row">
+          <div class="brand-mark"><img src="./assets/logo.png" alt="灵办词元 logo"></div>
+          <div>
+            <div class="brand-title">灵办词元</div>
+            <div class="brand-sub">移动入口</div>
+          </div>
+        </div>
+        <button class="theme-btn" type="button" aria-label="切换主题">
+          <svg class="icon moon"><use href="#i-moon"/></svg>
+          <svg class="icon sun"><use href="#i-sun"/></svg>
+        </button>
+        <button class="icon-btn" type="button" aria-label="通知"><svg class="icon"><use href="#i-bell"/></svg></button>
+      </div>
+      <div class="page-head">
+        <div>
+          <div class="page-eyebrow" id="mobileLabel">工坊大厅</div>
+          <div class="page-title" id="mobileTitle">在云端协议壳里挑选可运行工坊</div>
+        </div>
+        <div class="pill active">移动端</div>
+      </div>
+    </header>
+
+    <main class="screen">
+      <section class="page active" data-page="workshops" data-label="工坊大厅" data-title="先选工坊，再进入任务列表与具体会话">
+        <article class="hero-card">
+          <div class="pill-row">
+            <span class="pill active">当前工作区</span>
+            <span class="pill success">轻量启动</span>
+          </div>
+          <h1>进入工坊后，实例、会话、文件与审批都在同一条链路里闭环。</h1>
+          <p>企业私有工坊和创作者工坊统一分发。服务启动后直接创建任务实例，所需信息由 Codex 在对话里逐步收集。</p>
+          <div class="stats-grid">
+            <div class="mini-card">
+              <div class="page-eyebrow">当前工作区</div>
+              <div class="mini-value">华港财务组</div>
+            </div>
+            <div class="mini-card">
+              <div class="page-eyebrow">运行中</div>
+              <div class="mini-value">12</div>
+            </div>
+          </div>
+        </article>
+
+        <div class="filter-row">
+          <button class="seg active" type="button">企业报税</button>
+          <button class="seg" type="button">短剧生产</button>
+          <button class="seg" type="button">图像资产</button>
+          <button class="seg" type="button">内容审核</button>
+        </div>
+
+        <article class="workshop-card">
+          <img class="cover" src="./assets/workshop-tax.svg" alt="跨境报税工坊">
+          <div class="workshop-body">
+            <div class="pill-row"><span class="pill active">企业</span><span class="pill success">可启动</span></div>
+            <div class="workshop-title">企业财税工坊</div>
+            <p>集中处理香港报税、资料核验、回执归档和补件沟通，适合财税团队直接分发给一线人员使用。</p>
+            <div class="card-row">
+              <div class="muted">启动后由 Codex 在对话里继续追问材料和登录方式</div>
+              <button class="pill active" type="button">查看服务</button>
+            </div>
+          </div>
+        </article>
+
+        <article class="workshop-card">
+          <img class="cover" src="./assets/workshop-image.svg" alt="图像资产工坊">
+          <div class="workshop-body">
+            <div class="pill-row"><span class="pill active">创作者</span><span class="pill warn">待确认</span></div>
+            <div class="workshop-title">品牌内容工坊</div>
+            <p>围绕品牌物料、海报派生、图像结果归档和外部能力调用组织持续性的内容生产实例。</p>
+            <div class="card-row">
+              <div class="muted">支持按用户账户注入外部 MCP 和私有图像能力</div>
+              <button class="pill active" type="button">查看服务</button>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <section class="page" data-page="session" data-label="任务工作面" data-title="在完整对话里继续当前实例">
+        <div class="filter-row">
+          <button class="seg active" type="button">香港有限公司 2026Q2 报税</button>
+          <button class="seg" type="button">短剧第 8 集分镜确认</button>
+          <button class="seg" type="button">品牌海报批次 17</button>
+        </div>
+
+        <details class="task-shell" open>
+          <summary>
+            <div class="task-top">
+              <div class="task-main">
+                <h2 class="task-title">香港有限公司 2026Q2 报税</h2>
+                <div class="task-meta">工坊：企业报税执行器 / 实例：ctx-2048 / 目录：/workspace/tax-q2/</div>
+              </div>
+              <div class="task-toggle">
+                <span class="pill success">运行中</span>
+                <span class="chevron-wrap"><svg class="icon"><use href="#i-chevron-down"/></svg></span>
+              </div>
+            </div>
+            <div class="pill-row" style="margin-top:10px;">
+              <span class="pill active">阶段：材料核验</span>
+              <span class="pill">已传 3 份</span>
+              <span class="pill warn">待审批：1</span>
+              <span class="pill">预计完成：04:12</span>
+            </div>
+          </summary>
+          <div class="task-body">
+            <div class="summary-grid">
+              <div class="summary-card">
+                <div class="summary-label">当前目标</div>
+                <div class="summary-value">完成申报并输出回执结果包</div>
+              </div>
+              <div class="summary-card">
+                <div class="summary-label">挂载能力</div>
+                <div class="summary-value">codex-cli / chrome-mcp / 报税站点 / OTP</div>
+              </div>
+              <div class="summary-card">
+                <div class="summary-label">工作目录</div>
+                <div class="summary-value">/workspace/tax-q2/</div>
+              </div>
+              <div class="summary-card">
+                <div class="summary-label">任务标签</div>
+                <div class="summary-value">#tax #high</div>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <div class="thread">
+          <article class="message-card agent">
+            <div class="message-head">
+              <div class="task-row">
+                <div class="avatar"><svg class="icon"><use href="#i-spark"/></svg></div>
+                <div>
+                  <div class="role">系统引导</div>
+                  <div class="time">09:42</div>
+                </div>
+              </div>
+              <span class="pill active">引导</span>
+            </div>
+            <div class="message-body">请先提供报税主体、周期、登录方式，以及当前已经准备好的材料清单。我会据此决定后续链路。</div>
+          </article>
+
+          <article class="message-card user">
+            <div class="message-head">
+              <div class="task-row">
+                <div class="avatar user"><svg class="icon"><use href="#i-user"/></svg></div>
+                <div>
+                  <div class="role">你</div>
+                  <div class="time">09:43</div>
+                </div>
+              </div>
+            </div>
+            <div class="message-body">主体是香港有限公司，周期是 2026Q2，登录走企业邮箱 OTP。材料我先上传利润表、银行流水和董事签章。</div>
+          </article>
+
+          <article class="message-card agent">
+            <div class="message-head">
+              <div class="task-row">
+                <div class="avatar"><svg class="icon"><use href="#i-terminal"/></svg></div>
+                <div>
+                  <div class="role">运行实例</div>
+                  <div class="time">09:44</div>
+                </div>
+              </div>
+              <span class="pill success">已接收</span>
+            </div>
+            <div class="message-body">开始校验字段并准备接管浏览器。敏感操作会回到当前消息流请求审批。</div>
+            <div class="module-card">
+              <div class="module-tag">已挂载附件</div>
+              <div class="file-row">
+                <div class="task-row">
+                  <svg class="icon"><use href="#i-folder"/></svg>
+                  <div>
+                    <div class="file-name">profit-sheet-q2.xlsx</div>
+                    <div class="file-meta">已上传 / 126 KB</div>
+                  </div>
+                </div>
+                <span class="pill success">可用</span>
+              </div>
+              <div class="file-row">
+                <div class="task-row">
+                  <svg class="icon"><use href="#i-folder"/></svg>
+                  <div>
+                    <div class="file-name">bank-statement-q2.pdf</div>
+                    <div class="file-meta">已上传 / 2.3 MB</div>
+                  </div>
+                </div>
+                <span class="pill success">可用</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="message-card agent">
+            <div class="message-head">
+              <div class="task-row">
+                <div class="avatar"><svg class="icon"><use href="#i-shield"/></svg></div>
+                <div>
+                  <div class="role">运行实例</div>
+                  <div class="time">09:47</div>
+                </div>
+              </div>
+              <span class="pill warn">待审批</span>
+            </div>
+            <div class="message-body">检测到上一季度结转税项，是否沿用？</div>
+            <div class="module-card approval">
+              <div class="module-tag">审批请求</div>
+              <div class="module-title">是否沿用上一季度结转税项</div>
+              <div class="module-desc">审批结果会继续在当前对话流中推进。</div>
+              <div class="card-row">
+                <button class="pill active" type="button">沿用并继续</button>
+                <button class="pill" type="button">不沿用，重新计算</button>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <div class="composer">
+          <div class="composer-box">可直接发送消息、补充附件或回复审批。</div>
+          <div class="composer-row">
+            <div class="task-row">
+              <button class="mini-btn" type="button" aria-label="添加"><svg class="icon"><use href="#i-plus"/></svg></button>
+              <button class="mini-btn" type="button" aria-label="附件"><svg class="icon"><use href="#i-paperclip"/></svg></button>
+            </div>
+            <button class="send-btn" type="button">
+              <span class="task-row"><svg class="icon"><use href="#i-send"/></svg><span>发送</span></span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="page" data-page="files" data-label="文件与输出" data-title="查看当前任务目录与结果文件">
+        <article class="hero-card">
+          <div class="pill-row">
+            <span class="pill active">当前路径</span>
+            <span class="pill success">实时同步</span>
+          </div>
+          <h1>文件不是附属物，而是实例会话里的一级对象。</h1>
+          <p><code>/workspace/tax-q2/</code> 中的文件可以在当前 H5 里直接浏览、下载、继续发送给 Codex 作为上下文。</p>
+        </article>
+
+        <article class="file-card">
+          <h3>输出目录</h3>
+          <div class="file-row">
+            <div class="task-row">
+              <svg class="icon"><use href="#i-folder"/></svg>
+              <div>
+                <div class="file-name">receipts / filing-slip.pdf</div>
+                <div class="file-meta">09:52 更新 / 184 KB</div>
+              </div>
+            </div>
+            <span class="pill success">完成</span>
+          </div>
+          <div class="file-row">
+            <div class="task-row">
+              <svg class="icon"><use href="#i-folder"/></svg>
+              <div>
+                <div class="file-name">screenshots / login-step.png</div>
+                <div class="file-meta">09:46 更新 / 612 KB</div>
+              </div>
+            </div>
+            <span class="pill">记录</span>
+          </div>
+          <div class="file-row">
+            <div class="task-row">
+              <svg class="icon"><use href="#i-folder"/></svg>
+              <div>
+                <div class="file-name">output / final-summary.md</div>
+                <div class="file-meta">09:53 更新 / 18 KB</div>
+              </div>
+            </div>
+            <span class="pill active">结果</span>
+          </div>
+          <div class="card-row">
+            <button class="pill active" type="button"><svg class="icon" style="display:inline-block;vertical-align:-3px;"><use href="#i-download"/></svg> 下载全部</button>
+            <button class="pill" type="button">打开目录</button>
+          </div>
+        </article>
+
+        <article class="file-card">
+          <h3>可选路径</h3>
+          <div class="file-row">
+            <div>
+              <div class="file-name"><code>/workspace/tax-q2/</code></div>
+              <div class="file-meta">根目录 / 查看当前任务实例的全部输出</div>
+            </div>
+            <span class="pill active">根目录</span>
+          </div>
+          <div class="file-row">
+            <div>
+              <div class="file-name"><code>/workspace/tax-q2/receipts/</code></div>
+              <div class="file-meta">材料目录 / 核验上传材料和申报回执</div>
+            </div>
+            <span class="pill">回执</span>
+          </div>
+          <div class="file-row">
+            <div>
+              <div class="file-name"><code>/workspace/tax-q2/output/</code></div>
+              <div class="file-meta">结果目录 / 导出最终总结与结果包</div>
+            </div>
+            <span class="pill success">输出</span>
+          </div>
+        </article>
+      </section>
+
+      <section class="page" data-page="profile" data-label="我的与连接" data-title="结果、授权、收藏与工作区">
+        <article class="profile-card">
+          <div class="card-row">
+            <div class="task-row">
+              <div class="avatar user"><svg class="icon"><use href="#i-user"/></svg></div>
+              <div>
+                <h3>当前账号</h3>
+                <div class="profile-note">华港财务组 / 移动端入口</div>
+              </div>
+            </div>
+            <div class="status-dot"></div>
+          </div>
+        </article>
+
+        <article class="profile-card">
+          <div class="card-row">
+            <div>
+              <h3>当前工作区</h3>
+              <div class="profile-note">华港财务组 / 企业 / 已连接 4 项能力</div>
+            </div>
+            <span class="pill active">企业</span>
+          </div>
+          <div class="file-row">
+            <div>
+              <div class="file-name">默认目录</div>
+              <div class="file-meta"><code>/workspace/tax-q2/</code></div>
+            </div>
+            <span class="pill success">已连接</span>
+          </div>
+          <div class="card-row">
+            <div class="muted">可见工坊 2 / 可见任务 2</div>
+            <button class="pill" type="button">切换工作区</button>
+          </div>
+        </article>
+
+        <div class="profile-grid">
+          <article class="profile-card">
+            <h3>连接与授权</h3>
+            <div class="file-row">
+              <div class="task-row">
+                <svg class="icon"><use href="#i-cloud"/></svg>
+                <div>
+                  <div class="file-name">税站登录</div>
+                  <div class="file-meta">企业邮箱 OTP 已绑定到当前账户</div>
+                </div>
+              </div>
+              <span class="pill success">已连接</span>
+            </div>
+            <div class="file-row">
+              <div class="task-row">
+                <svg class="icon"><use href="#i-cloud"/></svg>
+                <div>
+                  <div class="file-name">第三方 MCP 连接</div>
+                  <div class="file-meta">按用户账户绑定，可在任务中直接调用外部能力</div>
+                </div>
+              </div>
+              <span class="pill active">已绑定</span>
+            </div>
+          </article>
+
+          <article class="profile-card">
+            <h3>凭证与资产</h3>
+            <div class="file-row">
+              <div class="task-row">
+                <svg class="icon"><use href="#i-key"/></svg>
+                <div>
+                  <div class="file-name">图像生成 Key</div>
+                  <div class="file-meta">以只读挂载方式注入任务环境，不在移动端暴露原值</div>
+                </div>
+              </div>
+              <span class="pill success">已托管</span>
+            </div>
+            <div class="file-row">
+              <div class="task-row">
+                <svg class="icon"><use href="#i-shield"/></svg>
+                <div>
+                  <div class="file-name">结果与回执</div>
+                  <div class="file-meta">回执、汇总和审计摘要会持续沉淀在当前工作区目录</div>
+                </div>
+              </div>
+              <span class="pill">可查看</span>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <nav class="bottom-nav">
+      <button class="nav-btn active" type="button" data-target="workshops"><svg class="icon"><use href="#i-home"/></svg><span class="nav-label">工坊</span></button>
+      <button class="nav-btn" type="button" data-target="session"><svg class="icon"><use href="#i-terminal"/></svg><span class="nav-label">任务</span></button>
+      <button class="nav-btn" type="button" data-target="files"><svg class="icon"><use href="#i-folder"/></svg><span class="nav-label">文件</span></button>
+      <button class="nav-btn" type="button" data-target="profile"><svg class="icon"><use href="#i-user"/></svg><span class="nav-label">我的</span></button>
+    </nav>
+  </div>
+
+  <script>
+    const body = document.body;
+    const pages = Array.from(document.querySelectorAll(".page"));
+    const navButtons = Array.from(document.querySelectorAll(".nav-btn"));
+    const titleEl = document.getElementById("mobileTitle");
+    const labelEl = document.getElementById("mobileLabel");
+    const themeBtn = document.querySelector(".theme-btn");
+    const backToIndexBtn = document.getElementById("backToIndexBtn");
+
+    function setPage(target) {
+      pages.forEach((page) => {
+        page.classList.toggle("active", page.dataset.page === target);
+        if (page.dataset.page === target) {
+          titleEl.textContent = page.dataset.title;
+          labelEl.textContent = page.dataset.label;
+        }
+      });
+      navButtons.forEach((button) => {
+        button.classList.toggle("active", button.dataset.target === target);
+      });
+    }
+
+    navButtons.forEach((button) => {
+      button.addEventListener("click", () => setPage(button.dataset.target));
+    });
+
+    backToIndexBtn.addEventListener("click", () => {
+      window.location.href = "./index.html";
+    });
+
+    themeBtn.addEventListener("click", () => {
+      body.dataset.theme = body.dataset.theme === "dark" ? "light" : "dark";
+    });
+  </script>
+</body>
+</html>

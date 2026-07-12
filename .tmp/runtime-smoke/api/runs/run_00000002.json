@@ -1,0 +1,149 @@
+{
+  "run": {
+    "runId": "run_00000002",
+    "workspaceId": "wsp_00000003",
+    "taskVersionId": "tsv_smoke",
+    "sessionVersionId": "sev_smoke",
+    "requestedByUserId": "usr_00000003",
+    "title": "Runtime Smoke",
+    "targetPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\runtime-smoke\\target",
+    "entrySurface": "dashboard",
+    "status": "SUCCEEDED",
+    "statusReason": "Codex CLI exited normally",
+    "createdAt": "2026-07-07T20:04:50.258Z",
+    "updatedAt": "2026-07-07T20:04:52.677Z"
+  },
+  "messages": [
+    {
+      "messageId": "msg_00000002",
+      "runId": "run_00000002",
+      "role": "system",
+      "kind": "prompt",
+      "text": "请问你需要我提供什么信息给你。\n当前任务标题：Runtime Smoke\n目标路径：C:\\dev\\copypaste\\agent-workshop\\.tmp\\runtime-smoke\\target\n请基于当前任务目标，明确告诉用户继续执行前需要的资料、账号、授权、审批和补充说明。",
+      "attachments": [],
+      "createdAt": "2026-07-07T20:04:50.259Z"
+    },
+    {
+      "messageId": "msg_f5925dca-f996-4a10-880b-12c73dbb383b",
+      "runId": "run_00000002",
+      "role": "agent",
+      "kind": "text",
+      "text": "bridge-runtime-ok",
+      "attachments": [],
+      "createdAt": "2026-07-07T20:04:51.393Z"
+    },
+    {
+      "messageId": "msg_0620f168-bd40-4c46-bc67-a4817882dca0",
+      "runId": "run_00000002",
+      "role": "agent",
+      "kind": "text",
+      "text": "0;D:\\Program Files\\nodejs\\node.EXE\u0007",
+      "attachments": [],
+      "createdAt": "2026-07-07T20:04:52.677Z"
+    }
+  ],
+  "files": [
+    {
+      "path": "C:/dev/copypaste/agent-workshop/.tmp/runtime-smoke/target/",
+      "name": "target",
+      "kind": "output",
+      "sizeBytes": null,
+      "updatedAt": "2026-07-07T20:00:10.934Z"
+    }
+  ],
+  "artifacts": [
+    {
+      "artifactId": "art_00000004",
+      "runId": "run_00000002",
+      "label": "receipts",
+      "file": {
+        "path": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\runtime-smoke\\target/receipts/",
+        "name": "receipts",
+        "kind": "receipt",
+        "sizeBytes": null,
+        "updatedAt": "2026-07-07T20:04:50.258Z"
+      },
+      "status": "pending",
+      "downloadUrl": null
+    },
+    {
+      "artifactId": "art_00000005",
+      "runId": "run_00000002",
+      "label": "output",
+      "file": {
+        "path": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\runtime-smoke\\target/output/",
+        "name": "output",
+        "kind": "output",
+        "sizeBytes": null,
+        "updatedAt": "2026-07-07T20:04:50.258Z"
+      },
+      "status": "pending",
+      "downloadUrl": null
+    },
+    {
+      "artifactId": "art_00000006",
+      "runId": "run_00000002",
+      "label": "archive",
+      "file": {
+        "path": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\runtime-smoke\\target/archive/",
+        "name": "archive",
+        "kind": "archive",
+        "sizeBytes": null,
+        "updatedAt": "2026-07-07T20:04:50.258Z"
+      },
+      "status": "pending",
+      "downloadUrl": null
+    }
+  ],
+  "approvals": [
+    {
+      "approvalId": "apr_00000002",
+      "runId": "run_00000002",
+      "prompt": "Confirm any sensitive operation before execution continues.",
+      "state": "pending",
+      "requestedAt": "2026-07-07T20:04:50.259Z",
+      "decidedAt": null,
+      "note": null
+    }
+  ],
+  "input": {
+    "workspaceId": "wsp_00000003",
+    "taskVersionId": "tsv_smoke",
+    "sessionVersionId": "sev_smoke",
+    "requestedByUserId": "usr_00000003",
+    "title": "Runtime Smoke",
+    "targetPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\runtime-smoke\\target",
+    "entrySurface": "dashboard",
+    "initialMessage": "run the smoke sequence",
+    "bindings": {
+      "firstPartyMcpIds": [],
+      "externalConnectorRefs": [],
+      "credentialIds": []
+    }
+  },
+  "startJob": {
+    "run": {
+      "runId": "run_00000002",
+      "workspaceId": "wsp_00000003",
+      "taskVersionId": "tsv_smoke",
+      "sessionVersionId": "sev_smoke",
+      "requestedByUserId": "usr_00000003",
+      "title": "Runtime Smoke",
+      "targetPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\runtime-smoke\\target",
+      "entrySurface": "dashboard",
+      "status": "CREATED",
+      "statusReason": null,
+      "createdAt": "2026-07-07T20:04:50.258Z",
+      "updatedAt": "2026-07-07T20:04:50.258Z"
+    },
+    "initialPrompt": "请问你需要我提供什么信息给你。\n当前任务标题：Runtime Smoke\n目标路径：C:\\dev\\copypaste\\agent-workshop\\.tmp\\runtime-smoke\\target\n请基于当前任务目标，明确告诉用户继续执行前需要的资料、账号、授权、审批和补充说明。",
+    "requestedInitialMessage": "run the smoke sequence",
+    "bindings": {
+      "firstPartyMcpIds": [],
+      "externalConnectorRefs": [],
+      "credentialIds": []
+    },
+    "credentialMounts": [],
+    "mcpBindings": []
+  }
+}

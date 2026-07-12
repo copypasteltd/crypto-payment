@@ -1,0 +1,2 @@
+preview smoke text file
+line 2

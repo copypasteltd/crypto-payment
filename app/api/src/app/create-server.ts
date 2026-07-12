@@ -1,0 +1,184 @@
+import Fastify from "fastify";
+import websocket from "@fastify/websocket";
+import { normalizeErrorPayload } from "./errors.js";
+import { buildApiReadinessReport } from "./ops.js";
+import { registerAuthRoutes, registerWorkspaceRoutes } from "../modules/auth/routes.js";
+import { registerBatchRunRoutes } from "../modules/batch-runs/routes.js";
+import { initializeBatchRunsInfrastructure } from "../modules/batch-runs/service.js";
+import { initializeAuthInfrastructure } from "../modules/auth/service.js";
+import { initializeBridgeInfrastructure } from "../modules/bridge/internal-callback-ledger.js";
+import { bridgeRegistry } from "../modules/bridge/registry.js";
+import { registerBridgeInternalRoutes } from "../modules/bridge/routes.js";
+import { registerRealtimeSocketRoutes } from "../modules/realtime/socket-routes.js";
+import { runFileLifecycleManager } from "../modules/runs/file-lifecycle.js";
+import { registerRunRoutes } from "../modules/runs/routes.js";
+import { initializeRunsInfrastructure, shutdownRunsRuntime } from "../modules/runs/service.js";
+import { registerDownloadTicketRoutes, registerRunUploadRoutes } from "../modules/uploads/routes.js";
+import { initializeUploadInfrastructure } from "../modules/uploads/service.js";
+import { uploadRetentionManager } from "../modules/uploads/retention.js";
+import { registerCreatorRoutes } from "../modules/creator/routes.js";
+import { initializeCreatorInfrastructure } from "../modules/creator/service.js";
+import { credentialLifecycleManager } from "../modules/credentials/lifecycle-manager.js";
+import { credentialLifecycleCallbackManager } from "../modules/credentials/callback-manager.js";
+import { registerCredentialRoutes } from "../modules/credentials/routes.js";
+import { initializeCredentialsInfrastructure } from "../modules/credentials/service.js";
+import { registerBillingRoutes } from "../modules/billing/routes.js";
+import { initializeBillingInfrastructure } from "../modules/billing/service.js";
+import { registerMeRoutes } from "../modules/me/routes.js";
+import { initializeMeInfrastructure } from "../modules/me/service.js";
+import { registerMcpRoutes } from "../modules/mcp/routes.js";
+import { initializeMcpInfrastructure } from "../modules/mcp/service.js";
+import { registerNotificationRoutes } from "../modules/notifications/routes.js";
+import { initializeNotificationsInfrastructure } from "../modules/notifications/service.js";
+import { registerQuotaRoutes } from "../modules/quotas/routes.js";
+import { initializeQuotaInfrastructure } from "../modules/quotas/service.js";
+import { registerSearchRoutes } from "../modules/search/routes.js";
+import { initializeSearchInfrastructure } from "../modules/search/service.js";
+import { registerSessionRoutes } from "../modules/sessions/routes.js";
+import { initializeSessionInfrastructure } from "../modules/sessions/service.js";
+import { registerServiceCatalogRoutes, registerWorkshopRoutes } from "../modules/workshops/routes.js";
+import { initializeWorkshopInfrastructure } from "../modules/workshops/service.js";
+
+export async function createServer() {
+  await initializeAuthInfrastructure();
+  await initializeBatchRunsInfrastructure();
+  await initializeCredentialsInfrastructure();
+  await initializeMcpInfrastructure();
+  await initializeBillingInfrastructure();
+  await initializeNotificationsInfrastructure();
+  await initializeMeInfrastructure();
+  await initializeSearchInfrastructure();
+  await initializeRunsInfrastructure();
+  await initializeUploadInfrastructure();
+  await initializeBridgeInfrastructure();
+  await initializeWorkshopInfrastructure();
+  await initializeSessionInfrastructure();
+  await initializeCreatorInfrastructure();
+  await initializeQuotaInfrastructure();
+
+  const server = Fastify({
+    logger: false,
+  });
+
+  server.addContentTypeParser(
+    "application/octet-stream",
+    {
+      parseAs: "buffer",
+    },
+    (_request, body, done) => {
+      done(null, body);
+    }
+  );
+
+  server.register(websocket);
+
+  server.setErrorHandler((error, _request, reply) => {
+    const normalized = normalizeErrorPayload(error);
+    reply.status(normalized.statusCode).send(normalized.payload);
+  });
+
+  server.addHook("onClose", async () => {
+    await credentialLifecycleCallbackManager.stopSweeper().catch(() => undefined);
+    await credentialLifecycleManager.stopSweeper().catch(() => undefined);
+    await runFileLifecycleManager.stopSweeper().catch(() => undefined);
+    await uploadRetentionManager.stopSweeper().catch(() => undefined);
+    await bridgeRegistry.stopSweeper().catch(() => undefined);
+    await bridgeRegistry.flushPersistence().catch(() => undefined);
+    await shutdownRunsRuntime().catch(() => undefined);
+  });
+
+  server.get("/health", async () => ({
+    status: "ok",
+    service: "api",
+  }));
+
+  server.get("/readyz", async (_request, reply) => {
+    const readiness = await buildApiReadinessReport();
+    reply.code(readiness.status === "ready" ? 200 : 503);
+    return readiness;
+  });
+
+  server.register(registerAuthRoutes, {
+    prefix: "/v1/auth",
+  });
+
+  server.register(registerWorkspaceRoutes, {
+    prefix: "/v1/workspaces",
+  });
+
+  server.register(registerMeRoutes, {
+    prefix: "/v1/me",
+  });
+
+  server.register(registerNotificationRoutes, {
+    prefix: "/v1",
+  });
+
+  server.register(registerCredentialRoutes, {
+    prefix: "/v1/credentials",
+  });
+
+  server.register(registerWorkshopRoutes, {
+    prefix: "/v1/workshops",
+  });
+
+  server.register(registerSearchRoutes, {
+    prefix: "/v1/search",
+  });
+
+  server.register(registerServiceCatalogRoutes, {
+    prefix: "/v1/services",
+  });
+
+  server.register(registerSessionRoutes, {
+    prefix: "/v1/sessions",
+  });
+
+  server.register(registerCreatorRoutes, {
+    prefix: "/v1",
+  });
+
+  server.register(registerMcpRoutes, {
+    prefix: "/v1",
+  });
+
+  server.register(registerQuotaRoutes, {
+    prefix: "/v1",
+  });
+
+  server.register(registerBillingRoutes, {
+    prefix: "/v1",
+  });
+
+  server.register(registerBatchRunRoutes, {
+    prefix: "/v1/batch-runs",
+  });
+
+  server.register(registerRunRoutes, {
+    prefix: "/v1/runs",
+  });
+
+  server.register(registerRunUploadRoutes, {
+    prefix: "/v1/runs",
+  });
+
+  server.register(registerDownloadTicketRoutes, {
+    prefix: "/v1/downloads",
+  });
+
+  server.register(registerRealtimeSocketRoutes, {
+    prefix: "/ws/runs",
+  });
+
+  server.register(registerBridgeInternalRoutes, {
+    prefix: "/internal",
+  });
+
+  bridgeRegistry.startSweeper();
+  credentialLifecycleCallbackManager.startSweeper();
+  credentialLifecycleManager.startSweeper();
+  uploadRetentionManager.startSweeper();
+  runFileLifecycleManager.startSweeper();
+
+  return server;
+}

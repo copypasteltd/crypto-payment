@@ -1,0 +1,58 @@
+{
+  "users": [
+    {
+      "userId": "usr_00000001",
+      "email": "smoke-objectify@example.com",
+      "displayName": "Smoke Objectify",
+      "createdAt": "2026-07-07T23:22:48.631Z",
+      "updatedAt": "2026-07-07T23:22:48.631Z",
+      "passwordHash": "scrypt$MPEp9PYff83ZGXkXO7m-rQ$a021b9d2ef4ec1d9afb612d623dda13bde6a68607e62332d4f4975a0e71796b68bd448f93b55b81348845610c0d5bc6d7965abafcd9453d8bd2f8c584d85edd1"
+    }
+  ],
+  "workspaces": [
+    {
+      "workspaceId": "wsp_00000001",
+      "slug": "smoke-workspace",
+      "name": "Smoke Workspace",
+      "type": "personal",
+      "createdAt": "2026-07-07T23:22:48.631Z",
+      "updatedAt": "2026-07-07T23:22:48.631Z"
+    }
+  ],
+  "memberships": [
+    {
+      "workspaceId": "wsp_00000001",
+      "userId": "usr_00000001",
+      "role": "owner",
+      "status": "active",
+      "createdAt": "2026-07-07T23:22:48.631Z",
+      "updatedAt": "2026-07-07T23:22:48.631Z"
+    }
+  ],
+  "sessions": [
+    {
+      "sessionId": "ses_00000001",
+      "userId": "usr_00000001",
+      "currentWorkspaceId": "wsp_00000001",
+      "accessTokenExpiresAt": "2026-07-07T23:37:48.727Z",
+      "refreshTokenExpiresAt": "2026-08-06T23:22:48.727Z",
+      "createdAt": "2026-07-07T23:22:48.726Z",
+      "updatedAt": "2026-07-07T23:22:48.726Z",
+      "accessTokenHash": "5ac26a82e43037346740ec415afe0ccec89d67ae39c4853e32ce018a40a081dd",
+      "refreshTokenHash": "c9a1d9f6f7206d0c17207e52ada0a594a38a398e653ceaed834029e6ff99421e",
+      "revokedAt": null
+    },
+    {
+      "sessionId": "ses_00000002",
+      "userId": "usr_00000001",
+      "currentWorkspaceId": "wsp_00000001",
+      "accessTokenExpiresAt": "2026-07-07T23:38:02.527Z",
+      "refreshTokenExpiresAt": "2026-08-06T23:23:02.527Z",
+      "createdAt": "2026-07-07T23:23:02.527Z",
+      "updatedAt": "2026-07-07T23:23:02.527Z",
+      "accessTokenHash": "3732e3196619348fb1aa13c063efc486aa9cacbeb5e7c28278656857ca748689",
+      "refreshTokenHash": "065752a0430430fa2877322ba31360da6d6e10cbd552194a03d88b8a3d584e5e",
+      "revokedAt": null
+    }
+  ]
+}

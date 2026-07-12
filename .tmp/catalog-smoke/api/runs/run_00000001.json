@@ -1,0 +1,194 @@
+{
+  "run": {
+    "runId": "run_00000001",
+    "workspaceId": "wsp_brand_content",
+    "taskVersionId": "tsv_poster_batch",
+    "sessionVersionId": "sev_brand_poster_suite",
+    "requestedByUserId": null,
+    "title": "????????",
+    "targetPath": "/workspace/poster-batch-17/runs/poster-batch-20260707202204/",
+    "entrySurface": "dashboard",
+    "status": "FAILED",
+    "statusReason": "bridge launch failed: local bridge process exited before health check succeeded (exit=1, signal=null)",
+    "createdAt": "2026-07-07T20:22:04.961Z",
+    "updatedAt": "2026-07-07T20:22:06.209Z"
+  },
+  "messages": [
+    {
+      "messageId": "msg_00000001",
+      "runId": "run_00000001",
+      "role": "system",
+      "kind": "prompt",
+      "text": "请问你需要我提供什么信息给你。\n当前任务标题：????????\n目标路径：/workspace/poster-batch-17/runs/poster-batch-20260707202204/\n请基于当前任务目标，明确告诉用户继续执行前需要的资料、账号、授权、审批和补充说明。",
+      "attachments": [],
+      "createdAt": "2026-07-07T20:22:04.967Z"
+    }
+  ],
+  "files": [
+    {
+      "path": "/workspace/poster-batch-17/runs/poster-batch-20260707202204/receipts/",
+      "name": "receipts",
+      "kind": "receipt",
+      "sizeBytes": null,
+      "updatedAt": "2026-07-07T20:22:04.966Z"
+    },
+    {
+      "path": "/workspace/poster-batch-17/runs/poster-batch-20260707202204/output/",
+      "name": "output",
+      "kind": "output",
+      "sizeBytes": null,
+      "updatedAt": "2026-07-07T20:22:04.966Z"
+    },
+    {
+      "path": "/workspace/poster-batch-17/runs/poster-batch-20260707202204/archive/",
+      "name": "archive",
+      "kind": "archive",
+      "sizeBytes": null,
+      "updatedAt": "2026-07-07T20:22:04.966Z"
+    }
+  ],
+  "artifacts": [
+    {
+      "artifactId": "art_00000001",
+      "runId": "run_00000001",
+      "label": "receipts",
+      "file": {
+        "path": "/workspace/poster-batch-17/runs/poster-batch-20260707202204/receipts/",
+        "name": "receipts",
+        "kind": "receipt",
+        "sizeBytes": null,
+        "updatedAt": "2026-07-07T20:22:04.966Z"
+      },
+      "status": "pending",
+      "downloadUrl": null
+    },
+    {
+      "artifactId": "art_00000002",
+      "runId": "run_00000001",
+      "label": "output",
+      "file": {
+        "path": "/workspace/poster-batch-17/runs/poster-batch-20260707202204/output/",
+        "name": "output",
+        "kind": "output",
+        "sizeBytes": null,
+        "updatedAt": "2026-07-07T20:22:04.966Z"
+      },
+      "status": "pending",
+      "downloadUrl": null
+    },
+    {
+      "artifactId": "art_00000003",
+      "runId": "run_00000001",
+      "label": "archive",
+      "file": {
+        "path": "/workspace/poster-batch-17/runs/poster-batch-20260707202204/archive/",
+        "name": "archive",
+        "kind": "archive",
+        "sizeBytes": null,
+        "updatedAt": "2026-07-07T20:22:04.966Z"
+      },
+      "status": "pending",
+      "downloadUrl": null
+    }
+  ],
+  "approvals": [
+    {
+      "approvalId": "apr_00000001",
+      "runId": "run_00000001",
+      "prompt": "Confirm any sensitive operation before execution continues.",
+      "state": "pending",
+      "requestedAt": "2026-07-07T20:22:04.969Z",
+      "decidedAt": null,
+      "note": null
+    }
+  ],
+  "input": {
+    "workspaceId": "wsp_brand_content",
+    "taskVersionId": "tsv_poster_batch",
+    "sessionVersionId": "sev_brand_poster_suite",
+    "title": "????????",
+    "targetPath": "/workspace/poster-batch-17/runs/poster-batch-20260707202204/",
+    "entrySurface": "dashboard",
+    "initialMessage": null,
+    "bindings": {
+      "firstPartyMcpIds": [
+        "mcp.image.gpt-image-2"
+      ],
+      "externalConnectorRefs": [
+        "third-party:asset-library"
+      ],
+      "credentialIds": [
+        "cred_openai_image_api_key",
+        "cred_asset_library_api_key"
+      ]
+    }
+  },
+  "startJob": {
+    "run": {
+      "runId": "run_00000001",
+      "workspaceId": "wsp_brand_content",
+      "taskVersionId": "tsv_poster_batch",
+      "sessionVersionId": "sev_brand_poster_suite",
+      "requestedByUserId": null,
+      "title": "????????",
+      "targetPath": "/workspace/poster-batch-17/runs/poster-batch-20260707202204/",
+      "entrySurface": "dashboard",
+      "status": "CREATED",
+      "statusReason": null,
+      "createdAt": "2026-07-07T20:22:04.961Z",
+      "updatedAt": "2026-07-07T20:22:04.961Z"
+    },
+    "initialPrompt": "请问你需要我提供什么信息给你。\n当前任务标题：????????\n目标路径：/workspace/poster-batch-17/runs/poster-batch-20260707202204/\n请基于当前任务目标，明确告诉用户继续执行前需要的资料、账号、授权、审批和补充说明。",
+    "requestedInitialMessage": null,
+    "bindings": {
+      "firstPartyMcpIds": [
+        "mcp.image.gpt-image-2"
+      ],
+      "externalConnectorRefs": [
+        "third-party:asset-library"
+      ],
+      "credentialIds": [
+        "cred_openai_image_api_key",
+        "cred_asset_library_api_key"
+      ]
+    },
+    "credentialMounts": [
+      {
+        "credentialId": "cred_openai_image_api_key",
+        "mode": "env",
+        "envName": "LB_OPENAI_IMAGE_API_KEY",
+        "readOnly": true
+      },
+      {
+        "credentialId": "cred_asset_library_api_key",
+        "mode": "env",
+        "envName": "LB_ASSET_LIBRARY_API_KEY",
+        "readOnly": true
+      }
+    ],
+    "mcpBindings": [
+      {
+        "bindingId": "mbd_image-gpt-image-2",
+        "source": "first-party",
+        "transport": "stdio",
+        "ref": "/workspace/mcp/imagegen-helper.js",
+        "credentialId": "cred_openai_image_api_key",
+        "authMode": "env",
+        "authRef": "LB_OPENAI_IMAGE_API_KEY",
+        "networkPolicyRef": "np_image-gpt-image-2",
+        "approvalRequired": false
+      },
+      {
+        "bindingId": "mbd_asset-library",
+        "source": "third-party",
+        "transport": "http",
+        "ref": "https://third-party-mcp.example.org/assets",
+        "credentialId": "cred_asset_library_api_key",
+        "authMode": "env",
+        "authRef": "LB_ASSET_LIBRARY_API_KEY",
+        "networkPolicyRef": "np_asset-library",
+        "approvalRequired": true
+      }
+    ]
+  }
+}

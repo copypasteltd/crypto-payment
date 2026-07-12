@@ -1,0 +1,19 @@
+[Unit]
+Description=Lingban Workshop API
+After=network.target postgresql.service redis.service
+Wants=network.target
+
+[Service]
+Type=simple
+User=lingban
+Group=lingban
+WorkingDirectory=/srv/lingban/current/workspaces/backend/app/api
+EnvironmentFile=/etc/lingban/api.env
+ExecStart=/usr/bin/node /srv/lingban/current/workspaces/backend/app/api/dist/index.js
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+KillSignal=SIGTERM
+
+[Install]
+WantedBy=multi-user.target

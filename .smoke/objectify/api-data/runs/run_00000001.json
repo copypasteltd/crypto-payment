@@ -1,0 +1,190 @@
+{
+  "run": {
+    "runId": "run_00000001",
+    "workspaceId": "wsp_00000001",
+    "taskVersionId": "tsv_00000001",
+    "sessionVersionId": "sev_00000001",
+    "requestedByUserId": "usr_00000001",
+    "title": "Runtime output objectify smoke",
+    "targetPath": "C:\\dev\\copypaste\\agent-workshop\\.smoke\\objectify\\target-workspace",
+    "entrySurface": "h5",
+    "status": "RUNNING",
+    "statusReason": "container bridge established the Codex session",
+    "createdAt": "2026-07-07T23:22:48.758Z",
+    "updatedAt": "2026-07-07T23:22:50.254Z"
+  },
+  "messages": [
+    {
+      "messageId": "msg_00000001",
+      "runId": "run_00000001",
+      "role": "system",
+      "kind": "prompt",
+      "text": "请问你需要我提供什么信息给你。\n当前任务标题：Runtime output objectify smoke\n目标路径：C:\\dev\\copypaste\\agent-workshop\\.smoke\\objectify\\target-workspace\n请基于当前任务目标，明确告诉用户继续执行前需要的资料、账号、授权、审批和补充说明。",
+      "attachments": [],
+      "createdAt": "2026-07-07T23:22:48.761Z"
+    },
+    {
+      "messageId": "msg_fa5c1bd4-e1b5-47ab-aaaf-c725eb4782f7",
+      "runId": "run_00000001",
+      "role": "agent",
+      "kind": "text",
+      "text": "Windows PowerShell",
+      "attachments": [],
+      "createdAt": "2026-07-07T23:22:50.687Z"
+    },
+    {
+      "messageId": "msg_cdd60a2e-9db9-44c7-88e0-c993359eedf3",
+      "runId": "run_00000001",
+      "role": "agent",
+      "kind": "text",
+      "text": "版权所有（C） Microsoft Corporation。保留所有权利。安装最新的 PowerShell，了解新功能和改进！https://aka.ms/PSWindowsPS C:\\dev\\copypaste\\agent-workshop\\.smoke\\objectify\\target-workspace> 请",
+      "attachments": [],
+      "createdAt": "2026-07-07T23:22:51.541Z"
+    },
+    {
+      "messageId": "msg_b0c74f63-57ae-4eee-b794-36486ac965ef",
+      "runId": "run_00000001",
+      "role": "agent",
+      "kind": "text",
+      "text": ">> 请基于当前任务目标，明确告诉用户继续执行前需要的资料、账号、授权、审批和补充说明。",
+      "attachments": [],
+      "createdAt": "2026-07-07T23:22:51.541Z"
+    },
+    {
+      "messageId": "msg_90fc0bae-e063-4c00-8a0a-8be0f377a5bd",
+      "runId": "run_00000001",
+      "role": "agent",
+      "kind": "text",
+      "text": ">> 目标路径：C:\\dev\\copypaste\\agent-workshop\\.smoke\\objectify\\target-workspace",
+      "attachments": [],
+      "createdAt": "2026-07-07T23:22:51.541Z"
+    },
+    {
+      "messageId": "msg_929528e6-a39b-4798-baec-c64f369efd5e",
+      "runId": "run_00000001",
+      "role": "agent",
+      "kind": "text",
+      "text": ">> 当前任务标题：Runtime output objectify smoke",
+      "attachments": [],
+      "createdAt": "2026-07-07T23:22:51.541Z"
+    }
+  ],
+  "files": [
+    {
+      "path": "C:/dev/copypaste/agent-workshop/.smoke/objectify/target-workspace/",
+      "name": "target-workspace",
+      "kind": "output",
+      "sizeBytes": null,
+      "updatedAt": "2026-07-07T23:22:48.794Z"
+    },
+    {
+      "path": "C:/dev/copypaste/agent-workshop/.smoke/objectify/target-workspace/output/",
+      "name": "output",
+      "kind": "output",
+      "sizeBytes": null,
+      "updatedAt": "2026-07-07T23:22:48.794Z"
+    },
+    {
+      "path": "C:/dev/copypaste/agent-workshop/.smoke/objectify/target-workspace/output/report.txt",
+      "name": "report.txt",
+      "kind": "output",
+      "sizeBytes": 21,
+      "updatedAt": "2026-07-07T23:22:48.795Z"
+    }
+  ],
+  "artifacts": [
+    {
+      "artifactId": "art_00000001",
+      "runId": "run_00000001",
+      "label": "receipts",
+      "file": {
+        "path": "C:\\dev\\copypaste\\agent-workshop\\.smoke\\objectify\\target-workspace/receipts/",
+        "name": "receipts",
+        "kind": "receipt",
+        "sizeBytes": null,
+        "updatedAt": "2026-07-07T23:22:48.760Z"
+      },
+      "status": "pending",
+      "downloadUrl": null
+    },
+    {
+      "artifactId": "art_00000002",
+      "runId": "run_00000001",
+      "label": "output",
+      "file": {
+        "path": "C:\\dev\\copypaste\\agent-workshop\\.smoke\\objectify\\target-workspace/output/",
+        "name": "output",
+        "kind": "output",
+        "sizeBytes": null,
+        "updatedAt": "2026-07-07T23:22:48.760Z"
+      },
+      "status": "pending",
+      "downloadUrl": null
+    },
+    {
+      "artifactId": "art_00000003",
+      "runId": "run_00000001",
+      "label": "archive",
+      "file": {
+        "path": "C:\\dev\\copypaste\\agent-workshop\\.smoke\\objectify\\target-workspace/archive/",
+        "name": "archive",
+        "kind": "archive",
+        "sizeBytes": null,
+        "updatedAt": "2026-07-07T23:22:48.760Z"
+      },
+      "status": "pending",
+      "downloadUrl": null
+    }
+  ],
+  "approvals": [
+    {
+      "approvalId": "apr_00000001",
+      "runId": "run_00000001",
+      "prompt": "Confirm any sensitive operation before execution continues.",
+      "state": "pending",
+      "requestedAt": "2026-07-07T23:22:48.762Z",
+      "decidedAt": null,
+      "note": null
+    }
+  ],
+  "input": {
+    "workspaceId": "wsp_00000001",
+    "taskVersionId": "tsv_00000001",
+    "sessionVersionId": "sev_00000001",
+    "requestedByUserId": "usr_00000001",
+    "title": "Runtime output objectify smoke",
+    "targetPath": "C:\\dev\\copypaste\\agent-workshop\\.smoke\\objectify\\target-workspace",
+    "entrySurface": "h5",
+    "initialMessage": null,
+    "bindings": {
+      "firstPartyMcpIds": [],
+      "externalConnectorRefs": [],
+      "credentialIds": []
+    }
+  },
+  "startJob": {
+    "run": {
+      "runId": "run_00000001",
+      "workspaceId": "wsp_00000001",
+      "taskVersionId": "tsv_00000001",
+      "sessionVersionId": "sev_00000001",
+      "requestedByUserId": "usr_00000001",
+      "title": "Runtime output objectify smoke",
+      "targetPath": "C:\\dev\\copypaste\\agent-workshop\\.smoke\\objectify\\target-workspace",
+      "entrySurface": "h5",
+      "status": "CREATED",
+      "statusReason": null,
+      "createdAt": "2026-07-07T23:22:48.758Z",
+      "updatedAt": "2026-07-07T23:22:48.758Z"
+    },
+    "initialPrompt": "请问你需要我提供什么信息给你。\n当前任务标题：Runtime output objectify smoke\n目标路径：C:\\dev\\copypaste\\agent-workshop\\.smoke\\objectify\\target-workspace\n请基于当前任务目标，明确告诉用户继续执行前需要的资料、账号、授权、审批和补充说明。",
+    "requestedInitialMessage": null,
+    "bindings": {
+      "firstPartyMcpIds": [],
+      "externalConnectorRefs": [],
+      "credentialIds": []
+    },
+    "credentialMounts": [],
+    "mcpBindings": []
+  }
+}

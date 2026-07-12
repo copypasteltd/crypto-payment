@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LastPush | Dev-First Deployment Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script type="module">
+      import { Buffer } from 'https://esm.sh/buffer@6.0.3';
+      window.global = window;
+      window.Buffer = Buffer;
+      window.process = { 
+        env: { NODE_ENV: 'development' },
+        version: '',
+        nextTick: (fn) => setTimeout(fn, 0)
+      };
+    </script>
+    <script>
+      (function () {
+        const { hash, search, origin } = window.location;
+        if (hash.startsWith('#/login') && search && !hash.includes('?')) {
+          const hashPath = hash.replace(/^#/, '');
+          window.location.replace(`${origin}/#${hashPath}${search}`);
+        }
+      })();
+    </script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'ui-sans-serif', 'system-ui'],
+              mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular'],
+            },
+            colors: {
+              zinc: {
+                850: '#1f1f22',
+                950: '#09090b',
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        background-color: #09090b;
+        color: #e4e4e7;
+      }
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #18181b;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #3f3f46;
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #52525b;
+      }
+    </style>
+    <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18.2.0",
+    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+    "react-router-dom": "https://esm.sh/react-router-dom@6.22.3",
+    "recharts": "https://esm.sh/recharts@2.12.3",
+    "lucide-react": "https://esm.sh/lucide-react@0.363.0",
+    "viem": "https://esm.sh/viem@2.8.14",
+    "wagmi": "https://esm.sh/wagmi@2.5.11",
+    "wagmi/chains": "https://esm.sh/wagmi@2.5.11/chains",
+    "wagmi/connectors": "https://esm.sh/wagmi@2.5.11/connectors",
+    "@tanstack/react-query": "https://esm.sh/@tanstack/react-query@5.28.4",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "wagmi/": "https://esm.sh/wagmi@^3.3.2/"
+  }
+}
+</script>
+  <link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>

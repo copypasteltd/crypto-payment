@@ -1,0 +1,45 @@
+{
+  "runId": "run_90000001",
+  "workspaceId": "wsp_personal",
+  "targetPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\spec-check-target",
+  "initialPrompt": "collect required info",
+  "requestedInitialMessage": null,
+  "credentialMounts": [
+    {
+      "credentialId": "cred_browser_storage_state",
+      "mode": "file",
+      "mountPath": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\worker-spec-check\\run_90000001\\secrets\\browser\\browser-storage-state.json",
+      "readOnly": true
+    },
+    {
+      "credentialId": "cred_figma_pat",
+      "mode": "env",
+      "envName": "LB_FIGMA_PAT",
+      "readOnly": true
+    }
+  ],
+  "mcpBindings": [
+    {
+      "bindingId": "mbd_browser-playwright",
+      "source": "first-party",
+      "transport": "stdio",
+      "ref": "/workspace/mcp/playwright-browser-helper.js",
+      "credentialId": "cred_browser_storage_state",
+      "authMode": "file",
+      "authRef": "C:\\dev\\copypaste\\agent-workshop\\.tmp\\worker-spec-check\\run_90000001\\secrets\\browser\\browser-storage-state.json",
+      "networkPolicyRef": "np_browser-playwright",
+      "approvalRequired": true
+    },
+    {
+      "bindingId": "mbd_figma-mcp",
+      "source": "third-party",
+      "transport": "sse",
+      "ref": "https://third-party-mcp.example.org/figma/sse",
+      "credentialId": "cred_figma_pat",
+      "authMode": "env",
+      "authRef": "LB_FIGMA_PAT",
+      "networkPolicyRef": "np_figma-mcp",
+      "approvalRequired": true
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "servers": {
+    "mbd_governed-assets": {
+      "type": "remote-unmanaged",
+      "url": "https://third-party-mcp.example.org/governed-assets"
+    },
+    "mbd_00000001": {
+      "type": "remote-managed",
+      "url": "https://mcp.workspace.internal/seedance",
+      "auth_env": "LB_00000001"
+    }
+  }
+}

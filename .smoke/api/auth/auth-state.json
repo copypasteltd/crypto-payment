@@ -1,0 +1,46 @@
+{
+  "users": [
+    {
+      "userId": "usr_00000001",
+      "email": "smoke-auth@example.com",
+      "displayName": "Smoke User",
+      "createdAt": "2026-07-07T21:21:13.816Z",
+      "updatedAt": "2026-07-07T21:21:13.816Z",
+      "passwordHash": "scrypt$MciDJODmCTG_pqyOo4EQzA$d39d2e1041b0cf7ae390cdeae3311178fc9c197d531899cce20e65e660661accd5cc0114a0f1b667bd10f0c505c8c377ad7f0d33ea3b263882e691deacfb371e"
+    }
+  ],
+  "workspaces": [
+    {
+      "workspaceId": "wsp_00000001",
+      "slug": "personal-smoke-space",
+      "name": "Personal Smoke Space",
+      "type": "personal",
+      "createdAt": "2026-07-07T21:21:13.816Z",
+      "updatedAt": "2026-07-07T21:21:13.816Z"
+    }
+  ],
+  "memberships": [
+    {
+      "workspaceId": "wsp_00000001",
+      "userId": "usr_00000001",
+      "role": "owner",
+      "status": "active",
+      "createdAt": "2026-07-07T21:21:13.816Z",
+      "updatedAt": "2026-07-07T21:21:13.816Z"
+    }
+  ],
+  "sessions": [
+    {
+      "sessionId": "ses_00000001",
+      "userId": "usr_00000001",
+      "currentWorkspaceId": "wsp_00000001",
+      "accessTokenExpiresAt": "2026-07-07T21:36:13.899Z",
+      "refreshTokenExpiresAt": "2026-08-06T21:21:13.899Z",
+      "createdAt": "2026-07-07T21:21:13.899Z",
+      "updatedAt": "2026-07-07T21:21:13.899Z",
+      "accessTokenHash": "a4bbec88096d772215400ca17956f34ad0f25ecd99951994bce1395b9018278c",
+      "refreshTokenHash": "87f3d5ddf78d9ffb955e28ed59d310da263e68e4c318752cb40ce113743344b8",
+      "revokedAt": null
+    }
+  ]
+}

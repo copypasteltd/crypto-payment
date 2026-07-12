@@ -1,0 +1,36 @@
+{
+  "uploads": [
+    {
+      "uploadId": "upl_00000001",
+      "runId": "run_00000001",
+      "workspaceId": "wsp_00000001",
+      "fileName": "download-proof.txt",
+      "contentType": "text/plain; charset=utf-8",
+      "declaredSizeBytes": 33,
+      "storedSizeBytes": 33,
+      "sha256": "0099cd490396d368ef8979f29af3e43fa7132fe3de6f7606fe0eb09140f056d0",
+      "objectKey": "runs/run_00000001/uploads/b5997186-4cc7-4516-ae67-9edfacfd027c/download-proof.txt",
+      "status": "attached",
+      "attachedPath": "C:/workspace/smoke-download-ticket-run/target/uploads/upl_00000001/download-proof.txt",
+      "attachedLabel": "download-proof",
+      "createdAt": "2026-07-07T22:23:39.316Z",
+      "updatedAt": "2026-07-07T22:23:39.382Z"
+    }
+  ],
+  "downloadTickets": [
+    {
+      "ticketId": "dlt_00000001",
+      "runId": "run_00000001",
+      "workspaceId": "wsp_00000001",
+      "path": "C:/workspace/smoke-download-ticket-run/target/uploads/upl_00000001/download-proof.txt",
+      "fileName": "download-proof.txt",
+      "mimeType": "text/plain; charset=utf-8",
+      "sourceKind": "uploaded-object",
+      "objectKey": "runs/run_00000001/uploads/b5997186-4cc7-4516-ae67-9edfacfd027c/download-proof.txt",
+      "uploadId": "upl_00000001",
+      "expiresAt": "2026-07-07T22:33:39.413Z",
+      "createdAt": "2026-07-07T22:23:39.413Z",
+      "createdByUserId": "usr_00000001"
+    }
+  ]
+}

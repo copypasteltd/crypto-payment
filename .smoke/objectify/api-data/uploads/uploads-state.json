@@ -1,0 +1,19 @@
+{
+  "uploads": [],
+  "downloadTickets": [
+    {
+      "ticketId": "dlt_00000001",
+      "runId": "run_00000001",
+      "workspaceId": "wsp_00000001",
+      "path": "C:/dev/copypaste/agent-workshop/.smoke/objectify/target-workspace/output/report.txt",
+      "fileName": "report.txt",
+      "mimeType": "text/plain; charset=utf-8",
+      "sourceKind": "object-store",
+      "objectKey": "runs/run_00000001/indexed/runtime-output/output/report.txt",
+      "uploadId": null,
+      "expiresAt": "2026-07-07T23:32:48.897Z",
+      "createdAt": "2026-07-07T23:22:48.897Z",
+      "createdByUserId": "usr_00000001"
+    }
+  ]
+}

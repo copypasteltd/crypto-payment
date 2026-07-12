@@ -1,0 +1,278 @@
+<svg width="1800" height="1500" viewBox="0 0 1800 1500" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style>
+      .bg { fill: #F5F7F8; }
+      .phone { fill: #FFFFFF; stroke: #CBD6DC; stroke-width: 1.6; }
+      .screen { fill: #FCFDFD; stroke: #DCE4E8; stroke-width: 1.1; }
+      .shell { fill: #E8F7F2; stroke: #7BCFB2; stroke-width: 1.4; }
+      .task { fill: #E9F2FF; stroke: #8DB4F6; stroke-width: 1.4; }
+      .creator { fill: #FFF3E6; stroke: #F2B36D; stroke-width: 1.4; }
+      .result { fill: #F3ECFF; stroke: #B89CF1; stroke-width: 1.4; }
+      .shared { fill: #EEF2F4; stroke: #AEBBC5; stroke-width: 1.1; }
+      .title { fill: #0F1720; font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; font-size: 30px; font-weight: 700; }
+      .subtitle { fill: #52606D; font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; font-size: 14px; font-weight: 500; }
+      .h1 { fill: #15212B; font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; font-size: 16px; font-weight: 700; }
+      .h2 { fill: #22313C; font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; font-size: 14px; font-weight: 700; }
+      .label { fill: #33434F; font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; font-size: 11px; font-weight: 600; }
+      .text { fill: #586774; font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; font-size: 10px; font-weight: 500; }
+      .tiny { fill: #70808C; font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif; font-size: 9px; font-weight: 500; }
+      .dark { fill: #1F2B34; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1800" height="1500"/>
+
+  <text class="title" x="40" y="52">灵办词元 小程序 / H5 布局草图</text>
+  <text class="subtitle" x="40" y="78">移动端用户路径重构为工坊、服务、任务、结果。一级导航只保留工坊、任务、我的；系统在任务启动后由 Codex 主动收集缺失信息。</text>
+
+  <rect class="shell" x="40" y="104" rx="14" width="220" height="70"/>
+  <text class="h2" x="60" y="132">工坊</text>
+  <text class="text" x="60" y="154">发现 Creator 工坊、企业工坊、服务卡片</text>
+
+  <rect class="creator" x="280" y="104" rx="14" width="220" height="70"/>
+  <text class="h2" x="300" y="132">服务</text>
+  <text class="text" x="300" y="154">服务详情、授权要求、启动任务</text>
+
+  <rect class="task" x="520" y="104" rx="14" width="220" height="70"/>
+  <text class="h2" x="540" y="132">任务</text>
+  <text class="text" x="540" y="154">进度、对话、审批、文件、结果</text>
+
+  <rect class="result" x="760" y="104" rx="14" width="220" height="70"/>
+  <text class="h2" x="780" y="132">我的</text>
+  <text class="text" x="780" y="154">资产下载、授权状态、收藏、通知</text>
+
+  <rect class="phone" x="48" y="228" rx="38" width="300" height="1120"/>
+  <rect class="phone" x="394" y="228" rx="38" width="300" height="1120"/>
+  <rect class="phone" x="740" y="228" rx="38" width="300" height="1120"/>
+  <rect class="phone" x="1086" y="228" rx="38" width="300" height="1120"/>
+  <rect class="phone" x="1432" y="228" rx="38" width="300" height="1120"/>
+
+  <rect class="dark" x="157" y="246" rx="5" width="82" height="10"/>
+  <rect class="dark" x="503" y="246" rx="5" width="82" height="10"/>
+  <rect class="dark" x="849" y="246" rx="5" width="82" height="10"/>
+  <rect class="dark" x="1195" y="246" rx="5" width="82" height="10"/>
+  <rect class="dark" x="1541" y="246" rx="5" width="82" height="10"/>
+
+  <text class="h1" x="88" y="286">1. 工坊首页</text>
+  <text class="h1" x="430" y="286">2. 服务详情 / 启动</text>
+  <text class="h1" x="778" y="286">3. 任务中心</text>
+  <text class="h1" x="1110" y="286">4. 任务对话 / 结果</text>
+  <text class="h1" x="1460" y="286">5. 我的 / 资产与授权</text>
+
+  <rect class="screen" x="68" y="308" rx="24" width="260" height="998"/>
+  <rect class="shell" x="84" y="326" rx="16" width="228" height="58"/>
+  <text class="h2" x="102" y="350">搜索与工作区</text>
+  <text class="tiny" x="102" y="370">搜索工坊、服务，切换企业空间</text>
+
+  <rect class="screen" x="84" y="398" rx="14" width="228" height="68"/>
+  <text class="label" x="102" y="424">工坊分栏</text>
+  <text class="tiny" x="102" y="446">推荐 / 企业工坊 / Creator / 最近使用</text>
+
+  <rect class="screen" x="84" y="482" rx="14" width="228" height="196"/>
+  <text class="label" x="102" y="508">企业私有工坊</text>
+  <rect class="task" x="102" y="524" rx="10" width="192" height="54"/>
+  <text class="tiny" x="118" y="548">企业财税工坊</text>
+  <text class="tiny" x="118" y="566">自动报税 / 发票整理 / 回执归档</text>
+  <rect class="task" x="102" y="590" rx="10" width="192" height="54"/>
+  <text class="tiny" x="118" y="614">资料处理工坊</text>
+  <text class="tiny" x="118" y="632">表格整理 / OCR / 归档</text>
+
+  <rect class="screen" x="84" y="694" rx="14" width="228" height="220"/>
+  <text class="label" x="102" y="720">Creator 工坊</text>
+  <rect class="creator" x="102" y="736" rx="10" width="192" height="54"/>
+  <text class="tiny" x="118" y="760">短剧生产工坊</text>
+  <text class="tiny" x="118" y="778">剧情生成 / 分镜 / 视频任务</text>
+  <rect class="creator" x="102" y="802" rx="10" width="192" height="54"/>
+  <text class="tiny" x="118" y="826">品牌内容工坊</text>
+  <text class="tiny" x="118" y="844">海报 / 图像 / 宣发文案</text>
+  <rect class="creator" x="102" y="868" rx="10" width="192" height="28"/>
+  <text class="tiny" x="160" y="886">查看全部工坊</text>
+
+  <rect class="screen" x="84" y="930" rx="14" width="228" height="160"/>
+  <text class="label" x="102" y="956">最近使用服务</text>
+  <text class="tiny" x="102" y="982">发票整理</text>
+  <text class="tiny" x="102" y="1004">短剧生成</text>
+  <text class="tiny" x="102" y="1026">自动报税</text>
+  <rect class="shared" x="102" y="1044" rx="10" width="192" height="28"/>
+  <text class="tiny" x="162" y="1062">继续上次任务</text>
+
+  <rect class="shell" x="84" y="1244" rx="18" width="228" height="46"/>
+  <text class="tiny" x="126" y="1272">工坊</text>
+  <text class="tiny" x="186" y="1272">任务</text>
+  <text class="tiny" x="246" y="1272">我的</text>
+
+  <rect class="screen" x="414" y="308" rx="24" width="260" height="998"/>
+  <rect class="creator" x="430" y="326" rx="16" width="228" height="84"/>
+  <text class="h2" x="448" y="352">服务头部</text>
+  <text class="tiny" x="448" y="374">服务名、所属工坊、Creator、成功率、耗时、费用</text>
+  <text class="tiny" x="448" y="394">术语只展示服务，不展示 Session</text>
+
+  <rect class="screen" x="430" y="426" rx="14" width="228" height="120"/>
+  <text class="label" x="448" y="452">服务说明</text>
+  <text class="tiny" x="448" y="478">场景：自动报税、截图归档、回执生成。</text>
+  <text class="tiny" x="448" y="500">输出：receipt.pdf、summary.md、截图压缩包。</text>
+  <text class="tiny" x="448" y="522">支持再次运行与复制历史配置。</text>
+
+  <rect class="screen" x="430" y="562" rx="14" width="228" height="136"/>
+  <text class="label" x="448" y="588">授权与风险</text>
+  <text class="tiny" x="448" y="614">所需能力：税务站点连接器、用户凭证、浏览器访问。</text>
+  <text class="tiny" x="448" y="636">关键确认：正式提交前需人工确认金额与主体。</text>
+  <text class="tiny" x="448" y="658">这里不要求填写全部业务参数。</text>
+
+  <rect class="screen" x="430" y="714" rx="14" width="228" height="152"/>
+  <text class="label" x="448" y="740">启动说明</text>
+  <rect class="creator" x="448" y="756" rx="10" width="192" height="74"/>
+  <text class="tiny" x="464" y="780">点击启动后会立即创建任务实例。</text>
+  <text class="tiny" x="464" y="800">系统自动插入引导消息，</text>
+  <text class="tiny" x="464" y="818">由 Codex 主动询问缺失信息和附件。</text>
+
+  <rect class="screen" x="430" y="882" rx="14" width="228" height="152"/>
+  <text class="label" x="448" y="908">输出样例</text>
+  <text class="tiny" x="448" y="934">receipt.pdf</text>
+  <text class="tiny" x="448" y="956">summary.md</text>
+  <text class="tiny" x="448" y="978">screenshots.zip</text>
+  <rect class="shared" x="448" y="994" rx="10" width="192" height="22"/>
+  <text class="tiny" x="520" y="1009">查看示例结果</text>
+
+  <rect class="creator" x="430" y="1244" rx="18" width="228" height="46"/>
+  <text class="tiny" x="522" y="1272">立即启动任务</text>
+
+  <rect class="screen" x="760" y="308" rx="24" width="260" height="998"/>
+  <rect class="task" x="776" y="326" rx="16" width="228" height="74"/>
+  <text class="h2" x="794" y="352">任务状态汇总</text>
+  <text class="tiny" x="794" y="374">待补充 2 / 待确认 1 / 运行中 4 / 已完成 18</text>
+
+  <rect class="screen" x="776" y="416" rx="14" width="228" height="60"/>
+  <text class="tiny" x="794" y="450">待补充 | 待确认 | 运行中 | 已完成 | 失败</text>
+
+  <rect class="screen" x="776" y="492" rx="14" width="228" height="156"/>
+  <text class="label" x="794" y="518">任务卡片 1</text>
+  <text class="tiny" x="794" y="542">自动报税</text>
+  <text class="tiny" x="794" y="564">来自：企业财税工坊</text>
+  <text class="tiny" x="794" y="586">状态：待确认</text>
+  <text class="tiny" x="794" y="608">下一动作：确认应纳税额</text>
+  <rect class="task" x="794" y="618" rx="10" width="192" height="18"/>
+  <text class="tiny" x="858" y="631">进入任务详情</text>
+
+  <rect class="screen" x="776" y="664" rx="14" width="228" height="156"/>
+  <text class="label" x="794" y="690">任务卡片 2</text>
+  <text class="tiny" x="794" y="714">发票整理</text>
+  <text class="tiny" x="794" y="736">来自：资料处理工坊</text>
+  <text class="tiny" x="794" y="758">状态：运行中</text>
+  <text class="tiny" x="794" y="780">下一动作：等待 OCR 完成</text>
+  <rect class="task" x="794" y="790" rx="10" width="192" height="18"/>
+  <text class="tiny" x="858" y="803">进入任务详情</text>
+
+  <rect class="screen" x="776" y="836" rx="14" width="228" height="180"/>
+  <text class="label" x="794" y="862">待你处理</text>
+  <text class="tiny" x="794" y="888">审批 1 项</text>
+  <text class="tiny" x="794" y="910">新结果 3 项</text>
+  <text class="tiny" x="794" y="932">失败任务 1 项</text>
+  <rect class="shared" x="794" y="950" rx="10" width="192" height="22"/>
+  <text class="tiny" x="852" y="965">批量处理入口</text>
+  <rect class="shared" x="794" y="980" rx="10" width="192" height="22"/>
+  <text class="tiny" x="852" y="995">筛选失败项</text>
+
+  <rect class="task" x="776" y="1244" rx="18" width="228" height="46"/>
+  <text class="tiny" x="818" y="1272">工坊</text>
+  <text class="tiny" x="878" y="1272">任务</text>
+  <text class="tiny" x="938" y="1272">我的</text>
+
+  <rect class="screen" x="1106" y="308" rx="24" width="260" height="998"/>
+  <rect class="task" x="1122" y="326" rx="16" width="228" height="76"/>
+  <text class="h2" x="1140" y="352">任务头部</text>
+  <text class="tiny" x="1140" y="374">自动报税 / 待确认 / 文件 5 个 / 已耗时 8 分钟</text>
+
+  <rect class="screen" x="1122" y="418" rx="14" width="228" height="54"/>
+  <text class="tiny" x="1140" y="450">对话 | 文件 | 进度 | 结果</text>
+
+  <rect class="screen" x="1122" y="488" rx="14" width="228" height="584"/>
+  <text class="label" x="1140" y="514">完整对话模式</text>
+  <rect class="shared" x="1140" y="530" rx="10" width="192" height="66"/>
+  <text class="tiny" x="1156" y="554">系统：任务已创建，已向 Codex 插入引导消息。</text>
+  <text class="tiny" x="1156" y="574">请问你需要我提供什么信息给你</text>
+
+  <rect class="task" x="1174" y="612" rx="10" width="158" height="86"/>
+  <text class="tiny" x="1190" y="636">Codex：请先提供纳税周期、企业主体，</text>
+  <text class="tiny" x="1190" y="656">以及最近一次申报回执，</text>
+  <text class="tiny" x="1190" y="674">如有附件可直接上传。</text>
+
+  <rect class="shared" x="1140" y="714" rx="10" width="186" height="50"/>
+  <text class="tiny" x="1156" y="740">用户：纳税周期 2026-06，附件已上传。</text>
+
+  <rect class="task" x="1174" y="780" rx="10" width="158" height="70"/>
+  <text class="tiny" x="1190" y="804">Codex：已收到附件，正在核对主体信息，</text>
+  <text class="tiny" x="1190" y="824">接下来我会进入站点填报页面。</text>
+
+  <rect class="shared" x="1140" y="866" rx="10" width="192" height="48"/>
+  <text class="tiny" x="1156" y="894">附件卡片：receipt-2025.pdf、invoice.xlsx</text>
+
+  <rect class="creator" x="1140" y="930" rx="10" width="192" height="76"/>
+  <text class="tiny" x="1156" y="954">审批卡片</text>
+  <text class="tiny" x="1156" y="976">请确认：应纳税额 42,800 元</text>
+  <text class="tiny" x="1156" y="994">确认 / 驳回 / 退回修改</text>
+
+  <rect class="shared" x="1140" y="1022" rx="10" width="192" height="34"/>
+  <text class="tiny" x="1156" y="1044">文件卡片：receipt.pdf、summary.md 已生成</text>
+
+  <rect class="screen" x="1122" y="1088" rx="14" width="228" height="96"/>
+  <text class="label" x="1140" y="1114">固定输入区</text>
+  <rect class="shared" x="1140" y="1128" rx="10" width="138" height="36"/>
+  <text class="tiny" x="1156" y="1150">继续对 Codex 说话</text>
+  <rect class="shared" x="1286" y="1128" rx="10" width="20" height="36"/>
+  <text class="tiny" x="1293" y="1150">+</text>
+  <rect class="task" x="1312" y="1128" rx="10" width="20" height="36"/>
+  <text class="tiny" x="1318" y="1150">发</text>
+
+  <rect class="task" x="1122" y="1244" rx="18" width="228" height="46"/>
+  <text class="tiny" x="1164" y="1272">工坊</text>
+  <text class="tiny" x="1224" y="1272">任务</text>
+  <text class="tiny" x="1284" y="1272">我的</text>
+
+  <rect class="screen" x="1452" y="308" rx="24" width="260" height="998"/>
+  <rect class="result" x="1468" y="326" rx="16" width="228" height="74"/>
+  <text class="h2" x="1486" y="352">我的资产</text>
+  <text class="tiny" x="1486" y="374">文件 18 / 回执 6 / 收藏工坊 4 / 通知 3</text>
+
+  <rect class="screen" x="1468" y="416" rx="14" width="228" height="184"/>
+  <text class="label" x="1486" y="442">文件与回执</text>
+  <text class="tiny" x="1486" y="468">receipt.pdf</text>
+  <text class="tiny" x="1486" y="490">申报截图.png</text>
+  <text class="tiny" x="1486" y="512">summary.md</text>
+  <text class="tiny" x="1486" y="534">trace-export.txt</text>
+  <rect class="result" x="1486" y="552" rx="10" width="192" height="22"/>
+  <text class="tiny" x="1548" y="567">下载全部</text>
+
+  <rect class="screen" x="1468" y="616" rx="14" width="228" height="150"/>
+  <text class="label" x="1486" y="642">授权状态</text>
+  <text class="tiny" x="1486" y="668">税务站点连接器：正常</text>
+  <text class="tiny" x="1486" y="690">图片生成 API Key：正常</text>
+  <text class="tiny" x="1486" y="712">浏览器授权：最近 1 次校验成功</text>
+  <rect class="shared" x="1486" y="726" rx="10" width="192" height="22"/>
+  <text class="tiny" x="1540" y="741">进入授权管理</text>
+
+  <rect class="screen" x="1468" y="782" rx="14" width="228" height="150"/>
+  <text class="label" x="1486" y="808">收藏与通知</text>
+  <text class="tiny" x="1486" y="834">收藏工坊：企业财税工坊</text>
+  <text class="tiny" x="1486" y="856">收藏工坊：短剧生产工坊</text>
+  <text class="tiny" x="1486" y="878">待确认通知 1</text>
+  <text class="tiny" x="1486" y="900">结果下载通知 2</text>
+
+  <rect class="screen" x="1468" y="948" rx="14" width="228" height="160"/>
+  <text class="label" x="1486" y="974">账户与空间</text>
+  <text class="tiny" x="1486" y="1000">当前空间：灵办词元 / 企业财税部</text>
+  <text class="tiny" x="1486" y="1022">角色：普通成员</text>
+  <rect class="shared" x="1486" y="1040" rx="10" width="192" height="22"/>
+  <text class="tiny" x="1534" y="1055">切换企业空间</text>
+  <rect class="shared" x="1486" y="1070" rx="10" width="192" height="22"/>
+  <text class="tiny" x="1534" y="1085">查看使用记录</text>
+
+  <rect class="result" x="1468" y="1244" rx="18" width="228" height="46"/>
+  <text class="tiny" x="1510" y="1272">工坊</text>
+  <text class="tiny" x="1570" y="1272">任务</text>
+  <text class="tiny" x="1630" y="1272">我的</text>
+
+  <rect class="shared" x="40" y="1388" rx="18" width="1720" height="72"/>
+  <text class="h2" x="64" y="1420">移动端交互总则</text>
+  <text class="text" x="64" y="1444">1. 工坊是移动端默认首页；2. 服务详情只解释能力与风险，不承载完整参数表单；3. 启动后立即创建任务，由 Codex 在任务完整对话里收集信息；4. 审批、附件、文件、结果都以内联消息卡片进入对话流；5. 我的页沉淀资产、授权与收藏。</text>
+</svg>

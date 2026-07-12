@@ -1,0 +1,5 @@
+Error: Missing secret value for credential cred_openai_image_api_key
+    at SecretLoader.materialize (file:///C:/dev/copypaste/agent-workshop/app/container-bridge/dist/bridge/secret-loader.js:18:31)
+    at Object.start (file:///C:/dev/copypaste/agent-workshop/app/container-bridge/dist/index.js:77:30)
+    at main (file:///C:/dev/copypaste/agent-workshop/app/container-bridge/dist/cli.js:131:22)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)

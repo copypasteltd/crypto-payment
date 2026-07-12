@@ -1,0 +1,158 @@
+{
+  "runId": "run_00000004",
+  "image": "ghcr.io/lingban/runner:latest",
+  "containerName": "lingban-run-run_00000004",
+  "workingDirectory": "/workspace/target",
+  "entrypoint": [
+    "/usr/local/bin/lingban-runner-entrypoint"
+  ],
+  "env": {
+    "HOME": "/workspace/home",
+    "CODEX_HOME": "/workspace/codex-home",
+    "TMPDIR": "/workspace/tmp",
+    "TARGET_PATH": "/workspace/target",
+    "PLAYWRIGHT_BROWSERS_PATH": "/ms-playwright",
+    "RUN_ID": "run_00000004",
+    "WORKSPACE_ID": "wsp_00000001",
+    "MCP_CONFIG_PATH": "/workspace/runtime/mcp-config.json",
+    "BRIDGE_CONTEXT_PATH": "/workspace/runtime/bridge-context.container.json",
+    "RUNTIME_CONFIG_PATH": "/workspace/runtime/runtime-config.json",
+    "BRIDGE_CONTROL_HOST": "0.0.0.0",
+    "BRIDGE_CONTROL_PORT": "3800",
+    "LINGBAN_API_BASE_URL": "http://127.0.0.1:3100"
+  },
+  "labels": {
+    "lingban.run_id": "run_00000004",
+    "lingban.workspace_id": "wsp_00000001",
+    "lingban.task_version_id": "tsv_00000024",
+    "lingban.session_version_id": "sev_00000024"
+  },
+  "mounts": [
+    {
+      "source": "C:\\Users\\carzy\\AppData\\Local\\Temp\\lingban-mcp-credentials-hwZ0fi\\target-approval",
+      "target": "/workspace/target",
+      "readOnly": false
+    },
+    {
+      "source": "C:\\dev\\copypaste\\agent-workshop\\.lingban-data\\worker\\runs\\run_00000004\\inputs",
+      "target": "/workspace/inputs",
+      "readOnly": false
+    },
+    {
+      "source": "C:\\dev\\copypaste\\agent-workshop\\.lingban-data\\worker\\runs\\run_00000004\\outputs",
+      "target": "/workspace/outputs",
+      "readOnly": false
+    },
+    {
+      "source": "C:\\dev\\copypaste\\agent-workshop\\.lingban-data\\worker\\runs\\run_00000004\\state",
+      "target": "/workspace/state",
+      "readOnly": false
+    },
+    {
+      "source": "C:\\dev\\copypaste\\agent-workshop\\.lingban-data\\worker\\runs\\run_00000004\\runtime",
+      "target": "/workspace/runtime",
+      "readOnly": false
+    },
+    {
+      "source": "C:\\dev\\copypaste\\agent-workshop\\.lingban-data\\worker\\runs\\run_00000004\\codex-home",
+      "target": "/workspace/codex-home",
+      "readOnly": false
+    },
+    {
+      "source": "C:\\dev\\copypaste\\agent-workshop\\.lingban-data\\worker\\runs\\run_00000004\\home",
+      "target": "/workspace/home",
+      "readOnly": false
+    },
+    {
+      "source": "C:\\dev\\copypaste\\agent-workshop\\.lingban-data\\worker\\runs\\run_00000004\\tmp",
+      "target": "/workspace/tmp",
+      "readOnly": false
+    },
+    {
+      "source": "C:\\dev\\copypaste\\agent-workshop\\.lingban-data\\worker\\runs\\run_00000004\\browser-profile",
+      "target": "/workspace/browser-profile",
+      "readOnly": false
+    },
+    {
+      "source": "C:\\dev\\copypaste\\agent-workshop\\.lingban-data\\worker\\runs\\run_00000004\\mcp",
+      "target": "/workspace/mcp",
+      "readOnly": false
+    },
+    {
+      "source": "C:\\dev\\copypaste\\agent-workshop\\.lingban-data\\worker\\runs\\run_00000004\\secrets",
+      "target": "/workspace/secrets",
+      "readOnly": true
+    },
+    {
+      "source": "C:\\dev\\copypaste\\agent-workshop\\.lingban-data\\worker\\runs\\run_00000004\\logs",
+      "target": "/workspace/logs",
+      "readOnly": false
+    }
+  ],
+  "network": "lingban-egress-default",
+  "resources": {
+    "cpus": "2",
+    "memory": "4g",
+    "pidsLimit": 512
+  },
+  "removeOnExit": true,
+  "commandPreview": [
+    "docker",
+    "create",
+    "--rm",
+    "--name",
+    "lingban-run-run_00000004",
+    "--hostname",
+    "run-run_00000004",
+    "--cpus",
+    "2",
+    "--memory",
+    "4g",
+    "--pids-limit",
+    "512",
+    "--network",
+    "lingban-egress-default",
+    "--workdir",
+    "/workspace/target",
+    "--stop-timeout",
+    "10",
+    "--init",
+    "--env-file",
+    "C:\\dev\\copypaste\\agent-workshop\\.lingban-data\\worker\\runs\\run_00000004\\runtime\\docker.env",
+    "--entrypoint",
+    "/usr/local/bin/lingban-runner-entrypoint",
+    "--label",
+    "lingban.run_id=run_00000004",
+    "--label",
+    "lingban.workspace_id=wsp_00000001",
+    "--label",
+    "lingban.task_version_id=tsv_00000024",
+    "--label",
+    "lingban.session_version_id=sev_00000024",
+    "--mount",
+    "type=bind,source=C:\\Users\\carzy\\AppData\\Local\\Temp\\lingban-mcp-credentials-hwZ0fi\\target-approval,target=/workspace/target",
+    "--mount",
+    "type=bind,source=C:\\dev\\copypaste\\agent-workshop\\.lingban-data\\worker\\runs\\run_00000004\\inputs,target=/workspace/inputs",
+    "--mount",
+    "type=bind,source=C:\\dev\\copypaste\\agent-workshop\\.lingban-data\\worker\\runs\\run_00000004\\outputs,target=/workspace/outputs",
+    "--mount",
+    "type=bind,source=C:\\dev\\copypaste\\agent-workshop\\.lingban-data\\worker\\runs\\run_00000004\\state,target=/workspace/state",
+    "--mount",
+    "type=bind,source=C:\\dev\\copypaste\\agent-workshop\\.lingban-data\\worker\\runs\\run_00000004\\runtime,target=/workspace/runtime",
+    "--mount",
+    "type=bind,source=C:\\dev\\copypaste\\agent-workshop\\.lingban-data\\worker\\runs\\run_00000004\\codex-home,target=/workspace/codex-home",
+    "--mount",
+    "type=bind,source=C:\\dev\\copypaste\\agent-workshop\\.lingban-data\\worker\\runs\\run_00000004\\home,target=/workspace/home",
+    "--mount",
+    "type=bind,source=C:\\dev\\copypaste\\agent-workshop\\.lingban-data\\worker\\runs\\run_00000004\\tmp,target=/workspace/tmp",
+    "--mount",
+    "type=bind,source=C:\\dev\\copypaste\\agent-workshop\\.lingban-data\\worker\\runs\\run_00000004\\browser-profile,target=/workspace/browser-profile",
+    "--mount",
+    "type=bind,source=C:\\dev\\copypaste\\agent-workshop\\.lingban-data\\worker\\runs\\run_00000004\\mcp,target=/workspace/mcp",
+    "--mount",
+    "type=bind,source=C:\\dev\\copypaste\\agent-workshop\\.lingban-data\\worker\\runs\\run_00000004\\secrets,target=/workspace/secrets,readonly",
+    "--mount",
+    "type=bind,source=C:\\dev\\copypaste\\agent-workshop\\.lingban-data\\worker\\runs\\run_00000004\\logs,target=/workspace/logs",
+    "ghcr.io/lingban/runner:latest"
+  ]
+}

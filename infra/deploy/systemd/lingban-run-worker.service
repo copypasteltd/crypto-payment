@@ -1,0 +1,19 @@
+[Unit]
+Description=Lingban Workshop Run Worker
+After=network.target docker.service redis.service lingban-api.service
+Wants=network.target docker.service
+
+[Service]
+Type=simple
+User=lingban
+Group=lingban
+WorkingDirectory=/srv/lingban/current/workspaces/run-worker/app/run-worker
+EnvironmentFile=/etc/lingban/run-worker.env
+ExecStart=/usr/bin/node /srv/lingban/current/workspaces/run-worker/app/run-worker/dist/daemon.js
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+KillSignal=SIGTERM
+
+[Install]
+WantedBy=multi-user.target
