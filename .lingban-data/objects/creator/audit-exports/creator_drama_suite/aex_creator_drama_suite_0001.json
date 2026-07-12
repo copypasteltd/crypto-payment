@@ -1,0 +1,112 @@
+{
+  "package": {
+    "packageId": "creator-drama-suite",
+    "title": {
+      "zh": "短剧构建 Session 包",
+      "en": "Drama session package"
+    },
+    "workspaceContextKey": "brand-lab",
+    "generatedAt": "2026-07-09T03:10:44.415Z",
+    "versionLine": [
+      "sev_creator_drama_suite_20260709@2026.07.09",
+      "tsv_drama_storyboard_20260709@2026.07.09",
+      "img: lingban-runtime:2026.07"
+    ]
+  },
+  "counts": {
+    "releases": 1,
+    "replays": 0,
+    "gates": 4,
+    "activations": 0,
+    "runs": 0,
+    "total": 5
+  },
+  "releases": [
+    {
+      "releaseId": "rel_creator_drama_suite_0001",
+      "packageId": "creator-drama-suite",
+      "targetWorkspaceContextKey": "brand-lab",
+      "state": "production",
+      "channelLabel": {
+        "zh": "短剧工坊 / 正式",
+        "en": "Drama workshop / production"
+      },
+      "gateSummary": [
+        {
+          "zh": "等待 gate 决策",
+          "en": "Waiting for gate decisions"
+        }
+      ],
+      "updatedAt": "2026-07-09T03:10:44.320Z"
+    }
+  ],
+  "replays": [],
+  "gates": [
+    {
+      "gateId": "rgt_creator_drama_suite_0004",
+      "releaseId": "rel_creator_drama_suite_0001",
+      "packageId": "creator-drama-suite",
+      "gateType": "manual_approval",
+      "status": "passed",
+      "requiredRole": "owner",
+      "resultSummary": {
+        "zh": "人工审核门已通过。",
+        "en": "Manual approval gate passed."
+      },
+      "evidenceRef": "evidence://manual-approval-owner",
+      "decidedByUserId": "usr_owner",
+      "decidedAt": "2026-07-09T03:10:44.391Z",
+      "updatedAt": "2026-07-09T03:10:44.391Z"
+    },
+    {
+      "gateId": "rgt_creator_drama_suite_0003",
+      "releaseId": "rel_creator_drama_suite_0001",
+      "packageId": "creator-drama-suite",
+      "gateType": "credential",
+      "status": "passed",
+      "requiredRole": "admin",
+      "resultSummary": {
+        "zh": "凭证门已通过。",
+        "en": "Credential gate passed."
+      },
+      "evidenceRef": "evidence://credential-admin",
+      "decidedByUserId": "usr_admin",
+      "decidedAt": "2026-07-09T03:10:44.381Z",
+      "updatedAt": "2026-07-09T03:10:44.381Z"
+    },
+    {
+      "gateId": "rgt_creator_drama_suite_0002",
+      "releaseId": "rel_creator_drama_suite_0001",
+      "packageId": "creator-drama-suite",
+      "gateType": "replay",
+      "status": "passed",
+      "requiredRole": "creator",
+      "resultSummary": {
+        "zh": "回放门已通过。",
+        "en": "Replay gate passed."
+      },
+      "evidenceRef": "evidence://replay",
+      "decidedByUserId": "usr_creator",
+      "decidedAt": "2026-07-09T03:10:44.365Z",
+      "updatedAt": "2026-07-09T03:10:44.365Z"
+    },
+    {
+      "gateId": "rgt_creator_drama_suite_0001",
+      "releaseId": "rel_creator_drama_suite_0001",
+      "packageId": "creator-drama-suite",
+      "gateType": "desensitization",
+      "status": "passed",
+      "requiredRole": "creator",
+      "resultSummary": {
+        "zh": "脱敏门已通过。",
+        "en": "Desensitization gate passed."
+      },
+      "evidenceRef": "evidence://desensitization",
+      "decidedByUserId": "usr_creator",
+      "decidedAt": "2026-07-09T03:10:44.352Z",
+      "updatedAt": "2026-07-09T03:10:44.352Z"
+    }
+  ],
+  "activations": [],
+  "runs": []
+}
