@@ -133,6 +133,7 @@ test("session-pack archives can be imported, queried, and exported", async () =>
     process.env.LINGBAN_SESSION_PACK_SIGNATURE_HMAC_KEYS_JSON = JSON.stringify({
       [legacySessionPackSigningKeyId]: legacySessionPackSigningSecret,
     });
+    const distributionReportedAt = new Date().toISOString();
     process.env.LINGBAN_SESSION_PACK_SIGNATURE_DISTRIBUTION_TARGETS_JSON = JSON.stringify([
       {
         targetId: "worker-prod-a",
@@ -140,7 +141,7 @@ test("session-pack archives can be imported, queried, and exported", async () =>
         channel: "worker",
         acceptedKeyIds: [sessionPackSigningKeyId],
         activeKeyId: sessionPackSigningKeyId,
-        lastReportedAt: "2026-07-12T04:00:00.000Z",
+        lastReportedAt: distributionReportedAt,
       },
       {
         targetId: "bridge-prod-a",
@@ -148,7 +149,7 @@ test("session-pack archives can be imported, queried, and exported", async () =>
         channel: "bridge",
         acceptedKeyIds: [sessionPackSigningKeyId],
         activeKeyId: sessionPackSigningKeyId,
-        lastReportedAt: "2026-07-12T04:00:00.000Z",
+        lastReportedAt: distributionReportedAt,
       },
     ]);
     process.env.CODEX_BIN = process.execPath;

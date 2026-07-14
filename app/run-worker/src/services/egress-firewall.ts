@@ -48,6 +48,7 @@ export function buildContainerEgressFirewallPlan(input: {
   enabled: boolean;
   allowDns: boolean;
   runtimeApiBaseUrl?: string;
+  allowedBaseUrls?: string[];
   bindings?: McpBinding[];
 }): ContainerEgressFirewallPlan {
   if (!input.enabled) {
@@ -62,6 +63,10 @@ export function buildContainerEgressFirewallPlan(input: {
 
   if (input.runtimeApiBaseUrl) {
     addUrlTarget(targets, input.runtimeApiBaseUrl, "runtime-api");
+  }
+
+  for (const allowedBaseUrl of input.allowedBaseUrls ?? []) {
+    addUrlTarget(targets, allowedBaseUrl, "provider");
   }
 
   for (const binding of input.bindings ?? []) {

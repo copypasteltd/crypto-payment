@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import type {
   AcceptWorkspaceInvitationInput,
   AcceptWorkspaceInvitationResponse,
+  AuthDisabledSessionBootstrap,
+  AuthPlatformAccess,
   AuthSessionEnvelope,
   AuthSessionResponse,
   AuthTokenPair,
@@ -62,6 +64,7 @@ type AuthContext = {
   session: AuthSessionRecord;
   currentWorkspace: WorkspaceSummary;
   workspaces: WorkspaceSummary[];
+  platformAccess: AuthPlatformAccess;
 };
 
 let userSequence = 1;
@@ -151,8 +154,38 @@ function slugify(value: string) {
   return normalized || `workspace-${randomUUID().slice(0, 8)}`;
 }
 
+function ensureUniqueWorkspaceSlug(baseSlug: string) {
+  const normalizedBase = slugify(baseSlug);
+  const existing = new Set(
+    authRepository.listWorkspaces().map((workspace) => normalizeText(workspace.slug))
+  );
+
+  if (!existing.has(normalizedBase)) {
+    return normalizedBase;
+  }
+
+  for (let index = 2; index < 10_000; index += 1) {
+    const candidate = `${normalizedBase}-${index}`;
+    if (!existing.has(candidate)) {
+      return candidate;
+    }
+  }
+
+  return `${normalizedBase}-${randomUUID().slice(0, 8)}`;
+}
+
 function normalizeText(value?: string | null) {
   return (value ?? "").trim().toLowerCase();
+}
+
+function resolvePlatformAccess(email: string): AuthPlatformAccess {
+  const normalizedEmail = normalizeEmail(email);
+  const platformAdmins = new Set(getApiRuntimeConfig().platformAdminEmails);
+  const isPlatformAdmin = platformAdmins.has(normalizedEmail);
+  return {
+    isPlatformAdmin,
+    role: isPlatformAdmin ? "platform_admin" : null,
+  };
 }
 
 function normalizeKeySegment(value?: string | null) {
@@ -207,6 +240,25 @@ function buildWorkspaceSummary(workspace: Workspace, membership: WorkspaceMember
     root,
     role: membership.role,
     membershipStatus: membership.status,
+  };
+}
+
+function buildDisabledSessionBootstrap(): AuthDisabledSessionBootstrap {
+  const workspaces = workshopCatalogRepository.listContexts();
+  const currentWorkspace =
+    workshopCatalogRepository.getContextByKey("harbor-finance") ??
+    workshopCatalogRepository.getContextByKey("personal") ??
+    workspaces[0] ??
+    null;
+
+  if (!currentWorkspace) {
+    throw new AppError(500, "WORKSPACE_CONTEXT_EMPTY", "No workshop contexts are configured");
+  }
+
+  return {
+    authMode: "disabled",
+    currentWorkspace,
+    workspaces,
   };
 }
 
@@ -350,6 +402,10 @@ async function rotateSessionTokens(record: AuthSessionRecord, currentWorkspaceId
 }
 
 export class AuthService {
+  getDisabledSessionBootstrap(): AuthDisabledSessionBootstrap {
+    return buildDisabledSessionBootstrap();
+  }
+
   async register(input: RegisterAuthInput): Promise<AuthSessionResponse> {
     const parsed = registerAuthInputSchema.parse(input);
     const email = normalizeEmail(parsed.email);
@@ -369,7 +425,7 @@ export class AuthService {
     };
     const workspace: Workspace = {
       workspaceId: nextWorkspaceId(),
-      slug: slugify(parsed.workspaceName ?? `${parsed.displayName}-workspace`),
+      slug: ensureUniqueWorkspaceSlug(parsed.workspaceName ?? `${parsed.displayName}-workspace`),
       name: (parsed.workspaceName ?? `${parsed.displayName} Workspace`).trim(),
       type: "personal",
       createdAt,
@@ -853,6 +909,7 @@ export class AuthService {
       workspaces: memberships
         .filter((item) => item.membership.status === "active")
         .map((item) => buildWorkspaceSummary(item.workspace, item.membership)),
+      platformAccess: resolvePlatformAccess(user.email),
     };
   }
 
@@ -867,6 +924,7 @@ export class AuthService {
       session,
       currentWorkspace: envelope.currentWorkspace,
       workspaces: envelope.workspaces,
+      platformAccess: envelope.platformAccess,
       tokens,
     });
   }

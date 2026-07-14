@@ -24,6 +24,7 @@ export const runAggregateSchema = runSnapshotSchema.extend({
 export type RunAggregate = {
   run: RunRecord;
   runtime?: RunSnapshot["runtime"];
+  provider?: RunSnapshot["provider"];
   informationCollection?: RunSnapshot["informationCollection"];
   input: CreateRunInput;
   startJob: StartRunJobPayload;
@@ -36,6 +37,7 @@ export type RunAggregate = {
 export function projectRunSnapshot(aggregate: {
   run: RunSnapshot["run"];
   runtime?: RunSnapshot["runtime"];
+  provider?: RunSnapshot["provider"];
   informationCollection?: RunSnapshot["informationCollection"];
   messages: RunConversationMessage[];
   files: RunFileEntry[];

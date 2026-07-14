@@ -22,3 +22,23 @@ This directory contains the minimum deployment assets required to move the curre
 5. Run `server/install-release.sh` on the host to build, migrate, and switch the active release.
 
 The generated release bundle keeps backend and worker as standalone workspaces, and it includes prebuilt static artifacts for Dashboard and Mobile H5.
+
+## Deployment defaults
+
+- API process listens on `127.0.0.1:38100`
+- Worker ops listens on `127.0.0.1:38101`
+- Bridge control listens on `127.0.0.1:38102`
+- Public Dashboard is served by Nginx on `:38110`
+- Public Mobile H5 is served by Nginx on `:38120`
+- Public API gateway is served by Nginx on `:38130`
+- Worker launch mode defaults to `local-process`
+- Codex host binary is expected at `CODEX_BIN=/home/lingban/.local/bin/codex`
+
+## Optional frontend build fallback
+
+If a release bundle does not contain ready-made static assets, `server/install-release.sh` can rebuild them on the Linux host:
+
+- `/etc/lingban/dashboard.env` for `VITE_API_BASE_URL`
+- `/etc/lingban/mobile.env` for `TARO_APP_API_BASE_URL`
+
+When `static/dashboard/index.html` or `static/mobile-h5/index.html` is missing, the installer will build the matching standalone workspace and copy the generated `dist/` output into the release.

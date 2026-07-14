@@ -1,41 +1,55 @@
-# App Layer README
+# 灵办词元应用层 / Lingban Application Layer
 
-本目录对应拆分分支 `agent-workshop-app`，包含灵办词元的五个主应用。
+`app/` 包含五个可部署应用。各应用拥有独立 GitHub 仓库，同时保留在统一 pnpm workspace 中进行跨层类型检查、契约联动和系统测试。
 
-This directory maps to the `agent-workshop-app` branch and contains the five runtime applications of Lingban Workshop.
+The `app/` directory contains five deployable applications. Each application has its own GitHub repository and remains part of the shared pnpm workspace for contract integration and system verification.
 
 ## 应用清单 / Applications
 
-| 路径 | 包名 | 角色 | 关键入口 |
+| 路径 | 仓库 | 技术 | 职责 |
 | --- | --- | --- | --- |
-| `app/api` | `@lingban/api` | 接入层与控制面 API | `src/index.ts`, `src/app/create-server.ts` |
-| `app/run-worker` | `@lingban/run-worker` | run 队列消费、runtime 物化、生命周期调度 | `src/daemon.ts`, `src/jobs/start-run.ts` |
-| `app/container-bridge` | `@lingban/container-bridge` | Codex CLI bridge、文件监听、MCP/secret 物化 | `src/cli.ts`, `src/bridge/*` |
-| `app/dashboard` | `dashboard` | React + Vite Dashboard | `src/main.tsx`, `src/app/App.tsx` |
-| `app/mobile` | `lingban-mobile` | Taro H5 / 小程序前端 | `src/app.tsx`, `src/pages/*` |
+| `app/mobile` | `agent-workshop-app` | Taro + React | H5 首发端、任务对话、文件与个人工作区 |
+| `app/dashboard` | `agent-workshop-dashboard` | React + Vite | Workspace、Creator 与 Platform Admin 控制台 |
+| `app/api` | `agent-workshop-backend` | Fastify + TypeScript | 公共 API、控制面、Realtime 与 Runtime 回调 |
+| `app/run-worker` | `agent-workshop-run-worker` | BullMQ + TypeScript | 队列、工作区物化、运行调度、恢复与清理 |
+| `app/container-bridge` | `agent-workshop-sdk` | node-pty + TypeScript | Codex CLI、MCP、Secret、文件、Artifact 与控制面 |
 
-## 依赖关系 / Dependency Direction
+## 调用关系 / Dependency Flow
 
-| From | To | 目的 |
-| --- | --- | --- |
-| `dashboard` / `mobile` | `packages/api-sdk`, `packages/contracts`, `packages/ui-tokens` | 接口调用、类型共享、视觉 token |
-| `api` | `packages/contracts`, `packages/db`, `packages/domain-models`, `packages/session-pack` | 协议、持久化、领域模型、session 资产 |
-| `run-worker` | `packages/contracts`, `packages/domain-models`, `packages/session-pack` | 运行计划、工作区物化、资产落地 |
-| `container-bridge` | `packages/contracts`, `packages/mcp`, `packages/credential` | MCP 配置、secret 注入、bridge 事件协议 |
+```text
+Mobile / Dashboard
+        |
+        v
+       API <---- WebSocket / SSE ---->
+        |
+        v
+   Run Worker
+        |
+        v
+ Runtime Bridge ---- Codex CLI / MCP / target path
+```
 
-## 代码阅读建议 / Reading Guide
+## 关键入口 / Entry Files
 
-1. 先看 `app/api`，理解 run、credential、MCP、file 与 workshop 的主数据面。
-2. 再看 `app/run-worker`，理解 run 从创建到启动的编排链路。
-3. 然后看 `app/container-bridge`，理解 Codex CLI 是如何被桥接、监听与控制的。
-4. 最后看 `app/dashboard` 与 `app/mobile`，理解双端如何消费同一套 run / workshop / file 能力。
+| 应用 | 入口 |
+| --- | --- |
+| API | `api/src/index.ts`, `api/src/app/create-server.ts` |
+| Run Worker | `run-worker/src/daemon.ts`, `run-worker/src/jobs/start-run.ts` |
+| Runtime Bridge | `container-bridge/src/cli.ts`, `container-bridge/src/bridge/codex-session.ts` |
+| Dashboard | `dashboard/src/main.tsx`, `dashboard/src/app/router/AppRouter.tsx` |
+| Mobile | `mobile/src/app.tsx`, `mobile/src/app.config.ts` |
 
-## 常用命令 / Commands
+## 验证命令 / Validation
 
 ```bash
-pnpm -C app/api build
-pnpm -C app/run-worker test
-pnpm -C app/container-bridge typecheck
-pnpm -C app/dashboard dev
-pnpm -C app/mobile dev:h5
+pnpm build:backend
+pnpm typecheck:backend
+pnpm typecheck:frontend
+pnpm -C app/dashboard lint
+pnpm -C app/mobile build:h5
+pnpm test:runtime:compiled
 ```
+
+截至 2026-07-14，五个应用均已具备正式代码主链；HZ01 已部署 API、Dashboard 与 Mobile H5 供验收。
+
+As of 2026-07-14, all five applications have implemented production-oriented main paths; API, Dashboard, and Mobile H5 are deployed on HZ01 for acceptance testing.

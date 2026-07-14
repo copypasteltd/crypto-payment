@@ -1,7 +1,7 @@
 [Unit]
 Description=Lingban Workshop Run Worker
-After=network.target docker.service redis.service lingban-api.service
-Wants=network.target docker.service
+After=network.target redis.service lingban-api.service
+Wants=network.target
 
 [Service]
 Type=simple

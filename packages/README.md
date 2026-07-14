@@ -1,40 +1,48 @@
-# Packages README
+# 灵办词元共享包 / Lingban Shared Packages
 
-本目录对应拆分分支 `agent-workshop-packages`，承载所有共享契约、基础设施抽象与前端公共能力。
+`packages/` 保存五个应用共同使用的契约、领域模型、数据访问、Session 资产、SDK 与设计 Token。共享包通过 pnpm workspace 参与统一构建和类型检查。
 
-This directory maps to the `agent-workshop-packages` branch and contains all shared contracts, infrastructure abstractions, and client-side shared capabilities.
+The `packages/` directory contains contracts, domain models, persistence, session assets, SDKs, and design tokens shared by all five applications.
 
-## 共享包清单 / Package Inventory
+## 包清单 / Package Inventory
 
-| 路径 | 包名 | 作用 |
+| 路径 | 包名 | 职责 |
 | --- | --- | --- |
-| `packages/config` | `@lingban/config` | 环境变量、配置装载与优先级 |
-| `packages/contracts` | `@lingban/contracts` | API DTO、实时事件、治理协议、Schema |
-| `packages/credential` | `@lingban/credential` | secret / credential 抽象能力 |
-| `packages/db` | `@lingban/db` | repository、query repository、event bus、数据库访问 |
-| `packages/domain-models` | `@lingban/domain-models` | run、quota、search 等领域模型 |
-| `packages/files` | `@lingban/files` | 文件系统、文件对象与读写能力 |
-| `packages/mcp` | `@lingban/mcp` | MCP 解析、策略与配置封装 |
-| `packages/realtime` | `@lingban/realtime` | 前端实时订阅协议与封装 |
-| `packages/api-sdk` | `@lingban/api-sdk` | dashboard / mobile 调用 API 的 SDK |
-| `packages/session-pack` | `@lingban/session-pack` | session 打包、脱敏、签名、schema |
-| `packages/shared` | `@lingban/shared` | 通用工具与共享辅助方法 |
-| `packages/ui-tokens` | `@lingban/ui-tokens` | 双前端共用设计 token |
+| `config` | `@lingban/config` | 环境变量、配置 Schema 与优先级 |
+| `contracts` | `@lingban/contracts` | API DTO、Zod Schema、Bridge/Realtime/Governance 契约 |
+| `credential` | `@lingban/credential` | Credential 引用、挂载与脱敏辅助 |
+| `db` | `@lingban/db` | Repository、PostgreSQL、Query Model 与 Event Bus |
+| `domain-models` | `@lingban/domain-models` | Run、Quota、Search 与业务投影 |
+| `files` | `@lingban/files` | 路径边界、文件读取和存储抽象 |
+| `mcp` | `@lingban/mcp` | MCP 标识、Binding、策略与配置 |
+| `realtime` | `@lingban/realtime` | Realtime 类型与客户端协议 |
+| `api-sdk` | `@lingban/api-sdk` | Auth、Catalog、Run、Creator、Governance HTTP SDK |
+| `session-pack` | `@lingban/session-pack` | Session 打包、脱敏、签名、继承和归档 |
+| `shared` | `@lingban/shared` | 通用工具、日志与基础辅助 |
+| `ui-tokens` | `@lingban/ui-tokens` | Dashboard/Mobile 共享视觉 Token |
 
-## 建议阅读顺序 / Suggested Order
+## 依赖原则 / Dependency Rules
 
-1. `contracts`
-2. `domain-models`
-3. `db`
-4. `session-pack`
-5. `api-sdk` / `realtime`
-6. `ui-tokens`
+1. `contracts` 保持可序列化、可验证并独立于应用实现。
+2. `domain-models` 消费契约并承载纯领域规则。
+3. 基础设施包实现存储、文件、凭证与 MCP 适配。
+4. `api-sdk` 和 `realtime` 为前端提供统一传输语义。
+5. 应用层禁止复制共享 Schema 或自行维护同名 DTO。
 
-## 代码层边界 / Layer Boundaries
+## 查询参数约束 / Query Coercion
 
-| 层 | 包 |
-| --- | --- |
-| 协议层 | `contracts`, `domain-models` |
-| 持久化与基础设施层 | `db`, `files`, `credential`, `mcp`, `config` |
-| 交付与消费层 | `api-sdk`, `realtime`, `ui-tokens`, `shared` |
-| 会话资产层 | `session-pack` |
+HTTP 查询参数在边界层统一执行字符串到布尔值或数值的安全转换。`"false"` 会解析为 `false`，数值分页参数通过 `z.coerce.number()` 校验，避免浏览器查询字符串触发错误过滤。
+
+HTTP query parameters are safely coerced at the contract boundary, including explicit boolean parsing and numeric pagination validation.
+
+## 验证 / Validation
+
+```bash
+pnpm build:shared
+pnpm --filter @lingban/contracts typecheck
+pnpm --filter @lingban/api-sdk test:smoke
+pnpm --filter @lingban/session-pack test
+pnpm --filter @lingban/db test
+```
+
+Standalone exports use the transitive `workspace:*` dependency closure, allowing each deliverable to retain the same contract sources used by the monorepo.

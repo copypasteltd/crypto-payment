@@ -135,3 +135,20 @@ export function requireCurrentWorkspaceAccess(
 
   return authContext;
 }
+
+export function requirePlatformAdmin(request: FastifyRequest) {
+  const authContext = requireRequestAuth(request);
+  if (!authContext) {
+    return null;
+  }
+
+  if (!authContext.platformAccess.isPlatformAdmin) {
+    throw new AppError(
+      403,
+      "PLATFORM_ADMIN_REQUIRED",
+      "Platform administrator access is required"
+    );
+  }
+
+  return authContext;
+}

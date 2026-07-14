@@ -1,5 +1,31 @@
 import { expect, test } from "@playwright/test";
 
+const disabledWorkspaceContexts = [
+  {
+    contextKey: "harbor-finance",
+    runtimeWorkspaceId: "wsp_harbor_finance",
+    displayName: { zh: "Harbor Finance Workspace", en: "Harbor Finance Workspace" },
+    type: "enterprise",
+    meta: { zh: "企业财税工作区", en: "Enterprise finance workspace" },
+    root: "/workspace/harbor-finance/",
+    allowedEntrySurfaces: ["dashboard", "h5", "mini-program"],
+  },
+  {
+    contextKey: "brand-lab",
+    runtimeWorkspaceId: "wsp_brand_lab",
+    displayName: { zh: "Brand Lab Workspace", en: "Brand Lab Workspace" },
+    type: "team",
+    meta: { zh: "品牌内容工作区", en: "Brand content workspace" },
+    root: "/workspace/brand-lab/",
+    allowedEntrySurfaces: ["dashboard", "h5", "mini-program"],
+  },
+];
+const disabledAuthBootstrap = {
+  authMode: "disabled",
+  currentWorkspace: disabledWorkspaceContexts[0],
+  workspaces: disabledWorkspaceContexts,
+};
+
 const workshop = {
   workshopId: "brand-poster-suite",
   scope: "creative",
@@ -103,6 +129,54 @@ const batchWorkspaceContextKey = "brand-lab";
 const batchWorkspaceRoot = "/workspace/brand-lab";
 const batchJobId = "brj_demo_batch_0001";
 const batchTargetRoot = "/workspace/poster-batch-17/runs/poster-batch";
+const batchImportFixture = {
+  sourceFormat: "csv",
+  fileName: "poster-batch.csv",
+  sheetNames: ["poster-batch"],
+  activeSheetName: "poster-batch",
+  detectedColumns: ["title", "path_suffix", "region"],
+  effectiveMapping: {
+    title: "title",
+    pathSuffix: "path_suffix",
+    targetPath: null,
+    initialMessage: null,
+    rowKey: null,
+    ignoreColumns: [],
+    contextColumns: ["region"],
+  },
+  items: [
+    {
+      rowKey: null,
+      title: "Poster A",
+      targetPath: null,
+      pathSuffix: "poster-a",
+      initialMessage: null,
+      context: { region: "hk" },
+    },
+    {
+      rowKey: null,
+      title: "Poster B",
+      targetPath: null,
+      pathSuffix: "poster-b",
+      initialMessage: null,
+      context: { region: "sg" },
+    },
+  ],
+  importedRowCount: 2,
+  skippedRowCount: 0,
+  truncated: false,
+  warnings: [],
+};
+
+async function importBatchFixtureFile(page) {
+  await page.getByTestId("dashboard-batch-import-file").setInputFiles({
+    name: "poster-batch.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from("title,path_suffix,region\nPoster A,poster-a,hk\nPoster B,poster-b,sg\n"),
+  });
+  await page.getByTestId("dashboard-batch-import-submit").click();
+  await expect(page.getByTestId("dashboard-batch-import-summary")).toBeVisible();
+}
 
 function buildBatchItem({
   batchItemId,
@@ -1375,31 +1449,31 @@ function createCreatorSessionLineage(sessionPack) {
 test.describe("dashboard smoke", () => {
   test.beforeEach(async ({ page }) => {
     await page.route("**/v1/auth/session", async (route) => {
-      await fulfillJson(route, { authMode: "disabled" });
+      await fulfillJson(route, disabledAuthBootstrap);
     });
   });
 
   test("loads workshops route and shell navigation", async ({ page }) => {
-    await page.goto("/dashboard/workshops");
+    await page.goto("/workspace/workshops");
     await expect(page.getByTestId("dashboard-workshops-page")).toBeVisible();
-    await expect(page.locator('a[href="/dashboard/instances"]').first()).toBeVisible();
-    await expect(page.locator('a[href="/dashboard/creator"]').first()).toBeVisible();
+    await expect(page.locator('a[href="/workspace/instances"]').first()).toBeVisible();
+    await expect(page.locator('a[href="/workspace/creator"]').first()).toBeVisible();
   });
 
   test("navigates between core dashboard routes", async ({ page }) => {
-    await page.goto("/dashboard/workshops");
+    await page.goto("/workspace/workshops");
 
-    await page.locator('a[href="/dashboard/instances"]').first().click();
-    await expect(page).toHaveURL(/\/dashboard\/instances$/);
+    await page.locator('a[href="/workspace/instances"]').first().click();
+    await expect(page).toHaveURL(/\/workspace\/instances$/);
     await expect(page.getByTestId("dashboard-instances-page")).toBeVisible();
 
-    await page.locator('a[href="/dashboard/creator"]').first().click();
-    await expect(page).toHaveURL(/\/dashboard\/creator$/);
+    await page.locator('a[href="/workspace/creator"]').first().click();
+    await expect(page).toHaveURL(/\/workspace\/creator$/);
     await expect(page.getByTestId("dashboard-creator-page")).toBeVisible();
   });
 
   test("opens deep instance route directly", async ({ page }) => {
-    await page.goto("/dashboard/instances/tax-q2/files");
+    await page.goto("/workspace/instances/tax-q2/files");
     await expect(page.getByTestId("dashboard-instances-page")).toBeVisible();
   });
 
@@ -1635,7 +1709,7 @@ test.describe("dashboard smoke", () => {
       );
     });
 
-    await page.goto(`/dashboard/instances/${fileRunId}/files`);
+    await page.goto(`/workspace/instances/${fileRunId}/files`);
 
     await expect(page.getByTestId("dashboard-instance-file-preview")).toContainText("Checklist ready");
     expect(previewRequests).toBeGreaterThan(0);
@@ -1838,7 +1912,7 @@ test.describe("dashboard smoke", () => {
       );
     });
 
-    await page.goto(`/dashboard/instances/${fileRunId}`);
+    await page.goto(`/workspace/instances/${fileRunId}`);
 
     await page
       .getByTestId("dashboard-instance-composer-input")
@@ -1893,13 +1967,13 @@ test.describe("dashboard smoke", () => {
   });
 
   test("opens deep batch route directly under the service launchpad", async ({ page }) => {
-    await page.goto("/dashboard/services/poster-batch/batches/brj_demo_0001");
+    await page.goto("/workspace/services/poster-batch/batches/brj_demo_0001");
     await expect(page.getByTestId("dashboard-workshops-page")).toBeVisible();
   });
 
   test("estimates batch budget from the launchpad governance form", async ({ page }) => {
     await page.route("**/v1/auth/session", async (route) => {
-      await fulfillJson(route, { authMode: "disabled" });
+      await fulfillJson(route, disabledAuthBootstrap);
     });
     await page.route("**/v1/workshops**", async (route) => {
       await fulfillJson(route, [workshop]);
@@ -1924,6 +1998,11 @@ test.describe("dashboard smoke", () => {
         return;
       }
 
+      if (request.method() === "POST" && url.pathname === "/v1/batch-runs/import-file") {
+        await fulfillJson(route, batchImportFixture);
+        return;
+      }
+
       await fulfillJson(
         route,
         {
@@ -1935,9 +2014,10 @@ test.describe("dashboard smoke", () => {
       );
     });
 
-    await page.goto("/dashboard/services/poster-batch");
+    await page.goto("/workspace/services/poster-batch");
 
     await expect(page.getByTestId("dashboard-batch-governance")).toBeVisible();
+    await importBatchFixtureFile(page);
     await page.getByTestId("dashboard-batch-max-parallel-runs").fill("4");
     await page.getByTestId("dashboard-batch-retry-limit").fill("1");
     await page.getByTestId("dashboard-batch-budget-limit").fill("25");
@@ -2111,6 +2191,11 @@ test.describe("dashboard smoke", () => {
         return;
       }
 
+      if (request.method() === "POST" && url.pathname === "/v1/batch-runs/import-file") {
+        await fulfillJson(route, batchImportFixture);
+        return;
+      }
+
       if (request.method() === "GET" && url.pathname === `/v1/batch-runs/${batchJobId}`) {
         await fulfillJson(route, currentBatch);
         return;
@@ -2200,8 +2285,9 @@ test.describe("dashboard smoke", () => {
       );
     });
 
-    await page.goto("/dashboard/services/poster-batch");
+    await page.goto("/workspace/services/poster-batch");
     await expect(page.getByTestId("dashboard-batch-governance")).toBeVisible();
+    await importBatchFixtureFile(page);
 
     await page.getByTestId("dashboard-batch-max-parallel-runs").fill("2");
     await page.getByTestId("dashboard-batch-retry-limit").fill("1");
@@ -2210,7 +2296,7 @@ test.describe("dashboard smoke", () => {
     await page.getByTestId("dashboard-batch-create-draft").click();
     await expect.poll(() => createBatchPayload?.serviceId ?? null).toBe(service.serviceId);
     await expect.poll(() => currentBatch?.job.status ?? null).toBe("draft");
-    await expect(page).toHaveURL(new RegExp(`/dashboard/services/${service.serviceId}/batches/${batchJobId}$`));
+    await expect(page).toHaveURL(new RegExp(`/workspace/services/${service.serviceId}/batches/${batchJobId}$`));
     await expect(page.getByTestId("dashboard-batch-board")).toBeVisible();
     await expect(page.getByTestId("dashboard-batch-board-status")).toContainText("draft");
     await expect(page.getByTestId("dashboard-batch-item-status-bat_item_demo_0001")).toContainText("draft");
@@ -2478,7 +2564,7 @@ test.describe("dashboard smoke", () => {
     };
 
     await page.route("**/v1/auth/session", async (route) => {
-      await fulfillJson(route, { authMode: "disabled" });
+      await fulfillJson(route, disabledAuthBootstrap);
     });
     await page.route("**/v1/workshops**", async (route) => {
       await fulfillJson(route, [taxWorkshop]);
@@ -2570,10 +2656,10 @@ test.describe("dashboard smoke", () => {
       );
     });
 
-    await page.goto("/dashboard/services/tax-filing");
+    await page.goto("/workspace/services/tax-filing");
 
     await page.getByTestId("dashboard-launch-run-button").click();
-    await expect(page).toHaveURL(new RegExp(`/dashboard/instances/${launchRunId}$`));
+    await expect(page).toHaveURL(new RegExp(`/workspace/instances/${launchRunId}$`));
     await expect(page.getByTestId("dashboard-instance-information-collection")).toBeVisible();
     await expect(
       page.getByText("Please tell me what information I need to provide to you.").first()
@@ -2586,7 +2672,7 @@ test.describe("dashboard smoke", () => {
     let currentSummary = createApprovalRunsSummary(true);
 
     await page.route("**/v1/auth/session", async (route) => {
-      await fulfillJson(route, { authMode: "disabled" });
+      await fulfillJson(route, disabledAuthBootstrap);
     });
 
     await page.route("**/v1/runs**", async (route) => {
@@ -2636,7 +2722,7 @@ test.describe("dashboard smoke", () => {
       );
     });
 
-    await page.goto(`/dashboard/instances/${approvalRunId}`);
+    await page.goto(`/workspace/instances/${approvalRunId}`);
 
     await expect(page.getByTestId("dashboard-instance-pending-approval")).toBeVisible();
     await page.getByTestId("dashboard-instance-approve-button").click();
@@ -2651,7 +2737,7 @@ test.describe("dashboard smoke", () => {
     let reviewRequests = 0;
 
     await page.route("**/v1/auth/session", async (route) => {
-      await fulfillJson(route, { authMode: "disabled" });
+      await fulfillJson(route, disabledAuthBootstrap);
     });
 
     await page.route("**/v1/runs**", async (route) => {
@@ -2705,7 +2791,7 @@ test.describe("dashboard smoke", () => {
       );
     });
 
-    await page.goto(`/dashboard/instances/${reviewRunId}`);
+    await page.goto(`/workspace/instances/${reviewRunId}`);
 
     await expect(page.getByTestId(`dashboard-instance-review-answer-${reviewAnswerId}`)).toBeVisible();
     await expect(page.getByTestId("dashboard-instance-review-count-pending")).toContainText("1");
@@ -2909,7 +2995,7 @@ test.describe("dashboard smoke", () => {
       );
     });
 
-    await page.goto("/dashboard/creator/packages/brand-poster-suite");
+    await page.goto("/workspace/creator/packages/brand-poster-suite");
 
     await expect(page.getByTestId("dashboard-creator-page")).toBeVisible();
     await expect(page.getByTestId("dashboard-session-governance-summary-card")).toBeVisible();
@@ -3116,7 +3202,7 @@ test.describe("dashboard smoke", () => {
       );
     });
 
-    await page.goto("/dashboard/creator/packages/brand-poster-suite");
+    await page.goto("/workspace/creator/packages/brand-poster-suite");
 
     await expect(page.getByTestId("dashboard-creator-page")).toBeVisible();
     await expect(page.getByTestId("dashboard-session-redaction-secret-card")).toBeVisible();
@@ -3437,7 +3523,7 @@ test.describe("dashboard smoke", () => {
       );
     });
 
-    await page.goto("/dashboard/creator/packages/brand-poster-suite");
+    await page.goto("/workspace/creator/packages/brand-poster-suite");
 
     await expect(page.getByTestId("dashboard-creator-page")).toBeVisible();
     await expect(page.getByTestId("dashboard-session-pack-identity")).toContainText(

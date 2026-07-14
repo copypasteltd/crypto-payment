@@ -29,6 +29,8 @@ const expectedVersions = [
   "0024_mcp_governance_events",
   "0025_batch_runs",
   "0026_session_archives",
+  "0027_mcp_global_workspace_nullable",
+  "0028_credentials_workspace_owner_nullable",
 ];
 
 test("database migrations are discoverable, dry-runnable, and idempotently applied", async () => {

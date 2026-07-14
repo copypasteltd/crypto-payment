@@ -1,32 +1,36 @@
-# Docs README
+# 灵办词元文档 / Lingban Documentation
 
-本目录对应拆分分支 `agent-workshop-docs`，集中保存灵办词元的产品、前端、后端、治理、测试与上线文档。
+`docs/` 是灵办词元产品、架构、开发、治理、测试与上线资料的唯一文档目录。
 
-This directory maps to the `agent-workshop-docs` branch and stores the product, frontend, backend, governance, test, and launch documents for Lingban Workshop.
+The `docs/` directory is the canonical location for product, architecture, development, governance, testing, and release documentation.
 
 ## 核心文档 / Core Documents
 
 | 文档 | 用途 |
 | --- | --- |
-| `产品需求草案.md` | 产品范围、用户类型、交互模式与工坊模型 |
-| `前端需求.md` | H5 / Dashboard 的信息架构、页面结构、交互要求 |
-| `后端设计文档.md` | 系统架构、运行模型、MCP/凭证、文件、隔离与调度 |
-| `后端开发文档.md` | 后端工程实现拆解、模块边界、开发顺序 |
-| `dashboard开发文档.md` | Dashboard 工程开发约束与页面实现说明 |
-| `小程序开发文档.md` | Taro H5 首发与后续多端适配约束 |
+| `产品需求草案.md` | 产品定位、用户、工坊、Session 资产与核心流程 |
+| `前端需求.md` | H5 与 Dashboard 信息架构和交互规范 |
+| `dashboard开发文档.md` | React + Vite 路由、状态、样式和验收约束 |
+| `小程序开发文档.md` | Taro H5 首发与微信/支付宝特化方案 |
+| `后端设计文档.md` | 后端组件、Run 隔离、MCP、Credential、文件与事件流 |
+| `后端开发文档.md` | TypeScript/Fastify/BullMQ/Bridge 的实现要求 |
+| `系统实现差距审计-2026-07-12.md` | 实现覆盖、交付差距与风险审计 |
+| `联调与验收清单.md` | 分层联调、证据和上线验收项 |
 
-## 文档分组 / Document Groups
+## 阅读顺序 / Reading Order
 
-| 分类 | 说明 |
-| --- | --- |
-| 需求文档 | 用户体验、页面、功能边界 |
-| 架构文档 | 系统设计、组件职责、调用链 |
-| 总表文档 | 模块职责、接口、治理、部署、测试矩阵 |
-| 增量记录 | 某天某轮的修复、治理、上线与回归更新 |
-| 审计差距 | 当前实现与目标交付之间的差距分析 |
+1. 产品需求草案
+2. 前端需求与后端设计
+3. Dashboard、小程序与后端开发文档
+4. 接口、治理、数据、Runtime 与部署总表
+5. 差距审计和联调验收清单
 
-## 使用建议 / How To Use
+## 文档规则 / Documentation Rules
 
-1. 先读需求文档，统一产品语义。
-2. 再读后端设计与前端需求，理解系统边界。
-3. 最后按总表文档逐模块推进实现与验收。
+- 文档文件统一保存在 `docs/`。
+- 需求、设计、实现状态和验证证据分栏表述。
+- 代码路径、接口和环境变量使用可检索的原始名称。
+- 增量记录包含日期、影响范围、验证命令和剩余风险。
+- 服务器密码、API Key、Token 和用户数据禁止进入文档。
+
+Documents use bilingual headings where appropriate and keep implementation evidence traceable to code paths and verification commands.

@@ -4,3 +4,4 @@ playwright-report/
 tests/evidence/
 standalone/
 release/
+.ops-local/
