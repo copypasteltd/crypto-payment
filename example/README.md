@@ -1,28 +1,30 @@
-# Example README
+# 灵办词元原型 / Lingban Prototypes
 
-本目录对应拆分分支 `agent-workshop-example`，包含灵办词元的单文件原型与视觉打样。
+`example/` 包含三套单文件 H5 与 Dashboard 原型。所有页面可直接打开，无需开发服务器。
 
-This directory maps to the `agent-workshop-example` branch and contains the single-file prototypes and visual mockups for Lingban Workshop.
+The `example/` directory contains three single-file H5 and Dashboard prototypes. Each file can be opened directly without a development server.
 
-## 文件结构 / File Layout
+## 总入口 / Index
 
-| 文件 | 说明 |
-| --- | --- |
-| `index.html` | 原型总入口 |
-| `style-a-infra-h5.html` | 风格 A 的 H5 原型 |
-| `style-a-infra-dashboard.html` | 风格 A 的 Dashboard 原型 |
-| `style-b-protocol-h5.html` | 风格 B 的 H5 原型 |
-| `style-b-protocol-dashboard.html` | 风格 B 的 Dashboard 原型 |
-| `style-c-operator-h5.html` | 风格 C 的 H5 原型，当前定稿方向 |
-| `style-c-operator-dashboard.html` | 风格 C 的 Dashboard 原型，当前定稿方向 |
-| `assets/` | 图标、图片、视觉资源 |
+打开 `index.html` 查看全部样式和设备入口。
 
-## 使用方式 / Usage
+Open `index.html` to access all styles and device variants.
 
-- 直接打开 `index.html` 浏览全部入口。
-- H5 原型用于梳理 `工坊 / 任务 / 我的`。
-- Dashboard 原型用于梳理工作区、实例、Creator 与治理视图。
+## 文件 / Files
 
-## 当前定位 / Current Position
+| 风格 | H5 | Dashboard | 定位 |
+| --- | --- | --- | --- |
+| A Infra | `style-a-infra-h5.html` | `style-a-infra-dashboard.html` | 基础设施工具感 |
+| B Protocol | `style-b-protocol-h5.html` | `style-b-protocol-dashboard.html` | 协议与数据层次感 |
+| C Operator | `style-c-operator-h5.html` | `style-c-operator-dashboard.html` | 当前产品定稿参照 |
 
-风格 C 已作为后续正式开发的重要视觉参照。
+## 方案 C 交互基线 / Style C Baseline
+
+- H5 固定 `工坊 / 任务 / 我的` 三个底部入口。
+- 任务页承载多任务列表；进入任务后提供完整对话、详情和文件入口。
+- 文件页支持面包屑、路径选择和手动路径输入。
+- “我的”包含个人/企业工作区选择、授权、主题和账户信息。
+- Dashboard 提供可折叠侧栏、工作区视图、Creator 治理与独立平台后台。
+- 三套原型均保留明暗主题和现代扁平图标。
+
+Production frontend code uses Style C as a visual and interaction reference while retaining API-driven state and responsive constraints.
