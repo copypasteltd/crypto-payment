@@ -17,19 +17,61 @@ mkdir -p "${DEPLOY_ROOT}/shared"
 rsync -a --delete "${RELEASE_SOURCE}/" "${RELEASE_TARGET}/"
 
 pushd "${RELEASE_TARGET}/workspaces/backend" >/dev/null
-pnpm install --frozen-lockfile
+if [[ -f /etc/lingban/api.env ]]; then
+  set -a
+  source /etc/lingban/api.env
+  set +a
+fi
+pnpm install --no-frozen-lockfile
 pnpm run build
 pnpm -C app/api migrate
 popd >/dev/null
 
 pushd "${RELEASE_TARGET}/workspaces/run-worker" >/dev/null
-pnpm install --frozen-lockfile
+if [[ -f /etc/lingban/run-worker.env ]]; then
+  set -a
+  source /etc/lingban/run-worker.env
+  set +a
+fi
+pnpm install --no-frozen-lockfile
 pnpm run build
 popd >/dev/null
 
+if [[ -d "${RELEASE_TARGET}/workspaces/dashboard" && ! -f "${RELEASE_TARGET}/static/dashboard/index.html" ]]; then
+  pushd "${RELEASE_TARGET}/workspaces/dashboard" >/dev/null
+  if [[ -f /etc/lingban/dashboard.env ]]; then
+    set -a
+    source /etc/lingban/dashboard.env
+    set +a
+  fi
+  pnpm install --no-frozen-lockfile
+  pnpm run build
+  mkdir -p "${RELEASE_TARGET}/static/dashboard"
+  rsync -a --delete app/dashboard/dist/ "${RELEASE_TARGET}/static/dashboard/"
+  popd >/dev/null
+fi
+
+if [[ -d "${RELEASE_TARGET}/workspaces/app" && ! -f "${RELEASE_TARGET}/static/mobile-h5/index.html" ]]; then
+  pushd "${RELEASE_TARGET}/workspaces/app" >/dev/null
+  if [[ -f /etc/lingban/mobile.env ]]; then
+    set -a
+    source /etc/lingban/mobile.env
+    set +a
+  fi
+  pnpm install --no-frozen-lockfile
+  pnpm run build:h5
+  mkdir -p "${RELEASE_TARGET}/static/mobile-h5"
+  rsync -a --delete app/mobile/dist/ "${RELEASE_TARGET}/static/mobile-h5/"
+  popd >/dev/null
+fi
+
 ln -sfn "${RELEASE_TARGET}" "${CURRENT_LINK}"
 systemctl daemon-reload
-systemctl restart lingban-api
-systemctl restart lingban-run-worker
+if systemctl list-unit-files | grep -q '^lingban-api.service'; then
+  systemctl restart lingban-api
+fi
+if systemctl list-unit-files | grep -q '^lingban-run-worker.service'; then
+  systemctl restart lingban-run-worker
+fi
 
 echo "release installed: ${RELEASE_TARGET}"
