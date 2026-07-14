@@ -15,6 +15,20 @@ const fileBrowserRunId = "run_tax_q2_files_mobile";
 const fileBrowserTargetPath = `/workspace/${fileBrowserRunId}`;
 const inlinePreviewImageUrl = "/previews/mobile/poster.png";
 const inlinePreviewPdfUrl = "/previews/mobile/receipt.pdf";
+const disabledAuthBootstrap = {
+  authMode: "disabled",
+  currentWorkspace: {
+    contextKey: "harbor-finance",
+    runtimeWorkspaceId: workspaceId,
+    displayName: { zh: "Harbor Finance Workspace", en: "Harbor Finance Workspace" },
+    type: "enterprise",
+    meta: { zh: "企业财税工作区", en: "Enterprise finance workspace" },
+    root: "/workspace/harbor-finance/",
+    allowedEntrySurfaces: ["dashboard", "h5", "mini-program"],
+  },
+  workspaces: [],
+};
+disabledAuthBootstrap.workspaces = [disabledAuthBootstrap.currentWorkspace];
 
 function buildRunFilePreviewRecord({
   runId,
@@ -655,7 +669,7 @@ test.beforeEach(async ({ page }) => {
   let currentMessages = createRunMessages();
 
   await page.route("**/v1/auth/session", async (route) => {
-    await fulfillJson(route, { authMode: "disabled" });
+    await fulfillJson(route, disabledAuthBootstrap);
   });
 
   await page.route("**/v1/runs**", async (route) => {

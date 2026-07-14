@@ -55,6 +55,5 @@ await run(pnpmBin, ["-C", "app/dashboard", "exec", "vite", "build"], {
   VITE_API_BASE_URL: unreachableApiBaseUrl,
 });
 await run(pnpmBin, ["-C", "app/mobile", "run", "build:h5"], {
-  TARO_APP_E2E_AUTH_MODE: "disabled",
   TARO_APP_API_BASE_URL: unreachableApiBaseUrl,
 });
