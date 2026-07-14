@@ -59,9 +59,7 @@ export async function registerAuthRoutes(server: FastifyInstance) {
   server.get("/session", async (request) => {
     const authContext = requireRequestAuth(request);
     if (!authContext) {
-      return {
-        authMode: "disabled",
-      };
+      return authService.getDisabledSessionBootstrap();
     }
 
     return authService.getSessionEnvelope(authContext.session.sessionId);

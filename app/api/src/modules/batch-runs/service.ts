@@ -526,6 +526,7 @@ export class BatchRunsService {
             entrySurface: validated.job.entrySurface,
             initialMessage: item.initialMessage,
             bindings: validated.job.bindings,
+            providerSelection: null,
             catalogMetadata: {
               workspaceContextKey: validated.job.workspaceContextKey,
               workspaceContextName: validated.job.workspaceContextName,

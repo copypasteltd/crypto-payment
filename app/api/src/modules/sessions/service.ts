@@ -3140,16 +3140,55 @@ function buildInheritedSessionId(parentSessionVersionId: string) {
   return `ses_${suffix || "session"}`;
 }
 
-function buildConsumerSessionVersionId(parentSessionVersionId: string, runId?: string | null) {
-  const sessionSuffix = buildSessionSlug(parentSessionVersionId);
-  const runSuffix = runId ? buildSessionSlug(runId) : draftSuffix();
-  return `sev_${sessionSuffix || "session"}_consumer_${runSuffix || "run"}`;
+function buildConsumerSessionDerivationKey(input: {
+  runId?: string | null;
+  workspaceContextKey?: string | null;
+  serviceId?: string | null;
+  entrySurface?: EntrySurface | null;
+  targetPath?: string | null;
+}) {
+  const runSuffix = input.runId ? buildSessionSlug(input.runId) : draftSuffix();
+  const uniquenessSeed = [
+    input.workspaceContextKey ?? "",
+    input.serviceId ?? "",
+    input.entrySurface ?? "",
+    input.targetPath ?? "",
+  ].join("|");
+  const uniquenessSuffix = createHash("sha256")
+    .update(uniquenessSeed || draftSuffix())
+    .digest("hex")
+    .slice(0, 8);
+  return `${runSuffix || "run"}_${uniquenessSuffix}`;
 }
 
-function buildConsumerSessionId(parentSessionVersionId: string, runId?: string | null) {
+function buildConsumerSessionVersionId(
+  parentSessionVersionId: string,
+  input: {
+    runId?: string | null;
+    workspaceContextKey?: string | null;
+    serviceId?: string | null;
+    entrySurface?: EntrySurface | null;
+    targetPath?: string | null;
+  }
+) {
   const sessionSuffix = buildSessionSlug(parentSessionVersionId);
-  const runSuffix = runId ? buildSessionSlug(runId) : draftSuffix();
-  return `ses_${sessionSuffix || "session"}_consumer_${runSuffix || "run"}`;
+  const consumerSuffix = buildConsumerSessionDerivationKey(input);
+  return `sev_${sessionSuffix || "session"}_consumer_${consumerSuffix}`;
+}
+
+function buildConsumerSessionId(
+  parentSessionVersionId: string,
+  input: {
+    runId?: string | null;
+    workspaceContextKey?: string | null;
+    serviceId?: string | null;
+    entrySurface?: EntrySurface | null;
+    targetPath?: string | null;
+  }
+) {
+  const sessionSuffix = buildSessionSlug(parentSessionVersionId);
+  const consumerSuffix = buildConsumerSessionDerivationKey(input);
+  return `ses_${sessionSuffix || "session"}_consumer_${consumerSuffix}`;
 }
 
 function isConsumerInheritedManifest(manifest: SessionPackManifest) {
@@ -3892,7 +3931,13 @@ class SessionCatalogService {
     const sessionVersionId = input.newSessionVersionId
       ? normalizeSessionVersionId(input.newSessionVersionId)
       : inheritMode === "consumer"
-        ? buildConsumerSessionVersionId(parentDetail.sessionVersionId, input.consumerRunId)
+        ? buildConsumerSessionVersionId(parentDetail.sessionVersionId, {
+            runId: input.consumerRunId,
+            workspaceContextKey: input.workspaceContextKey,
+            serviceId: input.consumerServiceId,
+            entrySurface: input.consumerEntrySurface,
+            targetPath: input.consumerTargetPath,
+          })
         : buildInheritedSessionVersionId(parentDetail.sessionVersionId);
 
     if (this.#listDetails().some((item) => item.sessionVersionId === sessionVersionId)) {
@@ -3906,7 +3951,13 @@ class SessionCatalogService {
     const sessionId = input.newSessionId
       ? normalizeSessionId(input.newSessionId)
       : inheritMode === "consumer"
-        ? buildConsumerSessionId(parentDetail.sessionVersionId, input.consumerRunId)
+        ? buildConsumerSessionId(parentDetail.sessionVersionId, {
+            runId: input.consumerRunId,
+            workspaceContextKey: input.workspaceContextKey,
+            serviceId: input.consumerServiceId,
+            entrySurface: input.consumerEntrySurface,
+            targetPath: input.consumerTargetPath,
+          })
         : sessionIdSchema.safeParse(parentBundle.manifest.session_id).success
           ? parentBundle.manifest.session_id
           : buildInheritedSessionId(parentDetail.sessionVersionId);
@@ -3992,7 +4043,13 @@ class SessionCatalogService {
 
     const plannedSessionVersionId = buildConsumerSessionVersionId(
       canonicalParentSessionVersionId,
-      input.runId
+      {
+        runId: input.runId,
+        workspaceContextKey: input.workspaceContextKey,
+        serviceId: input.serviceId,
+        entrySurface: input.entrySurface,
+        targetPath: input.targetPath,
+      }
     );
     const existingDerivedRecord =
       sessionArchiveRepository.getImportedArchiveBySessionVersionId(plannedSessionVersionId);
@@ -4007,7 +4064,13 @@ class SessionCatalogService {
       workspaceContextKey: input.workspaceContextKey,
       inheritedByUserId: input.inheritedByUserId ?? null,
       inheritMode: "consumer",
-      newSessionId: buildConsumerSessionId(canonicalParentSessionVersionId, input.runId),
+      newSessionId: buildConsumerSessionId(canonicalParentSessionVersionId, {
+        runId: input.runId,
+        workspaceContextKey: input.workspaceContextKey,
+        serviceId: input.serviceId,
+        entrySurface: input.entrySurface,
+        targetPath: input.targetPath,
+      }),
       newSessionVersionId: plannedSessionVersionId,
       reason: `consumer run ${input.runId}`,
       consumerWorkspaceId: input.workspaceId,

@@ -347,14 +347,73 @@ test("creator activation resolves launch template versions even when catalog tem
     assert.equal(sessionPack.expectedRootFiles.includes("conversation.jsonl"), true);
     assert.equal(sessionPack.expectedRootFiles.includes("runtime-profile.json"), true);
 
+    const [{ credentialsService }, { mcpService }] = await Promise.all([
+      import("../dist/modules/credentials/service.js"),
+      import("../dist/modules/mcp/service.js"),
+    ]);
+    const actor = {
+      workspaceId: template.createRunInput.workspaceId,
+      userId: "usr_creator_template_smoke",
+      role: "owner",
+    };
+    const boundCredentialIds = [];
+    for (const spec of [
+      {
+        mcpId: "mcp.image.gpt-image-2",
+        displayName: "Template image API key",
+        provider: "openai-image",
+        approvalRequired: false,
+      },
+      {
+        mcpId: "third-party:asset-library",
+        displayName: "Template asset library key",
+        provider: "asset-library",
+        approvalRequired: true,
+      },
+    ]) {
+      const credential = await credentialsService.createCredential(actor, {
+        scope: "workspace",
+        displayName: spec.displayName,
+        provider: spec.provider,
+        secretKind: "api-key",
+        secretValue: `smoke-${spec.provider}-key`,
+        secretRef: null,
+        expiresAt: null,
+        rotationDueAt: null,
+        notes: "Creator launch-template smoke fixture",
+      });
+      await mcpService.createBinding(actor, {
+        mcpId: spec.mcpId,
+        scope: "workspace",
+        credentialId: credential.credentialId,
+        networkPolicyRef: null,
+        approvalRequired: spec.approvalRequired,
+        autoAttach: false,
+        notes: "Creator launch-template smoke fixture",
+      });
+      boundCredentialIds.push(credential.credentialId);
+    }
+
     const createdRun = await requestJson(`${baseUrl}/v1/runs`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
       },
-      body: JSON.stringify(template.createRunInput),
+      body: JSON.stringify({
+        ...template.createRunInput,
+        bindings: {
+          ...template.createRunInput.bindings,
+          credentialIds: boundCredentialIds,
+        },
+      }),
     });
-    const expectedConsumerSessionVersionId = `sev_brand_poster_suite_20260708_consumer_${createdRun.run.runId.replace(/^run_/, "")}`;
+    const expectedConsumerSessionVersionPrefix =
+      `sev_brand_poster_suite_20260708_consumer_${createdRun.run.runId.replace(/^run_/, "")}`;
+    assert.match(
+      createdRun.run.sessionVersionId,
+      new RegExp(`^${expectedConsumerSessionVersionPrefix}_[a-f0-9]{8}$`)
+    );
+    const expectedConsumerSessionVersionId = createdRun.run.sessionVersionId;
 
     assert.equal(createdRun.run.catalogMetadata.workspaceContextKey, "brand-lab");
     assert.equal(createdRun.run.catalogMetadata.workspaceContextName.zh, "品牌内容组");

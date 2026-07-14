@@ -1,4 +1,5 @@
 import {
+  envCredentialMountSchema,
   startRunJobPayloadSchema,
   type CreateRunBinding,
   type CredentialDetail,
@@ -6,6 +7,7 @@ import {
   type McpBindingRecord,
   type McpNetworkPolicy,
   type McpRegistryEntry,
+  type ResolvedRunProvider,
   type RunRecord,
   type StartRunJobPayload,
 } from "@lingban/contracts";
@@ -284,6 +286,7 @@ export function buildStartRunJobPayload(params: {
   initialPrompt: string;
   requestedInitialMessage: string | null;
   bindings: CreateRunBinding;
+  provider?: ResolvedRunProvider | null;
   credentials?: CredentialDetail[];
   registryEntries?: McpRegistryEntry[];
   bindingRecords?: McpBindingRecord[];
@@ -296,6 +299,16 @@ export function buildStartRunJobPayload(params: {
   const mounts = credentialIds.map((credentialId) =>
     resolveCredentialMount(credentialId, credentialsById)
   );
+  if (params.provider?.credentialId) {
+    mounts.push(
+      envCredentialMountSchema.parse({
+        credentialId: params.provider.credentialId,
+        mode: "env",
+        envName: params.provider.authEnvName,
+        readOnly: true,
+      })
+    );
+  }
   const mountsById = new Map(mounts.map((mount) => [mount.credentialId, mount]));
   const mcpBindings = resolveMcpBindings({
     bindings: params.bindings,
@@ -312,5 +325,6 @@ export function buildStartRunJobPayload(params: {
     credentialMounts: mounts,
     mcpBindings,
     mcpNetworkPolicies: params.networkPolicies ?? [],
+    provider: params.provider ?? null,
   });
 }

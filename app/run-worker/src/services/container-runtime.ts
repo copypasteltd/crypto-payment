@@ -50,6 +50,7 @@ function buildRuntimeEnv(
     SESSION_PACK_MANIFEST_PATH: sessionPackPaths.manifestPath,
     SESSION_PACK_METADATA_PATH: sessionPackPaths.metadataPath,
     SESSION_PACK_WORKSPACE_BASE_PATH: sessionPackPaths.workspaceBasePath,
+    ...(payload.provider?.runtimeEnv ?? {}),
   } as const;
 }
 
@@ -279,6 +280,7 @@ export function buildContainerLaunchPlan(input: {
     enabled: workerConfig.runtimeEgressFirewallEnabled,
     allowDns: workerConfig.runtimeEgressFirewallAllowDns,
     runtimeApiBaseUrl: workerConfig.runtimeApiBaseUrl,
+    allowedBaseUrls: input.payload.provider?.allowedBaseUrls ?? [],
     bindings: input.bindings ?? [],
   });
   const runtimeUser = resolveContainerRuntimeUser({
