@@ -9,6 +9,7 @@ export * from "./creator.js";
 export * from "./me.js";
 export * from "./mcp.js";
 export * from "./notifications.js";
+export * from "./providers.js";
 export * from "./quota.js";
 export * from "./realtime.js";
 export * from "./runtime.js";

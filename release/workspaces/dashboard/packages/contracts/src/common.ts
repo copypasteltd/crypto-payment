@@ -2,6 +2,15 @@ import { z } from "zod";
 
 export const isoDatetimeSchema = z.string().datetime({ offset: true });
 
+export const queryBooleanSchema = z.preprocess((value) => {
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true" || normalized === "1") return true;
+    if (normalized === "false" || normalized === "0" || normalized === "") return false;
+  }
+  return value;
+}, z.boolean());
+
 const prefixedId = (prefix: string) =>
   z.string().min(prefix.length + 1).refine((value) => value.startsWith(prefix), {
     message: `Expected id to start with ${prefix}`,
@@ -23,6 +32,8 @@ export const credentialIdSchema = prefixedId("cred_");
 export const mcpBindingIdSchema = prefixedId("mbd_");
 export const mcpHealthSnapshotIdSchema = prefixedId("chs_");
 export const bridgeIdSchema = prefixedId("brg_");
+export const providerIdSchema = prefixedId("prv_");
+export const workspaceProviderBindingIdSchema = prefixedId("wpb_");
 
 export const entrySurfaceSchema = z.enum(["dashboard", "h5", "mini-program"]);
 export const messageRoleSchema = z.enum(["system", "user", "agent"]);

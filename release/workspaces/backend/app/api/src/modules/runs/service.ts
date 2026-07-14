@@ -30,6 +30,7 @@ import {
   type RunRuntimeUpdate,
   type RunFileEntry,
   type RunRecord,
+  type ResolvedRunProvider,
   type ReviewRunInformationAnswerInput,
   type RunSnapshot,
   type RunStatus,
@@ -56,6 +57,7 @@ import { bridgeRegistry } from "../bridge/registry.js";
 import { credentialsService } from "../credentials/service.js";
 import { mcpService } from "../mcp/service.js";
 import { mcpCallAuditService } from "../mcp/call-audit-service.js";
+import { providersService } from "../providers/service.js";
 import { runEventBus } from "../realtime/event-bus.js";
 import { quotaService } from "../quotas/service.js";
 import { sessionCatalogService } from "../sessions/service.js";
@@ -516,6 +518,7 @@ export class RunsService {
   #buildSnapshot(aggregate: {
     run: RunSnapshot["run"];
     runtime?: RunSnapshot["runtime"];
+    provider?: RunSnapshot["provider"];
     informationCollection?: RunSnapshot["informationCollection"];
     messages: RunConversationMessage[];
     files: RunFileEntry[];
@@ -528,6 +531,7 @@ export class RunsService {
   async #upsertQuerySnapshot(aggregate: {
     run: RunSnapshot["run"];
     runtime?: RunSnapshot["runtime"];
+    provider?: RunSnapshot["provider"];
     informationCollection?: RunSnapshot["informationCollection"];
     messages: RunConversationMessage[];
     files: RunFileEntry[];
@@ -695,6 +699,11 @@ export class RunsService {
 
     const systemPrompt = createInformationCollectionPrompt(run);
     const informationCollection = await buildInitialInformationCollection(run, systemPrompt);
+    const resolvedProvider = providersService.resolveRunProvider({
+      workspaceId: run.workspaceId,
+      requestedByUserId: run.requestedByUserId ?? null,
+      selection: effectiveInput.providerSelection ?? null,
+    });
     const resolvedMcpContext = await mcpService.resolveRunContext({
       runId: run.runId,
       workspaceId: run.workspaceId,
@@ -702,16 +711,21 @@ export class RunsService {
       sessionVersionId: run.sessionVersionId,
       bindings: parsed.bindings,
     });
+    const resolvedCredentialIds = new Set(resolvedMcpContext.effectiveBindings.credentialIds);
+    if (resolvedProvider?.credentialId) {
+      resolvedCredentialIds.add(resolvedProvider.credentialId);
+    }
     const resolvedCredentials = await credentialsService.resolveRunCredentials({
       workspaceId: run.workspaceId,
       requestedByUserId: run.requestedByUserId ?? null,
-      credentialIds: resolvedMcpContext.effectiveBindings.credentialIds,
+      credentialIds: [...resolvedCredentialIds],
     });
     const startJob = buildStartRunJobPayload({
       run,
       initialPrompt: systemPrompt,
       requestedInitialMessage: effectiveInput.initialMessage,
       bindings: resolvedMcpContext.effectiveBindings,
+      provider: resolvedProvider,
       credentials: resolvedCredentials,
       registryEntries: resolvedMcpContext.registryEntries,
       bindingRecords: resolvedMcpContext.bindingRecords,
@@ -751,6 +765,7 @@ export class RunsService {
 
     const aggregate = await this.#runsRepository.save({
       run,
+      provider: resolvedProvider,
       informationCollection,
       input: effectiveInput,
       startJob,
@@ -821,7 +836,10 @@ export class RunsService {
 
   getStartRunJobPayload(runId: string): StartRunJobPayload {
     const aggregate = this.#requireAggregate(runId);
-    return startRunJobPayloadSchema.parse(aggregate.startJob);
+    return startRunJobPayloadSchema.parse({
+      ...aggregate.startJob,
+      run: aggregate.run,
+    });
   }
 
   getRuntimeRecoveryCandidate(runId: string): RunRuntimeRecoveryCandidate {
@@ -1236,6 +1254,12 @@ export class RunsService {
         current.run.status === "WAITING_APPROVAL" &&
         requiresStartupApproval(pendingApproval.kind) &&
         remainingStartupApprovals > 0;
+      const shouldStartApprovedRun =
+        !options.preserveStatus &&
+        parsed.approved &&
+        current.run.status === "WAITING_APPROVAL" &&
+        requiresStartupApproval(pendingApproval.kind) &&
+        remainingStartupApprovals === 0;
 
       const run =
         options.preserveStatus || keepWaitingForAdditionalApprovals
@@ -1250,10 +1274,14 @@ export class RunsService {
             }
           : this.#applyRunStatus(
               current.run,
-              parsed.approved ? "RUNNING" : "CANCELLED",
+              parsed.approved
+                ? (shouldStartApprovedRun ? "STARTING" : "RUNNING")
+                : "CANCELLED",
               at,
               parsed.approved
-                ? "Approval granted. Execution resumed."
+                ? (shouldStartApprovedRun
+                  ? "Approval granted. Execution is starting."
+                  : "Approval granted. Execution resumed.")
                 : "Approval rejected. Execution stopped."
             );
       statusChanged = current.run.status !== run.status;

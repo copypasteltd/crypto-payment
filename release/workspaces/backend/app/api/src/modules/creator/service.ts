@@ -203,9 +203,21 @@ export class CreatorService {
     this.assertPackageContext(pkg, workspaceContextKey);
     this.assertCanManageGovernance(actor);
 
+    if (parsedSection === "credentials") {
+      return creatorGovernanceSectionSummarySchema.parse(
+        buildCreatorCredentialsSectionSummary(pkg, workspaceContextKey, actor)
+      );
+    }
+
     if (parsedSection === "members") {
       return creatorGovernanceSectionSummarySchema.parse(
         buildCreatorMembersSectionSummary(pkg, actor, workspaceContextKey)
+      );
+    }
+
+    if (parsedSection === "policy") {
+      return creatorGovernanceSectionSummarySchema.parse(
+        buildCreatorPolicySectionSummary(pkg, workspaceContextKey, actor)
       );
     }
 
@@ -939,6 +951,104 @@ export class CreatorService {
   }
 }
 
+type CreatorPackageGovernanceRuntimeState = {
+  contextLabel: LocalizedText;
+  services: ReturnType<typeof resolveLinkedServiceRecords>;
+  packageRuns: RunSnapshot[];
+  sessionVersionId: string;
+  visibleCredentials: CredentialDetail[];
+  visibleMcps: McpRegistryEntry[];
+  visibleBindings: McpBindingRecord[];
+  relevantRegistryEntries: McpRegistryEntry[];
+  relevantBindings: McpBindingRecord[];
+  relevantCredentials: CredentialDetail[];
+};
+
+function buildCreatorCredentialsSectionSummary(
+  pkg: CreatorPackageDetail,
+  workspaceContextKey: string,
+  actor: CreatorGovernanceActor
+): CreatorGovernanceSectionSummary {
+  const state = resolveCreatorPackageGovernanceRuntimeState(pkg, workspaceContextKey, actor);
+  const workspaceScoped = state.visibleCredentials.filter((item) => item.scope === "workspace").length;
+  const activeCredentials = state.visibleCredentials.filter((item) => item.status === "active").length;
+  const rotationDue = state.visibleCredentials.filter(
+    (item) => item.status === "needs-rotation"
+  ).length;
+  const linkedCredentialIds = new Set(state.relevantCredentials.map((item) => item.credentialId));
+
+  return {
+    packageId: pkg.packageId,
+    section: "credentials",
+    workspaceContextKey,
+    summary:
+      state.visibleCredentials.length > 0
+        ? l(
+            `${state.contextLabel.zh} 当前可见 ${state.visibleCredentials.length} 个凭证对象，其中 ${state.relevantCredentials.length} 个已被当前 package 的服务、MCP 或绑定策略直接引用，${rotationDue} 个待轮换。`,
+            `${state.contextLabel.en} currently exposes ${state.visibleCredentials.length} credential records. ${state.relevantCredentials.length} are directly referenced by this package through services, MCPs, or binding policies, and ${rotationDue} still require rotation.`
+          )
+        : l(
+            `${state.contextLabel.zh} 当前工作区还没有可用于该 package 的凭证治理对象。`,
+            `${state.contextLabel.en} does not yet expose any credential governance object for this package.`
+          ),
+    metrics: [
+      {
+        label: l("凭证总数", "Credential ledger"),
+        value: String(state.visibleCredentials.length).padStart(2, "0"),
+        note: l(
+          "当前工作区内对治理角色可见的全部凭证对象。",
+          "All credential records visible to governance roles in the current workspace."
+        ),
+      },
+      {
+        label: l("工作区作用域", "Workspace scoped"),
+        value: String(workspaceScoped).padStart(2, "0"),
+        note: l(
+          "会随着工作区上下文共同进入运行时的凭证对象。",
+          "Credential records that enter runtime together with the current workspace context."
+        ),
+      },
+      {
+        label: l("当前包关联 / 待轮换", "Linked / rotation due"),
+        value: `${state.relevantCredentials.length}/${rotationDue}`,
+        note: l(
+          "前者表示当前 package 已直接引用的凭证；后者表示仍需轮换的对象数量。",
+          "The first number is directly linked to the current package; the second still needs rotation."
+        ),
+      },
+    ],
+    headers: [
+      l("凭证名称", "Credential"),
+      l("范围 / 提供方", "Scope / provider"),
+      l("状态", "State"),
+      l("注入摘要", "Injection summary"),
+    ],
+    rows: state.visibleCredentials.map((credential) => ({
+      id: credential.credentialId,
+      tone: credentialStatusTone(credential.status),
+      cells: [
+        sameText(credential.displayName),
+        joinTexts([credentialScopeLabelForCreator(credential.scope), sameText(credential.provider)]),
+        credentialStatusLabelForCreator(credential.status),
+        joinTexts([
+          credentialMountModeLabelForCreator(credential.mountMode),
+          credentialSecretKindLabelForCreator(credential.secretKind),
+          linkedCredentialIds.has(credential.credentialId)
+            ? l("当前包已关联", "Linked to current package")
+            : l("当前包未引用", "Not linked to current package"),
+          credential.rotationDueAt ? sameText(credential.rotationDueAt) : null,
+        ]),
+      ],
+    })),
+    updatedAt: latestIso([
+      pkg.updatedAt,
+      ...state.visibleCredentials.map((item) => item.updatedAt),
+      ...state.relevantBindings.map((item) => item.updatedAt),
+      ...state.packageRuns.map((item) => item.run.updatedAt),
+    ]),
+  };
+}
+
 function buildCreatorMembersSectionSummary(
   pkg: CreatorPackageDetail,
   actor: CreatorGovernanceActor,
@@ -1249,46 +1359,121 @@ function buildCreatorAuditSectionSummary(
   };
 }
 
+function buildCreatorPolicySectionSummary(
+  pkg: CreatorPackageDetail,
+  workspaceContextKey: string,
+  actor: CreatorGovernanceActor
+): CreatorGovernanceSectionSummary {
+  const state = resolveCreatorPackageGovernanceRuntimeState(pkg, workspaceContextKey, actor);
+  const activeBindings = state.visibleBindings.filter((item) => item.status === "active").length;
+  const approvalRequired = state.visibleBindings.filter((item) => item.approvalRequired).length;
+  const autoAttached = state.visibleBindings.filter((item) => item.autoAttach).length;
+  const packageRelevantBindings = state.relevantBindings.length;
+  const packageRelevantMcps = state.relevantRegistryEntries.length;
+  const mcpLookup = new Map(state.visibleMcps.map((item) => [item.mcpId, item]));
+  const credentialLookup = new Map(
+    state.visibleCredentials.map((item) => [item.credentialId, item.displayName])
+  );
+  const summaryRows: CreatorGovernanceRow[] = [
+    ...state.relevantRegistryEntries.slice(0, 4).map<CreatorGovernanceRow>((entry) => ({
+      id: `policy-registry-${entry.mcpId}`,
+      tone: entry.status === "active" ? "success" : entry.status === "deprecated" ? "warn" : "",
+      cells: [
+        sameText(entry.displayName),
+        joinTexts([
+          connectorSourceLabelForCreator(entry.source),
+          connectorTransportLabelForCreator(entry.transport),
+        ]),
+        connectorStatusLabelForCreator(entry.status),
+        joinTexts([
+          connectorRiskLabelForCreator(entry.riskLevel),
+          entry.approvalRequired ? l("审批必经", "Approval required") : l("可直接挂接", "Direct attach"),
+          entry.defaultCredentialId
+            ? sameText(credentialLookup.get(entry.defaultCredentialId) ?? entry.defaultCredentialId)
+            : null,
+        ]),
+      ] satisfies CreatorGovernanceRow["cells"],
+    })),
+    ...state.relevantBindings.slice(0, 4).map<CreatorGovernanceRow>((binding) => ({
+      id: `policy-binding-${binding.bindingId}`,
+      tone: bindingStatusTone(binding.status),
+      cells: [
+        sameText(mcpLookup.get(binding.mcpId)?.displayName ?? binding.mcpId),
+        joinTexts([bindingScopeLabelForCreator(binding.scope), sameText(binding.scopeRef)]),
+        bindingStatusLabelForCreator(binding.status),
+        joinTexts([
+          binding.autoAttach ? l("自动挂接", "Auto attach") : l("手动挂接", "Manual attach"),
+          binding.approvalRequired ? l("审批", "Approval") : null,
+          binding.credentialId
+            ? sameText(credentialLookup.get(binding.credentialId) ?? binding.credentialId)
+            : null,
+        ]),
+      ] satisfies CreatorGovernanceRow["cells"],
+    })),
+  ];
+
+  return {
+    packageId: pkg.packageId,
+    section: "policy",
+    workspaceContextKey,
+    summary:
+      state.visibleMcps.length > 0 || state.visibleBindings.length > 0
+        ? l(
+            `${state.contextLabel.zh} 当前可见 ${state.visibleMcps.length} 个连接器注册项与 ${state.visibleBindings.length} 条绑定策略，其中 ${packageRelevantMcps} 个连接器、${packageRelevantBindings} 条绑定与当前 package 直接相关。`,
+            `${state.contextLabel.en} currently exposes ${state.visibleMcps.length} connector registry entries and ${state.visibleBindings.length} binding policies. ${packageRelevantMcps} connectors and ${packageRelevantBindings} bindings are directly relevant to the current package.`
+          )
+        : l(
+            `${state.contextLabel.zh} 当前工作区还没有登记连接器或绑定策略。`,
+            `${state.contextLabel.en} has not registered any connector or binding policy yet.`
+          ),
+    metrics: [
+      {
+        label: l("连接器注册项", "Connector registry"),
+        value: String(state.visibleMcps.length).padStart(2, "0"),
+        note: l(
+          "当前工作区对治理角色可见的全部连接器注册项。",
+          "All connector registry entries visible to governance roles in the current workspace."
+        ),
+      },
+      {
+        label: l("生效绑定", "Active bindings"),
+        value: `${activeBindings}/${state.visibleBindings.length}`,
+        note: l(
+          "前者表示当前已生效的绑定策略数量。",
+          "The first number is the number of currently active binding policies."
+        ),
+      },
+      {
+        label: l("审批 / 自动挂接", "Approval / auto attach"),
+        value: `${approvalRequired}/${autoAttached}`,
+        note: l(
+          "分别表示要求审批与实例启动时自动挂接的绑定数量。",
+          "Counts bindings that require approval and bindings that auto-attach at run boot."
+        ),
+      },
+    ],
+    headers: [
+      l("策略对象", "Policy object"),
+      l("来源 / 作用域", "Source / scope"),
+      l("状态", "State"),
+      l("执行说明", "Execution note"),
+    ],
+    rows: summaryRows,
+    updatedAt: latestIso([
+      pkg.updatedAt,
+      ...state.visibleMcps.map((item) => item.updatedAt),
+      ...state.visibleBindings.map((item) => item.updatedAt),
+      ...state.visibleCredentials.map((item) => item.updatedAt),
+    ]),
+  };
+}
+
 function buildCreatorCostSectionSummary(
   pkg: CreatorPackageDetail,
   workspaceContextKey: string,
   actor: CreatorGovernanceActor
 ): CreatorGovernanceSectionSummary {
-  const contextLabel = resolveWorkspaceContextLabel(workspaceContextKey);
-  const services = resolveLinkedServiceRecords(pkg);
-  const packageRuns = listPackageRuns(pkg, workspaceContextKey);
-  const { sessionVersionId } = extractLaunchTemplateVersionsFromPackage(pkg.packageId, pkg.versionLine);
-  const visibleCredentials = credentialsService.listVisibleCredentials(actor, {});
-  const visibleMcps = mcpService.listMcps({ workspaceId: actor.workspaceId }, {});
-  const visibleBindings = mcpService.listBindings(actor, {});
-  const runIds = new Set(packageRuns.map((item) => item.run.runId));
-  const relevantMcpIds = new Set(
-    services.flatMap((service) => service.requiredBindings.firstPartyMcpIds)
-  );
-  const relevantRegistryEntries = visibleMcps.filter((entry) => relevantMcpIds.has(entry.mcpId));
-  const relevantBindings = visibleBindings.filter((binding) =>
-    relevantMcpIds.has(binding.mcpId) &&
-    isBindingRelevantToPackage(binding, {
-      sessionVersionId,
-      runIds,
-      workspaceId: actor.workspaceId,
-      userId: actor.userId,
-    })
-  );
-  const relevantCredentialIds = new Set<string>();
-  for (const service of services) {
-    for (const credentialId of service.requiredBindings.credentialIds) {
-      relevantCredentialIds.add(credentialId);
-    }
-  }
-  for (const binding of relevantBindings) {
-    if (binding.credentialId) {
-      relevantCredentialIds.add(binding.credentialId);
-    }
-  }
-  const relevantCredentials = visibleCredentials.filter((item) =>
-    relevantCredentialIds.has(item.credentialId)
-  );
+  const state = resolveCreatorPackageGovernanceRuntimeState(pkg, workspaceContextKey, actor);
   const quotaSnapshot = quotaService.getScopedSnapshot({
     workspaceId: actor.workspaceId,
     workspaceContextKey,
@@ -1299,14 +1484,14 @@ function buildCreatorCostSectionSummary(
     workspaceContextKey,
     packageId: pkg.packageId,
   });
-  const totalRuntimeMinutes = packageRuns.reduce(
+  const totalRuntimeMinutes = state.packageRuns.reduce(
     (sum, snapshot) => sum + estimateRunMinutes(snapshot),
     0
   );
-  const completedRuns = packageRuns.filter((item) => item.run.status === "SUCCEEDED").length;
-  const approvalRequiredBindings = relevantBindings.filter((item) => item.approvalRequired).length;
-  const autoAttachedBindings = relevantBindings.filter((item) => item.autoAttach).length;
-  const rotationDueCredentials = relevantCredentials.filter(
+  const completedRuns = state.packageRuns.filter((item) => item.run.status === "SUCCEEDED").length;
+  const approvalRequiredBindings = state.relevantBindings.filter((item) => item.approvalRequired).length;
+  const autoAttachedBindings = state.relevantBindings.filter((item) => item.autoAttach).length;
+  const rotationDueCredentials = state.relevantCredentials.filter(
     (item) => item.status === "needs-rotation"
   ).length;
   const pendingQuotaOverrides = quotaSnapshot.overrides.filter((item) => item.status === "pending").length;
@@ -1333,24 +1518,24 @@ function buildCreatorCostSectionSummary(
       })
     );
   const rowSeed: CreatorGovernanceRow[] =
-    services.length > 0
-      ? services.map((service) =>
+    state.services.length > 0
+      ? state.services.map((service) =>
           buildCreatorServiceCostRow({
             service,
             workspaceContextKey,
-            packageRuns,
-            relevantBindings,
-            relevantCredentials,
+            packageRuns: state.packageRuns,
+            relevantBindings: state.relevantBindings,
+            relevantCredentials: state.relevantCredentials,
           })
         )
       : [
           {
             id: "cost-no-linked-service",
-            tone: packageRuns.length > 0 ? "active" : "",
+            tone: state.packageRuns.length > 0 ? "active" : "",
             cells: [
               l("当前 package 尚未挂接目录服务", "No linked catalog service"),
-              contextLabel,
-              sameText(`${packageRuns.length} runs / ${totalRuntimeMinutes} min`),
+              state.contextLabel,
+              sameText(`${state.packageRuns.length} runs / ${totalRuntimeMinutes} min`),
               l(
                 "运行样本已经存在，但 Creator 目录还没有登记可计量的服务绑定。",
                 "Run samples exist, but the Creator catalog has not yet registered a metered service binding."
@@ -1368,14 +1553,14 @@ function buildCreatorCostSectionSummary(
     section: "cost",
     workspaceContextKey,
     summary:
-      services.length > 0 || packageRuns.length > 0
+      state.services.length > 0 || state.packageRuns.length > 0
         ? l(
-            `${contextLabel.zh} 当前已可按关联服务读取运行分钟、实例样本、绑定策略和凭证覆盖范围，用于替代静态额度说明。`,
-            `${contextLabel.en} can now read runtime minutes, run samples, binding policies, and credential coverage by linked service instead of relying on static quota copy.`
+            `${state.contextLabel.zh} 当前已可按关联服务读取运行分钟、实例样本、绑定策略和凭证覆盖范围，用于替代静态额度说明。`,
+            `${state.contextLabel.en} can now read runtime minutes, run samples, binding policies, and credential coverage by linked service instead of relying on static quota copy.`
           )
         : l(
-            `${contextLabel.zh} 当前还没有形成可计量的服务运行样本。`,
-            `${contextLabel.en} does not yet have any metered service run sample.`
+            `${state.contextLabel.zh} 当前还没有形成可计量的服务运行样本。`,
+            `${state.contextLabel.en} does not yet have any metered service run sample.`
           ),
     metrics: [
       {
@@ -1388,7 +1573,7 @@ function buildCreatorCostSectionSummary(
       },
       {
         label: l("实例 / 完成", "Runs / completed"),
-        value: `${packageRuns.length}/${completedRuns}`,
+        value: `${state.packageRuns.length}/${completedRuns}`,
         note: l(
           "统计当前工作区中命中 package 版本线或关联服务的全部实例。",
           "Counts all runs in the current workspace context that match the package version line or linked services."
@@ -1420,10 +1605,10 @@ function buildCreatorCostSectionSummary(
     rows,
     updatedAt: latestIso([
       pkg.updatedAt,
-      ...packageRuns.map((item) => item.run.updatedAt),
-      ...relevantBindings.map((item) => item.updatedAt),
-      ...relevantCredentials.map((item) => item.updatedAt),
-      ...relevantRegistryEntries.map((item) => item.updatedAt),
+      ...state.packageRuns.map((item) => item.run.updatedAt),
+      ...state.relevantBindings.map((item) => item.updatedAt),
+      ...state.relevantCredentials.map((item) => item.updatedAt),
+      ...state.relevantRegistryEntries.map((item) => item.updatedAt),
       ...billingSnapshot.entries.map((item) => item.updatedAt),
       ...quotaSnapshot.policies.map((item) => item.updatedAt),
       ...quotaSnapshot.counters.map((item) => item.updatedAt),
@@ -1756,6 +1941,148 @@ function buildCreatorBillingCostRow(input: {
   };
 }
 
+function credentialStatusTone(status: CredentialDetail["status"]): CreatorGovernanceRow["tone"] {
+  switch (status) {
+    case "active":
+      return "success";
+    case "needs-rotation":
+      return "warn";
+    case "disabled":
+    case "revoked":
+    default:
+      return "";
+  }
+}
+
+function credentialScopeLabelForCreator(scope: CredentialDetail["scope"]) {
+  return scope === "workspace" ? l("工作区", "Workspace") : l("用户", "User");
+}
+
+function credentialStatusLabelForCreator(status: CredentialDetail["status"]) {
+  switch (status) {
+    case "active":
+      return l("已启用", "Active");
+    case "needs-rotation":
+      return l("待轮换", "Needs rotation");
+    case "disabled":
+      return l("已停用", "Disabled");
+    case "revoked":
+    default:
+      return l("已吊销", "Revoked");
+  }
+}
+
+function credentialMountModeLabelForCreator(mode: CredentialDetail["mountMode"]) {
+  return mode === "env" ? l("环境变量", "Env mount") : l("文件挂载", "File mount");
+}
+
+function credentialSecretKindLabelForCreator(kind: CredentialDetail["secretKind"]) {
+  switch (kind) {
+    case "api-key":
+      return l("API Key", "API key");
+    case "access-token":
+      return l("访问令牌", "Access token");
+    case "oauth-token":
+      return l("OAuth 令牌", "OAuth token");
+    case "json-file":
+      return l("JSON 文件", "JSON file");
+    case "browser-storage-state":
+      return l("浏览器状态", "Browser storage state");
+    case "session-cookie":
+    default:
+      return l("会话 Cookie", "Session cookie");
+  }
+}
+
+function connectorSourceLabelForCreator(source: string) {
+  switch (source) {
+    case "workspace":
+      return l("工作区托管", "Workspace managed");
+    case "third-party":
+      return l("第三方", "Third-party");
+    case "user":
+    default:
+      return l("用户", "User");
+  }
+}
+
+function connectorTransportLabelForCreator(transport: string) {
+  switch (transport) {
+    case "sse":
+      return l("SSE", "SSE");
+    case "streamable-http":
+      return l("Streamable HTTP", "Streamable HTTP");
+    case "stdio":
+    default:
+      return l("STDIO", "STDIO");
+  }
+}
+
+function connectorRiskLabelForCreator(riskLevel: string) {
+  switch (riskLevel) {
+    case "high":
+      return l("高风险", "High risk");
+    case "medium":
+      return l("中风险", "Medium risk");
+    case "low":
+    default:
+      return l("低风险", "Low risk");
+  }
+}
+
+function connectorStatusLabelForCreator(status: string) {
+  switch (status) {
+    case "active":
+      return l("已注册", "Registered");
+    case "deprecated":
+      return l("待下线", "Deprecated");
+    case "disabled":
+    default:
+      return l("已停用", "Disabled");
+  }
+}
+
+function bindingStatusTone(status: string): CreatorGovernanceRow["tone"] {
+  switch (status) {
+    case "active":
+      return "success";
+    case "needs-review":
+      return "warn";
+    case "disabled":
+    case "revoked":
+    default:
+      return "";
+  }
+}
+
+function bindingScopeLabelForCreator(scope: string) {
+  switch (scope) {
+    case "workspace":
+      return l("工作区", "Workspace");
+    case "session-version":
+      return l("Session 版本", "Session version");
+    case "run":
+      return l("实例", "Run");
+    case "user":
+    default:
+      return l("用户", "User");
+  }
+}
+
+function bindingStatusLabelForCreator(status: string) {
+  switch (status) {
+    case "active":
+      return l("已生效", "Active");
+    case "needs-review":
+      return l("待复核", "Needs review");
+    case "disabled":
+      return l("已停用", "Disabled");
+    case "revoked":
+    default:
+      return l("已撤销", "Revoked");
+  }
+}
+
 function quotaMetricLabelForCreator(metric: string) {
   switch (metric) {
     case "daily_runs":
@@ -1863,6 +2190,66 @@ function listPackageRuns(pkg: CreatorPackageDetail, workspaceContextKey: string)
       );
     })
     .sort((left, right) => right.run.updatedAt.localeCompare(left.run.updatedAt));
+}
+
+function resolveCreatorPackageGovernanceRuntimeState(
+  pkg: CreatorPackageDetail,
+  workspaceContextKey: string,
+  actor: CreatorGovernanceActor
+): CreatorPackageGovernanceRuntimeState {
+  const contextLabel = resolveWorkspaceContextLabel(workspaceContextKey);
+  const services = resolveLinkedServiceRecords(pkg);
+  const packageRuns = listPackageRuns(pkg, workspaceContextKey);
+  const { sessionVersionId } = extractLaunchTemplateVersionsFromPackage(pkg.packageId, pkg.versionLine);
+  const visibleCredentials = credentialsService.listVisibleCredentials(actor, {});
+  const visibleMcps = mcpService.listMcps({ workspaceId: actor.workspaceId }, {});
+  const visibleBindings = mcpService.listBindings(actor, {});
+  const runIds = new Set(packageRuns.map((item) => item.run.runId));
+  const relevantMcpIds = new Set(
+    services.flatMap((service) => service.requiredBindings.firstPartyMcpIds)
+  );
+  const relevantRegistryEntries = visibleMcps.filter((entry) => relevantMcpIds.has(entry.mcpId));
+  const relevantBindings = visibleBindings.filter((binding) =>
+    relevantMcpIds.has(binding.mcpId) &&
+    isBindingRelevantToPackage(binding, {
+      sessionVersionId,
+      runIds,
+      workspaceId: actor.workspaceId,
+      userId: actor.userId,
+    })
+  );
+  const relevantCredentialIds = new Set<string>();
+  for (const service of services) {
+    for (const credentialId of service.requiredBindings.credentialIds) {
+      relevantCredentialIds.add(credentialId);
+    }
+  }
+  for (const entry of relevantRegistryEntries) {
+    if (entry.defaultCredentialId) {
+      relevantCredentialIds.add(entry.defaultCredentialId);
+    }
+  }
+  for (const binding of relevantBindings) {
+    if (binding.credentialId) {
+      relevantCredentialIds.add(binding.credentialId);
+    }
+  }
+  const relevantCredentials = visibleCredentials.filter((item) =>
+    relevantCredentialIds.has(item.credentialId)
+  );
+
+  return {
+    contextLabel,
+    services,
+    packageRuns,
+    sessionVersionId,
+    visibleCredentials,
+    visibleMcps,
+    visibleBindings,
+    relevantRegistryEntries,
+    relevantBindings,
+    relevantCredentials,
+  };
 }
 
 function resolveLinkedServiceRecords(pkg: CreatorPackageDetail) {

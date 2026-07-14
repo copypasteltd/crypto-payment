@@ -1,20 +1,33 @@
-# Release README
+# 灵办词元发布快照 / Lingban Release Snapshot
 
-本目录对应拆分分支 `agent-workshop-release`，保存可交付的发布快照与部署资源。
+本分支保存 2026-07-14 生成的服务器发布快照，包含前端静态产物、后端工作区、Run Worker 工作区和部署资产。
 
-This directory maps to the `agent-workshop-release` branch and stores release-ready snapshots and deployment assets.
+This branch contains the server release snapshot generated on 2026-07-14, including frontend static assets, backend and worker workspaces, and deployment assets.
 
-## 内容说明 / Contents
+## 内容 / Contents
 
-| 路径 | 说明 |
+| 路径 | 内容 |
 | --- | --- |
-| `release/workspaces/` | 面向不同交付仓库的工作区快照 |
-| `release/deploy/` | 发布环境部署说明与资产 |
-| `release/static/` | 静态资源输出 |
-| `release/manifest.json` | 发布包清单与元数据 |
+| `release/static/dashboard` | Dashboard production build |
+| `release/static/mobile-h5` | Taro H5 production build |
+| `release/workspaces/backend` | Backend standalone workspace |
+| `release/workspaces/run-worker` | Run Worker standalone workspace |
+| `release/workspaces/dashboard` | Dashboard standalone workspace |
+| `release/workspaces/app` | Mobile standalone workspace |
+| `release/deploy` | Nginx、systemd、环境模板与安装脚本 |
+| `release/manifest.json` | 发布清单、生成时间与部署检查项 |
 
-## 使用场景 / Use Cases
+## 验证 / Verification
 
-- 生成对外交付包
-- 在服务器侧部署 API / Dashboard / Mobile / Run Worker
-- 对照正式发布资产做核验
+| 范围 | 结果 |
+| --- | --- |
+| Dashboard build | 通过 |
+| Mobile H5 build | 通过 |
+| Backend smoke | 62/62 通过 |
+| Run Worker tests | 27/27 通过 |
+| Runtime Bridge tests | 23/23 通过 |
+| Frontend E2E | 23/23 通过 |
+
+正式 Secret 通过部署环境注入，发布快照仅包含无效占位配置。
+
+Production secrets are injected by the deployment environment; this snapshot contains placeholder configuration only.

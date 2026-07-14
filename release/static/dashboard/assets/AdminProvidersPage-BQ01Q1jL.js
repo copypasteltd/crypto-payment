@@ -1,0 +1,1 @@
+import{f as r}from"./vendor-DWvC06L1.js";import{P as o}from"./ProvidersPage-CmQgBMRi.js";import"./state-vendor-D_ni3j6u.js";import"./index-CPqhzl2G.js";import"./router-vendor-3NUK-uBQ.js";function s(){return r.jsx(o,{scope:"platform"})}export{s as AdminProvidersPage};

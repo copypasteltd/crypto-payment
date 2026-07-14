@@ -1,0 +1,1 @@
+import{f as r}from"./vendor-DWvC06L1.js";import{P as o}from"./ProvidersPage-CmQgBMRi.js";import"./state-vendor-D_ni3j6u.js";import"./index-CPqhzl2G.js";import"./router-vendor-3NUK-uBQ.js";function m(){return r.jsx(o,{scope:"workspace"})}export{m as WorkspaceProviderBindingsPage};

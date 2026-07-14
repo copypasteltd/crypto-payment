@@ -25,18 +25,53 @@ import { prepareRunWorkspace } from "../services/workspace-preparer.js";
 export async function startRunJob(payload: StartRunJobPayload) {
   const parsed = startRunJobPayloadSchema.parse(payload);
   const startedAt = new Date().toISOString();
-  const readyRun = transitionRunStatus(parsed.run, "READY", {
-    at: startedAt,
-    reason: "worker completed preflight validation",
-  });
-  const queuedRun = transitionRunStatus(readyRun, "QUEUED", {
-    at: startedAt,
-    reason: "worker accepted the run into the launch queue",
-  });
+  let nextRun = parsed.run;
+  const events: BridgeEvent[] = [];
+
+  if (parsed.run.status === "CREATED") {
+    const readyRun = transitionRunStatus(parsed.run, "READY", {
+      at: startedAt,
+      reason: "worker completed preflight validation",
+    });
+    nextRun = transitionRunStatus(readyRun, "QUEUED", {
+      at: startedAt,
+      reason: "worker accepted the run into the launch queue",
+    });
+    events.push(
+      bridgeEventSchema.parse({
+        type: "run.status.changed",
+        runId: parsed.run.runId,
+        status: "READY",
+        occurredAt: startedAt,
+        reason: "worker completed preflight validation",
+      }),
+      bridgeEventSchema.parse({
+        type: "run.status.changed",
+        runId: parsed.run.runId,
+        status: "QUEUED",
+        occurredAt: startedAt,
+        reason: "worker accepted the run into the launch queue",
+      })
+    );
+  } else if (parsed.run.status === "READY") {
+    nextRun = transitionRunStatus(parsed.run, "QUEUED", {
+      at: startedAt,
+      reason: "worker accepted the run into the launch queue",
+    });
+    events.push(
+      bridgeEventSchema.parse({
+        type: "run.status.changed",
+        runId: parsed.run.runId,
+        status: "QUEUED",
+        occurredAt: startedAt,
+        reason: "worker accepted the run into the launch queue",
+      })
+    );
+  }
 
   const nextPayload = {
     ...parsed,
-    run: queuedRun,
+    run: nextRun,
   };
 
   const preparedWorkspace = await prepareRunWorkspace({
@@ -62,23 +97,6 @@ export async function startRunJob(payload: StartRunJobPayload) {
     hostBridgeContext,
     containerBridgeContext,
   });
-
-  const events: BridgeEvent[] = [
-    bridgeEventSchema.parse({
-      type: "run.status.changed",
-      runId: parsed.run.runId,
-      status: "READY",
-      occurredAt: startedAt,
-      reason: "worker completed preflight validation",
-    }),
-    bridgeEventSchema.parse({
-      type: "run.status.changed",
-      runId: parsed.run.runId,
-      status: "QUEUED",
-      occurredAt: startedAt,
-      reason: "worker accepted the run into the launch queue",
-    }),
-  ];
 
   return startRunJobResultSchema.parse({
     accepted: true,

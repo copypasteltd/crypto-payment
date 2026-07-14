@@ -343,6 +343,7 @@ export type ApiRuntimeConfig = {
   authMode: "disabled" | "required";
   authAccessTokenTtlSeconds: number;
   authRefreshTokenTtlSeconds: number;
+  platformAdminEmails: string[];
   objectStorageDriver: "filesystem" | "s3";
   objectStorageRoot: string;
   objectStorageBucket?: string;
@@ -915,6 +916,9 @@ export function loadApiRuntimeConfig(env: EnvSource = process.env): ApiRuntimeCo
       env,
       "LINGBAN_AUTH_REFRESH_TTL_SECONDS",
       60 * 60 * 24 * 30
+    ),
+    platformAdminEmails: readStringList(env, "LINGBAN_PLATFORM_ADMIN_EMAILS", []).map((item) =>
+      item.trim().toLowerCase()
     ),
     objectStorageDriver,
     objectStorageRoot: resolveFromCwd(readTrimmed(env, "LINGBAN_OBJECT_STORAGE_ROOT"), [

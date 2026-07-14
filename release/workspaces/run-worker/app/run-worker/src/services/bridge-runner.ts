@@ -688,7 +688,10 @@ async function maybeStartRuntimeEgressProxy(input: {
   const proxyConfig = buildRuntimeEgressProxyConfig({
     launchMode: input.launchMode,
     runtimeApiBaseUrl: input.workerConfig.runtimeApiBaseUrl,
-    configuredAllowedBaseUrls: input.workerConfig.runtimeEgressAllowedBaseUrls,
+    configuredAllowedBaseUrls: [
+      ...input.workerConfig.runtimeEgressAllowedBaseUrls,
+      ...(input.job.payload.provider?.allowedBaseUrls ?? []),
+    ],
     configuredNoProxyHosts: input.workerConfig.runtimeEgressNoProxyHosts,
     mcpPolicies: input.job.containerBridgeContext.mcpNetworkPolicies ?? [],
   });
@@ -747,6 +750,7 @@ export async function startLocalBridgeProcess(
         OUTPUTS_PATH: options.job.preparedWorkspace.hostPaths.outputsPath,
         RUNTIME_DIR: options.job.preparedWorkspace.hostPaths.runtimePath,
         LINGBAN_RUNTIME_UMASK: "077",
+        ...(options.job.payload.provider?.runtimeEnv ?? {}),
         ...secretEnv,
         ...(egressProxy?.env ?? {}),
         BRIDGE_CONTROL_PORT: String(controlPort),
