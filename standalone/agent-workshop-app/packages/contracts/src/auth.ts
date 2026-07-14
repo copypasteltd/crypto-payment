@@ -6,7 +6,10 @@ import {
   workspaceInvitationIdSchema,
   workspaceIdSchema,
 } from "./common.js";
-import { workspaceContextKeySchema } from "./catalog.js";
+import {
+  workspaceContextKeySchema,
+  workspaceContextSummarySchema,
+} from "./catalog.js";
 
 export const workspaceTypeSchema = z.enum(["personal", "team", "enterprise"]);
 export const workspaceRoleSchema = z.enum([
@@ -16,6 +19,7 @@ export const workspaceRoleSchema = z.enum([
   "creator",
   "viewer",
 ]);
+export const platformRoleSchema = z.enum(["platform_admin"]);
 export const workspaceMembershipStatusSchema = z.enum(["active", "suspended"]);
 export const workspaceInvitationStatusSchema = z.enum([
   "pending",
@@ -110,6 +114,11 @@ export const authSessionSchema = z.object({
   updatedAt: isoDatetimeSchema,
 });
 
+export const authPlatformAccessSchema = z.object({
+  isPlatformAdmin: z.boolean().default(false),
+  role: platformRoleSchema.nullable().default(null),
+});
+
 export const authTokenPairSchema = z.object({
   tokenType: z.literal("Bearer"),
   accessToken: z.string().min(1),
@@ -122,6 +131,16 @@ export const authSessionEnvelopeSchema = z.object({
   session: authSessionSchema,
   currentWorkspace: workspaceSummarySchema,
   workspaces: z.array(workspaceSummarySchema),
+  platformAccess: authPlatformAccessSchema.default({
+    isPlatformAdmin: false,
+    role: null,
+  }),
+});
+
+export const authDisabledSessionBootstrapSchema = z.object({
+  authMode: z.literal("disabled"),
+  currentWorkspace: workspaceContextSummarySchema,
+  workspaces: z.array(workspaceContextSummarySchema),
 });
 
 export const authSessionResponseSchema = authSessionEnvelopeSchema.extend({
@@ -184,6 +203,7 @@ export const acceptWorkspaceInvitationResponseSchema = z.object({
 
 export type WorkspaceType = z.infer<typeof workspaceTypeSchema>;
 export type WorkspaceRole = z.infer<typeof workspaceRoleSchema>;
+export type PlatformRole = z.infer<typeof platformRoleSchema>;
 export type WorkspaceMembershipStatus = z.infer<typeof workspaceMembershipStatusSchema>;
 export type WorkspaceInvitationStatus = z.infer<typeof workspaceInvitationStatusSchema>;
 export type AuthUser = z.infer<typeof authUserSchema>;
@@ -196,8 +216,10 @@ export type WorkspaceMemberRecord = z.infer<typeof workspaceMemberRecordSchema>;
 export type WorkspaceInvitationRecord = z.infer<typeof workspaceInvitationRecordSchema>;
 export type WorkspaceInvitationView = z.infer<typeof workspaceInvitationViewSchema>;
 export type AuthSession = z.infer<typeof authSessionSchema>;
+export type AuthPlatformAccess = z.infer<typeof authPlatformAccessSchema>;
 export type AuthTokenPair = z.infer<typeof authTokenPairSchema>;
 export type AuthSessionEnvelope = z.infer<typeof authSessionEnvelopeSchema>;
+export type AuthDisabledSessionBootstrap = z.infer<typeof authDisabledSessionBootstrapSchema>;
 export type AuthSessionResponse = z.infer<typeof authSessionResponseSchema>;
 export type RegisterAuthInput = z.infer<typeof registerAuthInputSchema>;
 export type LoginAuthInput = z.infer<typeof loginAuthInputSchema>;

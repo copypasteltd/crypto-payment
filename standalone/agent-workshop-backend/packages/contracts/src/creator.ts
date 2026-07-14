@@ -23,7 +23,13 @@ export const creatorGovernanceSectionSchema = z.enum([
   "audit",
   "cost",
 ]);
-export const creatorGovernanceDynamicSectionSchema = z.enum(["members", "audit", "cost"]);
+export const creatorGovernanceDynamicSectionSchema = z.enum([
+  "credentials",
+  "members",
+  "policy",
+  "audit",
+  "cost",
+]);
 export const creatorGovernanceToneSchema = z.enum(["", "active", "warn", "success"]);
 export const creatorAuditExportFormatSchema = z.enum(["json", "csv"]);
 export const creatorAuditExportStatusSchema = z.enum(["ready", "failed"]);

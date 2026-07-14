@@ -30,6 +30,8 @@ import { registerMcpRoutes } from "../modules/mcp/routes.js";
 import { initializeMcpInfrastructure } from "../modules/mcp/service.js";
 import { registerNotificationRoutes } from "../modules/notifications/routes.js";
 import { initializeNotificationsInfrastructure } from "../modules/notifications/service.js";
+import { registerProviderRoutes } from "../modules/providers/routes.js";
+import { initializeProvidersInfrastructure } from "../modules/providers/service.js";
 import { registerQuotaRoutes } from "../modules/quotas/routes.js";
 import { initializeQuotaInfrastructure } from "../modules/quotas/service.js";
 import { registerSearchRoutes } from "../modules/search/routes.js";
@@ -39,11 +41,39 @@ import { initializeSessionInfrastructure } from "../modules/sessions/service.js"
 import { registerServiceCatalogRoutes, registerWorkshopRoutes } from "../modules/workshops/routes.js";
 import { initializeWorkshopInfrastructure } from "../modules/workshops/service.js";
 
+const defaultCorsAllowMethods = "GET,POST,PATCH,PUT,DELETE,OPTIONS";
+const defaultCorsAllowHeaders = "Authorization,Content-Type,Accept,Origin";
+const defaultCorsExposeHeaders = "Content-Disposition,Content-Length,Content-Type";
+
+function normalizeConfiguredOrigins(rawValue: string | undefined) {
+  return (rawValue ?? "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
+function resolveCorsAllowedOrigin(origin: string | undefined, configuredOrigins: string[]) {
+  if (!origin) {
+    return null;
+  }
+
+  if (configuredOrigins.length === 0) {
+    return origin;
+  }
+
+  if (configuredOrigins.includes("*")) {
+    return "*";
+  }
+
+  return configuredOrigins.includes(origin) ? origin : null;
+}
+
 export async function createServer() {
   await initializeAuthInfrastructure();
   await initializeBatchRunsInfrastructure();
   await initializeCredentialsInfrastructure();
   await initializeMcpInfrastructure();
+  await initializeProvidersInfrastructure();
   await initializeBillingInfrastructure();
   await initializeNotificationsInfrastructure();
   await initializeMeInfrastructure();
@@ -59,6 +89,7 @@ export async function createServer() {
   const server = Fastify({
     logger: false,
   });
+  const configuredCorsOrigins = normalizeConfiguredOrigins(process.env.LINGBAN_CORS_ALLOWED_ORIGINS);
 
   server.addContentTypeParser(
     "application/octet-stream",
@@ -71,6 +102,33 @@ export async function createServer() {
   );
 
   server.register(websocket);
+
+  server.addHook("onRequest", async (request, reply) => {
+    const requestOrigin = typeof request.headers.origin === "string" ? request.headers.origin : undefined;
+    const allowedOrigin = resolveCorsAllowedOrigin(requestOrigin, configuredCorsOrigins);
+
+    if (allowedOrigin) {
+      reply.header("Access-Control-Allow-Origin", allowedOrigin);
+      reply.header("Vary", "Origin");
+      reply.header("Access-Control-Allow-Methods", defaultCorsAllowMethods);
+      reply.header(
+        "Access-Control-Allow-Headers",
+        typeof request.headers["access-control-request-headers"] === "string" &&
+          request.headers["access-control-request-headers"].trim().length > 0
+          ? request.headers["access-control-request-headers"]
+          : defaultCorsAllowHeaders
+      );
+      reply.header("Access-Control-Expose-Headers", defaultCorsExposeHeaders);
+      reply.header("Access-Control-Max-Age", "600");
+    }
+
+    if (request.method === "OPTIONS") {
+      reply.code(204);
+      return reply.send();
+    }
+
+    return undefined;
+  });
 
   server.setErrorHandler((error, _request, reply) => {
     const normalized = normalizeErrorPayload(error);
@@ -116,6 +174,10 @@ export async function createServer() {
 
   server.register(registerCredentialRoutes, {
     prefix: "/v1/credentials",
+  });
+
+  server.register(registerProviderRoutes, {
+    prefix: "/v1",
   });
 
   server.register(registerWorkshopRoutes, {

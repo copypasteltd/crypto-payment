@@ -309,6 +309,18 @@ function buildCredentialAad(record: Pick<StoredCredentialRecord, "credentialId" 
   return `credential:${record.credentialId}:v${record.secretVersion}`;
 }
 
+function buildMissingRunCredentialRequirementDetails(credentialIds: string[]) {
+  const missingCredentialIds = [...new Set(credentialIds)];
+
+  return {
+    missingCredentialIds,
+    requirements: missingCredentialIds.map((credentialId) => ({
+      credentialId,
+      reason: "not-found" as const,
+    })),
+  };
+}
+
 function isTerminalRunStatus(status: RunStatus) {
   return TERMINAL_RUN_STATUSES.has(status);
 }
@@ -997,10 +1009,12 @@ export class CredentialsService {
   }) {
     const resolved: CredentialDetail[] = [];
     const uniqueIds = [...new Set(params.credentialIds)];
+    const missingCredentialIds: string[] = [];
 
     for (const credentialId of uniqueIds) {
       const record = credentialsRepository.getById(credentialId);
       if (!record) {
+        missingCredentialIds.push(credentialId);
         continue;
       }
 
@@ -1020,6 +1034,16 @@ export class CredentialsService {
       ensureCredentialActiveForRun(refreshedRecord, params.requestedByUserId);
 
       resolved.push(toPublicCredential(refreshedRecord));
+    }
+
+    if (missingCredentialIds.length > 0) {
+      const details = buildMissingRunCredentialRequirementDetails(missingCredentialIds);
+      throw new AppError(
+        409,
+        "CREDENTIAL_REQUIREMENT_UNMET",
+        `Run requires credential bindings that are not currently available: ${details.missingCredentialIds.join(", ")}`,
+        details
+      );
     }
 
     return resolved;

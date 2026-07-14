@@ -53,6 +53,10 @@ const knownFirstPartyMcpIds = new Set([
   "mcp.browser.playwright",
   "mcp.image.gpt-image-2",
 ]);
+const knownFirstPartyDefaultCredentialIds: Record<string, string | null> = {
+  "mcp.browser.playwright": "cred_browser_storage_state",
+  "mcp.image.gpt-image-2": "cred_openai_image_api_key",
+};
 
 function isNonEmptyString(value: string | null | undefined): value is string {
   return typeof value === "string" && value.length > 0;
@@ -100,6 +104,10 @@ function canManageWorkspaceMcp(role: WorkspaceRole) {
 
 function isKnownFirstPartyMcpId(mcpId: string) {
   return knownFirstPartyMcpIds.has(mcpId);
+}
+
+function getKnownFirstPartyDefaultCredentialId(mcpId: string) {
+  return knownFirstPartyDefaultCredentialIds[mcpId] ?? null;
 }
 
 function assertRemoteRefShape(params: {
@@ -1373,6 +1381,10 @@ export class McpService {
       if (!entry) {
         if (isKnownFirstPartyMcpId(mcpId)) {
           firstPartyMcpIds.push(mcpId);
+          const effectiveCredentialId = binding?.credentialId ?? getKnownFirstPartyDefaultCredentialId(mcpId);
+          if (isNonEmptyString(effectiveCredentialId)) {
+            credentialIds.push(effectiveCredentialId);
+          }
           continue;
         }
 

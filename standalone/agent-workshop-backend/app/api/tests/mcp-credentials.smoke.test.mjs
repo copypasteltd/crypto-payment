@@ -127,6 +127,31 @@ test("credentials and MCP governance smoke: create metadata, bind, and resolve i
       "content-type": "application/json",
     };
 
+    const missingBrowserCredentialRun = await requestError(`${baseUrl}/v1/runs`, {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({
+        workspaceId: register.currentWorkspace.workspaceId,
+        taskVersionId: "tsv_00000000_missing_browser_state",
+        sessionVersionId: "sev_00000000_missing_browser_state",
+        title: "Missing browser storage state",
+        targetPath: path.join(smokeRoot, "target-missing-browser-state"),
+        entrySurface: "dashboard",
+        initialMessage: null,
+        bindings: {
+          firstPartyMcpIds: ["mcp.browser.playwright"],
+          externalConnectorRefs: [],
+          credentialIds: [],
+        },
+      }),
+    });
+    assert.equal(missingBrowserCredentialRun.status, 409);
+    assert.equal(missingBrowserCredentialRun.body.error.code, "CREDENTIAL_REQUIREMENT_UNMET");
+    assert.deepEqual(
+      missingBrowserCredentialRun.body.error.details.missingCredentialIds,
+      ["cred_browser_storage_state"]
+    );
+
     const createdCredential = await requestJson(`${baseUrl}/v1/credentials`, {
       method: "POST",
       headers: authHeaders,
@@ -960,10 +985,7 @@ test("credentials and MCP governance smoke: create metadata, bind, and resolve i
       }
     );
     assert.equal(approvedMcpRun.approvals[0].state, "approved");
-    assert.ok(
-      ["RUNNING", "READY", "QUEUED", "STARTING"].includes(approvedMcpRun.run.status),
-      `unexpected post-MCP-approval run status: ${approvedMcpRun.run.status}`
-    );
+    assert.equal(approvedMcpRun.run.status, "STARTING");
 
     await requestJson(`${baseUrl}/internal/runs/${createRun.run.runId}/events`, {
       method: "POST",

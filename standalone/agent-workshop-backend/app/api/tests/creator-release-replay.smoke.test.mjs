@@ -460,12 +460,66 @@ test("creator release and replay smoke: create, update, list, and project into p
       }
     );
 
+    const boundCredentialIds = [];
+    for (const spec of [
+      {
+        mcpId: "mcp.image.gpt-image-2",
+        displayName: "Replay image API key",
+        provider: "openai-image",
+        approvalRequired: false,
+      },
+      {
+        mcpId: "workspace:seedance-api",
+        displayName: "Replay Seedance API key",
+        provider: "seedance",
+        approvalRequired: false,
+      },
+      {
+        mcpId: "third-party:figma-mcp",
+        displayName: "Replay Figma token",
+        provider: "figma",
+        approvalRequired: true,
+      },
+    ]) {
+      const credential = await requestJson(`${baseUrl}/v1/credentials`, {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({
+          scope: "workspace",
+          displayName: spec.displayName,
+          provider: spec.provider,
+          secretKind: "api-key",
+          secretValue: `smoke-${spec.provider}-key`,
+          secretRef: null,
+          notes: "Creator release smoke fixture",
+        }),
+      });
+      await requestJson(`${baseUrl}/v1/mcp-bindings`, {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({
+          mcpId: spec.mcpId,
+          scope: "workspace",
+          credentialId: credential.credentialId,
+          networkPolicyRef: null,
+          approvalRequired: spec.approvalRequired,
+          autoAttach: false,
+          notes: "Creator release smoke fixture",
+        }),
+      });
+      boundCredentialIds.push(credential.credentialId);
+    }
+
     const createdRun = await requestJson(`${baseUrl}/v1/runs`, {
       method: "POST",
       headers: authHeaders,
       body: JSON.stringify({
         ...launchTemplate.createRunInput,
         initialMessage: "请开始整理短剧分镜并告诉我还缺什么信息。",
+        bindings: {
+          ...launchTemplate.createRunInput.bindings,
+          credentialIds: boundCredentialIds,
+        },
       }),
     });
 

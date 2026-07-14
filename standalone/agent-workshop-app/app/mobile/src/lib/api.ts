@@ -12,10 +12,67 @@ import {
   createSessionRefreshFetch,
   createWorkshopCatalogApiClient,
 } from "@lingban/api-sdk";
+import {
+  listProvidersQuerySchema,
+  listWorkspaceProviderBindingsQuerySchema,
+  providerProfileSchema,
+  workspaceProviderBindingSchema,
+  type ListProvidersQuery,
+  type ListWorkspaceProviderBindingsQuery,
+  type ProviderProfile,
+  type WorkspaceProviderBinding,
+} from "@lingban/contracts";
 import { useMobileAuthStore } from "../stores/mobileAuthStore";
 
-export const mobileApiBaseUrl =
-  process.env.TARO_APP_API_BASE_URL?.trim() || "http://127.0.0.1:3100";
+type MobileRuntimeWindow = Window & {
+  __LINGBAN_RUNTIME_CONFIG__?: {
+    apiBaseUrl?: string;
+  };
+};
+
+function normalizeApiBaseUrl(value?: string | null) {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  return trimmed.replace(/\/+$/, "");
+}
+
+function resolveMobileApiBaseUrl() {
+  if (typeof window !== "undefined") {
+    const runtimeBaseUrl = normalizeApiBaseUrl(
+      (window as MobileRuntimeWindow).__LINGBAN_RUNTIME_CONFIG__?.apiBaseUrl
+    );
+    if (runtimeBaseUrl) {
+      return runtimeBaseUrl;
+    }
+  }
+
+  const configuredBaseUrl = normalizeApiBaseUrl(process.env.TARO_APP_API_BASE_URL);
+  if (configuredBaseUrl) {
+    return configuredBaseUrl;
+  }
+
+  if (process.env.TARO_ENV === "h5" && typeof window !== "undefined") {
+    const { protocol, hostname, port, host } = window.location;
+    const isLocalHost = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+
+    if (isLocalHost) {
+      return `${protocol}//${hostname}:3100`;
+    }
+
+    if (port === "38110" || port === "38120") {
+      return `${protocol}//${hostname}:38130`;
+    }
+
+    return `${protocol}//${host}`;
+  }
+
+  return "http://127.0.0.1:3100";
+}
+
+export const mobileApiBaseUrl = resolveMobileApiBaseUrl();
 
 function getMobileAccessToken() {
   return useMobileAuthStore.getState().tokens?.accessToken;
@@ -98,6 +155,59 @@ export const mobileQuotaApi = createQuotaApiClient({
   fetcher: mobileAuthFetch,
   getAccessToken: getMobileAccessToken,
 });
+
+async function requestMobileJson(input: {
+  path: string;
+  method?: string;
+  body?: unknown;
+}) {
+  const response = await mobileAuthFetch(new URL(input.path, mobileApiBaseUrl), {
+    method: input.method ?? "GET",
+    headers: input.body ? { "content-type": "application/json" } : undefined,
+    body: input.body ? JSON.stringify(input.body) : undefined,
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    throw new Error(text || `Request failed: ${response.status}`);
+  }
+
+  return text ? JSON.parse(text) : null;
+}
+
+function buildQueryString(query?: Record<string, string | boolean | undefined>) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(query ?? {})) {
+    if (value === undefined) {
+      continue;
+    }
+    search.set(key, String(value));
+  }
+
+  const raw = search.toString();
+  return raw.length > 0 ? `?${raw}` : "";
+}
+
+export const mobileProvidersApi = {
+  async listProviders(query?: ListProvidersQuery) {
+    const parsed = listProvidersQuerySchema.parse(query ?? {});
+    const result = await requestMobileJson({
+      path: `/v1/providers${buildQueryString({
+        enabled: parsed.enabled,
+      })}`,
+    });
+    return providerProfileSchema.array().parse(result) as ProviderProfile[];
+  },
+  async listBindings(query?: ListWorkspaceProviderBindingsQuery) {
+    const parsed = listWorkspaceProviderBindingsQuerySchema.parse(query ?? {});
+    const result = await requestMobileJson({
+      path: `/v1/provider-bindings${buildQueryString({
+        providerId: parsed.providerId,
+        enabled: parsed.enabled,
+      })}`,
+    });
+    return workspaceProviderBindingSchema.array().parse(result) as WorkspaceProviderBinding[];
+  },
+};
 
 export function requestMobileRunFileDownloadUrl(runId: string, filePath: string) {
   return getRunFileDownloadUrl(mobileRunsApi, mobileApiBaseUrl, runId, filePath);

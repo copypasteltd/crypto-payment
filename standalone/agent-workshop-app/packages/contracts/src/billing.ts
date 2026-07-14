@@ -87,7 +87,7 @@ export const listBillingEntriesQuerySchema = z.object({
   runId: runIdSchema.optional(),
   from: isoDatetimeSchema.optional(),
   to: isoDatetimeSchema.optional(),
-  limit: z.number().int().positive().max(500).optional(),
+  limit: z.coerce.number().int().positive().max(500).optional(),
 });
 
 export const billingLedgerSummaryQuerySchema = z.object({

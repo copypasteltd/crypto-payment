@@ -5,6 +5,7 @@ import {
   approvalIdSchema,
   entrySurfaceSchema,
   isoDatetimeSchema,
+  queryBooleanSchema,
   runIdSchema,
   sessionVersionIdSchema,
   taskVersionIdSchema,
@@ -183,7 +184,7 @@ export const listQuotaPoliciesQuerySchema = z.object({
   metric: quotaMetricSchema.optional(),
   scopeType: quotaScopeTypeSchema.optional(),
   status: quotaPolicyStatusSchema.optional(),
-  enabled: z.boolean().optional(),
+  enabled: queryBooleanSchema.optional(),
 });
 
 export const createQuotaPolicyInputSchema = z.object({

@@ -1818,6 +1818,17 @@ export function createFakePostgresPool() {
       return { rows: [], rowCount: 1 };
     }
 
+    if (
+      normalized ===
+        "alter table lingban_mcp_registry alter column workspace_id drop not null" ||
+      normalized ===
+        "alter table lingban_mcp_bindings alter column workspace_id drop not null" ||
+      normalized ===
+        "alter table lingban_credentials alter column owner_user_id drop not null"
+    ) {
+      return { rows: [], rowCount: 0 };
+    }
+
     throw new Error(`Unsupported fake postgres query: ${normalized}`);
   }
 
