@@ -19,6 +19,7 @@ import {
 } from "./common.js";
 import { credentialMountSchema, mcpBindingSchema } from "./runtime.js";
 import { mcpNetworkPolicySchema } from "./mcp.js";
+import { resolvedRunProviderSchema, runProviderSelectionSchema } from "./providers.js";
 
 export const runStatusSchema = z.enum([
   "CREATED",
@@ -81,6 +82,7 @@ export const createRunInputSchema = z.object({
     externalConnectorRefs: [],
     credentialIds: [],
   }),
+  providerSelection: runProviderSelectionSchema.nullable().default(null),
   catalogMetadata: runCatalogMetadataSchema.nullable().default(null),
 });
 
@@ -386,6 +388,7 @@ export const createRunResponseSchema = z.object({
 export const runSnapshotSchema = z.object({
   run: runRecordSchema,
   runtime: runRuntimeMetadataSchema.default(runRuntimeMetadataDefaults),
+  provider: resolvedRunProviderSchema.nullable().default(null),
   informationCollection: runInformationCollectionSchema.default(
     runInformationCollectionDefaults
   ),
@@ -503,6 +506,7 @@ export const startRunJobPayloadSchema = z.object({
   credentialMounts: z.array(credentialMountSchema).default([]),
   mcpBindings: z.array(mcpBindingSchema).default([]),
   mcpNetworkPolicies: z.array(mcpNetworkPolicySchema).default([]),
+  provider: resolvedRunProviderSchema.nullable().default(null),
 });
 
 export const cleanupRunJobPayloadSchema = z.object({
