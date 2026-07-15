@@ -28,13 +28,13 @@ function Drawer({ title, eyebrow, icon, onClose, children }: { title: string; ey
 
 type ProviderForm = { displayName: string; description: string; baseUrl: string; defaultModel: string; models: string; healthcheckPath: string; enabled: boolean; reason: string };
 
-export function CreateProviderDialog({ onClose }: { onClose: () => void }) {
+export function CreateProviderDialog({ onClose, onCreated }: { onClose: () => void; onCreated?: (provider: JsonObject) => void }) {
   const { t } = useTranslation(["providers", "common"]);
   const queryClient = useQueryClient();
   const form = useForm<ProviderForm>({ defaultValues: { displayName: "", description: "", baseUrl: "", defaultModel: "", models: "", healthcheckPath: "/models", enabled: true, reason: "" } });
   const mutation = useMutation({
     mutationFn: (values: ProviderForm) => adminRequest<JsonObject>("/providers", { method: "POST", body: JSON.stringify({ input: { displayName: values.displayName, description: values.description || null, baseUrl: values.baseUrl, defaultModel: values.defaultModel, models: values.models.split(",").map((model) => model.trim()).filter(Boolean).map((model) => ({ model, label: null, enabled: true, isDefault: model === values.defaultModel, capabilities: {} })), healthcheckPath: values.healthcheckPath || null, enabled: values.enabled }, reason: values.reason }) }),
-    onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["providers"] }); onClose(); },
+    onSuccess: async (provider) => { await queryClient.invalidateQueries({ queryKey: ["providers"] }); onCreated?.(provider); onClose(); },
   });
   return (
     <Drawer title={t("providers:create")} eyebrow={t("providers:createEyebrow")} icon={<Network size={21} />} onClose={onClose}>
@@ -82,13 +82,13 @@ export function CreateMcpDialog({ onClose }: { onClose: () => void }) {
 
 type CredentialForm = { workspaceId: string; scope: "workspace" | "user"; displayName: string; provider: string; secretKind: "api-key" | "access-token" | "oauth-token" | "json-file" | "browser-storage-state" | "session-cookie"; mountMode: "env" | "file"; envName: string; secretValue: string; notes: string; reason: string };
 
-export function CreateCredentialDialog({ onClose }: { onClose: () => void }) {
+export function CreateCredentialDialog({ onClose, onCreated, initialProvider = "openai" }: { onClose: () => void; onCreated?: (credential: JsonObject) => void; initialProvider?: string }) {
   const { t } = useTranslation(["integrations", "common"]);
   const queryClient = useQueryClient();
-  const form = useForm<CredentialForm>({ defaultValues: { workspaceId: "", scope: "workspace", displayName: "", provider: "openai", secretKind: "api-key", mountMode: "env", envName: "OPENAI_API_KEY", secretValue: "", notes: "", reason: "" } });
+  const form = useForm<CredentialForm>({ defaultValues: { workspaceId: "", scope: "workspace", displayName: "", provider: initialProvider, secretKind: "api-key", mountMode: "env", envName: "OPENAI_API_KEY", secretValue: "", notes: "", reason: "" } });
   const mutation = useMutation({
     mutationFn: (values: CredentialForm) => adminRequest<JsonObject>("/credentials", { method: "POST", body: JSON.stringify({ workspaceId: values.workspaceId || undefined, input: { scope: values.scope, displayName: values.displayName, provider: values.provider, secretKind: values.secretKind, mountMode: values.mountMode, secretValue: values.secretValue, secretRef: null, envName: values.mountMode === "env" ? values.envName : undefined, notes: values.notes || null }, reason: values.reason }) }),
-    onSuccess: async () => { form.reset(); await queryClient.invalidateQueries({ queryKey: ["credentials"] }); onClose(); },
+    onSuccess: async (credential) => { form.reset(); await queryClient.invalidateQueries({ queryKey: ["credentials"] }); onCreated?.(credential); onClose(); },
   });
   useEffect(() => () => form.reset({ ...form.getValues(), secretValue: "" }), [form]);
   return (

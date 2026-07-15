@@ -43,7 +43,7 @@ export function StatusBadge({ status }: { status: unknown }) {
     ? "success"
     : /failed|error|revoked|critical|unhealthy|terminated|blocked/.test(normalized)
       ? "danger"
-      : /warn|pending|degraded|rotation|waiting|draining|suspended|quarantined/.test(normalized)
+      : /warn|pending|degraded|rotation|waiting|draining|suspended|quarantined|auth_required/.test(normalized)
         ? "warning"
         : /running|starting|created|info/.test(normalized)
           ? "info"

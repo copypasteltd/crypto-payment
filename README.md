@@ -24,7 +24,7 @@ Lingban Admin Console is the independent platform control plane for the single p
 | 用户与工作区 / Accounts | 用户、登录会话、工作区、成员、使用量、暂停与恢复 |
 | 工坊与 Session / Catalog | 工坊、服务、发布、Session 资产、血缘、隔离与上架治理 |
 | 运行与运行时 / Runs | Run 查询、对话与文件快照、成本、MCP 调用、取消、重试、终止和运行时诊断 |
-| Provider 与模型 / Providers | 多 Provider、第三方 OpenAI 兼容 API、模型、健康探测和启停 |
+| Provider 与模型 / Providers | 新建与编辑 URL、凭证化健康探测、远端模型同步、模型目录和启停治理 |
 | MCP 与凭证 / Integrations | 第一方及第三方 MCP、网络与调用证据、私有凭证创建、轮换、冻结和吊销 |
 | 配额与账务 / Billing | 配额策略、计数器、Override、用量和不可变账本 |
 | 审计与系统 / System | 管理审计、系统健康、版本化配置、通知、保留策略和 Admin 账户状态 |

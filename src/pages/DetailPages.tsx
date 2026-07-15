@@ -104,6 +104,6 @@ export const WorkspaceDetailPage = () => <DetailPage kind="workspace" />;
 export const WorkshopDetailPage = () => <DetailPage kind="workshop" />;
 export const SessionDetailPage = () => <DetailPage kind="session" />;
 export const RunDetailPage = () => <DetailPage kind="run" />;
-export const ProviderDetailPage = () => <DetailPage kind="provider" />;
 export const McpDetailPage = () => <DetailPage kind="mcp" />;
 export const CredentialDetailPage = () => <DetailPage kind="credential" />;
+export { ProviderDetailPage } from "./ProviderDetailPage";
