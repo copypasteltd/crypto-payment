@@ -2,14 +2,14 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";
-import { Activity, ArrowLeft, Check, KeyRound, ListRestart, LoaderCircle, Play, RefreshCw, RotateCw, ShieldAlert } from "lucide-react";
+import { ArrowLeft, Check, KeyRound, ListRestart, LoaderCircle, Play, RefreshCw, RotateCw, ShieldAlert } from "lucide-react";
 import { adminRequest } from "../lib/api";
 import i18n from "../i18n";
 import type { JsonObject, JsonValue } from "../lib/types";
 import { GovernanceActionDialog, type GovernanceActionSpec } from "../components/GovernanceAction";
 import { ErrorState, IconButton, LoadingState, PageHeader, Panel, RecordView, StatusBadge, formatDate } from "../components/ui";
 
-type DetailKind = "user" | "workspace" | "workshop" | "session" | "run" | "provider" | "mcp" | "credential";
+type DetailKind = "user" | "workspace" | "workshop" | "session" | "run" | "mcp" | "credential";
 
 const configs: Record<DetailKind, { endpoint: string; mainKey: string; idKey: string; actions: GovernanceActionSpec[] }> = {
   user: { endpoint: "/users", mainKey: "user", idKey: "userId", actions: [{ action: "suspend", label: "Suspend account", labelKey: "actionsSuspendAccount", tone: "danger" }, { action: "force-logout", label: "Force logout", labelKey: "actionsForceLogout", tone: "danger" }, { action: "resume", label: "Resume account", labelKey: "actionsResumeAccount" }] },
@@ -17,7 +17,6 @@ const configs: Record<DetailKind, { endpoint: string; mainKey: string; idKey: st
   workshop: { endpoint: "/workshops", mainKey: "workshop", idKey: "workshopId", actions: [{ action: "unlist", label: "Unlist", labelKey: "actionsUnlist", tone: "danger" }, { action: "list", label: "List", labelKey: "actionsList" }, { action: "archive", label: "Archive", labelKey: "actionsArchive" }] },
   session: { endpoint: "/sessions", mainKey: "session", idKey: "sessionVersionId", actions: [{ action: "quarantine", label: "Quarantine", labelKey: "actionsQuarantine", tone: "danger" }, { action: "release", label: "Release", labelKey: "actionsRelease" }] },
   run: { endpoint: "/runs", mainKey: "run", idKey: "runId", actions: [{ action: "cancel", label: "Cancel run", labelKey: "actionsCancelRun", tone: "danger" }, { action: "retry", label: "Retry", labelKey: "actionsRetry" }, { action: "terminate", label: "Force terminate", labelKey: "actionsTerminateRun", tone: "danger" }] },
-  provider: { endpoint: "/providers", mainKey: "provider", idKey: "providerId", actions: [{ action: "disable", label: "Disable provider", labelKey: "actionsDisableProvider", tone: "danger" }, { action: "enable", label: "Enable provider", labelKey: "actionsEnableProvider" }] },
   mcp: { endpoint: "/mcps", mainKey: "mcp", idKey: "mcpId", actions: [{ action: "quarantine", label: "Quarantine MCP", labelKey: "actionsQuarantineMcp", tone: "danger" }, { action: "release", label: "Release", labelKey: "actionsRelease" }, { action: "disable", label: "Disable", labelKey: "actionsDisable" }] },
   credential: { endpoint: "/credentials", mainKey: "credential", idKey: "credentialId", actions: [{ action: "disable", label: "Freeze credential", labelKey: "actionsFreezeCredential", tone: "danger" }, { action: "revoke", label: "Revoke credential", labelKey: "actionsRevokeCredential", tone: "danger" }] },
 };
@@ -49,7 +48,7 @@ export function DetailPage({ kind }: { kind: DetailKind }) {
   const { t } = useTranslation("common");
   const navigate = useNavigate();
   const params = useParams();
-  const id = params.id || params.userId || params.workspaceId || params.workshopId || params.sessionId || params.runId || params.providerId || params.mcpId || params.credentialId || "";
+  const id = params.id || params.userId || params.workspaceId || params.workshopId || params.sessionId || params.runId || params.mcpId || params.credentialId || "";
   const config = configs[kind];
   const query = useQuery({ queryKey: [kind, id], queryFn: () => adminRequest<JsonObject>(`${config.endpoint}/${encodeURIComponent(id)}`), enabled: Boolean(id) });
   const [tab, setTab] = useState("overview");
@@ -68,8 +67,6 @@ export function DetailPage({ kind }: { kind: DetailKind }) {
       <button type="button" className="back-link" onClick={() => navigate(-1)}><ArrowLeft size={16} />{t("backToList")}</button>
       <PageHeader eyebrow={t(`detailEyebrows.${kind}`)} title={title} description={id} actions={<>
         <StatusBadge status={status} />
-        {kind === "provider" ? <button className="button secondary" type="button" onClick={() => directMutation.mutate(`/providers/${encodeURIComponent(id)}/health-check`)} disabled={directMutation.isPending}><Activity size={17} />{t("healthCheck")}</button> : null}
-        {kind === "provider" ? <button className="button secondary" type="button" onClick={() => directMutation.mutate(`/providers/${encodeURIComponent(id)}/model-sync`)} disabled={directMutation.isPending}><ListRestart size={17} />{t("syncModels")}</button> : null}
         {kind === "mcp" ? <button className="button secondary" type="button" onClick={() => directMutation.mutate(`/mcps/${encodeURIComponent(id)}/probe`)} disabled={directMutation.isPending}><Play size={17} />{t("probe")}</button> : null}
         {kind === "mcp" ? <button className="button secondary" type="button" onClick={() => directMutation.mutate(`/mcps/${encodeURIComponent(id)}/tool-sync`)} disabled={directMutation.isPending}><ListRestart size={17} />{t("syncTools")}</button> : null}
         {kind === "credential" ? <button className="button secondary" type="button" onClick={() => setRotating(true)}><RotateCw size={17} />{t("rotate")}</button> : null}

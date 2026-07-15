@@ -1,29 +1,31 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
-  Activity,
   ArrowLeft,
   Check,
-  Clock3,
-  DatabaseZap,
+  Download,
+  Eye,
+  EyeOff,
   KeyRound,
-  ListRestart,
   LoaderCircle,
   Network,
-  Plus,
   RefreshCw,
   Save,
-  ShieldCheck,
   ShieldAlert,
+  SlidersHorizontal,
 } from "lucide-react";
-import { CreateCredentialDialog } from "../components/CreateDialogs";
 import { GovernanceActionDialog, type GovernanceActionSpec } from "../components/GovernanceAction";
+import {
+  ProviderModelsDialog,
+  ProviderTestDialog,
+  toProviderReference,
+} from "../components/ProviderOperations";
 import { ErrorState, IconButton, LoadingState, PageHeader, Panel, StatusBadge, formatDate } from "../components/ui";
 import { adminRequest } from "../lib/api";
-import type { JsonObject, JsonValue, ListResponse } from "../lib/types";
+import type { JsonObject, JsonValue } from "../lib/types";
 
 type ProviderForm = {
   displayName: string;
@@ -32,6 +34,7 @@ type ProviderForm = {
   healthcheckPath: string;
   defaultModel: string;
   enabled: boolean;
+  apiKey: string;
   reason: string;
 };
 
@@ -49,15 +52,6 @@ function text(value: JsonValue | undefined, fallback = "-") {
   return value == null || value === "" ? fallback : String(value);
 }
 
-function list(value: JsonValue | undefined) {
-  return Array.isArray(value) ? value.map((item) => String(item)) : [];
-}
-
-function buildHealthEndpoint(baseUrl: string, path: string) {
-  if (/^https?:\/\//i.test(path)) return path;
-  return `${baseUrl.replace(/\/+$/g, "")}/${(path || "/models").replace(/^\/+/, "")}`;
-}
-
 function initialForm(provider: JsonObject): ProviderForm {
   return {
     displayName: text(provider.displayName, ""),
@@ -66,6 +60,7 @@ function initialForm(provider: JsonObject): ProviderForm {
     healthcheckPath: text(provider.healthcheckPath, "/models"),
     defaultModel: text(provider.defaultModel, ""),
     enabled: provider.enabled !== false,
+    apiKey: "",
     reason: "",
   };
 }
@@ -73,50 +68,28 @@ function initialForm(provider: JsonObject): ProviderForm {
 export function ProviderDetailPage() {
   const { t } = useTranslation(["providers", "common"]);
   const navigate = useNavigate();
-  const location = useLocation();
   const { providerId = "" } = useParams();
   const queryClient = useQueryClient();
-  const [credentialId, setCredentialId] = useState("");
-  const [diagnosticReason, setDiagnosticReason] = useState(() => t("providers:diagnosticReasonDefault"));
-  const [writingCredential, setWritingCredential] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [modelsOpen, setModelsOpen] = useState(false);
+  const [testOpen, setTestOpen] = useState(false);
   const [governanceAction, setGovernanceAction] = useState<GovernanceActionSpec | null>(null);
-  const onboarding = asObject((location.state as { providerOnboarding?: JsonValue } | null)?.providerOnboarding);
-  const onboardingAuthentication = asObject(onboarding.authentication);
-  const onboardingHealth = asObject(onboarding.healthcheck);
-  const onboardingModelSync = asObject(onboarding.modelSync);
 
   const query = useQuery({
     queryKey: ["provider", providerId],
     queryFn: () => adminRequest<JsonObject>(`/providers/${encodeURIComponent(providerId)}`),
     enabled: Boolean(providerId),
   });
-  const credentialsQuery = useQuery({
-    queryKey: ["credentials", "provider-diagnostics"],
-    queryFn: () => adminRequest<ListResponse<JsonObject>>("/credentials?page=1&pageSize=100&status=active"),
-  });
-
   const data = query.data ?? {};
   const provider = asObject(data.provider);
   const models = asRows(provider.models);
   const bindings = asRows(data.bindings);
-  const credentials = credentialsQuery.data?.items ?? [];
-  const enabledBindingCredentialIds = useMemo(
-    () => bindings.filter((binding) => binding.enabled !== false).map((binding) => text(binding.credentialId, "")).filter(Boolean),
-    [bindings]
-  );
+  const credentialConfigured = data.managementCredentialConfigured === true;
   const form = useForm<ProviderForm>({ defaultValues: initialForm(provider) });
-  const watchedBaseUrl = form.watch("baseUrl");
-  const watchedHealthcheckPath = form.watch("healthcheckPath");
 
   useEffect(() => {
     if (query.data) form.reset(initialForm(asObject(query.data.provider)));
   }, [form, query.data]);
-
-  useEffect(() => {
-    if (credentialId || credentials.length === 0) return;
-    const boundCredential = enabledBindingCredentialIds.find((id) => credentials.some((credential) => credential.credentialId === id));
-    setCredentialId(boundCredential ?? text(credentials[0]?.credentialId, ""));
-  }, [credentialId, credentials, enabledBindingCredentialIds]);
 
   const saveMutation = useMutation({
     mutationFn: (values: ProviderForm) => adminRequest<JsonObject>(`/providers/${encodeURIComponent(providerId)}`, {
@@ -130,39 +103,13 @@ export function ProviderDetailPage() {
           defaultModel: values.defaultModel,
           enabled: values.enabled,
         },
+        authentication: values.apiKey
+          ? {
+              apiKey: values.apiKey,
+              displayName: `${values.displayName} API Key`,
+            }
+          : undefined,
         reason: values.reason,
-      }),
-    }),
-    onSuccess: async () => {
-      await Promise.all([
-        query.refetch(),
-        queryClient.invalidateQueries({ queryKey: ["providers"] }),
-      ]);
-    },
-  });
-
-  const healthMutation = useMutation({
-    mutationFn: () => adminRequest<JsonObject>(`/providers/${encodeURIComponent(providerId)}/health-check`, {
-      method: "POST",
-      body: JSON.stringify({
-        input: credentialId ? { credentialId } : {},
-        reason: diagnosticReason,
-      }),
-    }),
-    onSuccess: async () => {
-      await Promise.all([
-        query.refetch(),
-        queryClient.invalidateQueries({ queryKey: ["providers"] }),
-      ]);
-    },
-  });
-
-  const syncMutation = useMutation({
-    mutationFn: () => adminRequest<JsonObject>(`/providers/${encodeURIComponent(providerId)}/model-sync`, {
-      method: "POST",
-      body: JSON.stringify({
-        input: credentialId ? { credentialId } : {},
-        reason: diagnosticReason,
       }),
     }),
     onSuccess: async () => {
@@ -177,12 +124,8 @@ export function ProviderDetailPage() {
   if (query.error) return <ErrorState error={query.error} onRetry={() => void query.refetch()} />;
 
   const status = provider.governanceStatus ?? (provider.enabled === false ? "disabled" : "active");
-  const currentHealth = asObject(provider.lastHealthcheck);
-  const healthResult = healthMutation.data ? asObject(healthMutation.data.healthcheck) : currentHealth;
-  const healthEndpoint = buildHealthEndpoint(watchedBaseUrl, watchedHealthcheckPath);
-  const reasonValid = diagnosticReason.trim().length >= 8;
-  const diagnosticPending = healthMutation.isPending || syncMutation.isPending;
-  const selectedCredential = credentials.find((credential) => credential.credentialId === credentialId);
+  const lastTest = asObject(provider.lastHealthcheck);
+  const reference = toProviderReference(provider);
   const governanceSpec: GovernanceActionSpec = provider.enabled === false
     ? { action: "enable", label: t("common:actionsEnableProvider") }
     : { action: "disable", label: t("common:actionsDisableProvider"), tone: "danger" };
@@ -194,56 +137,53 @@ export function ProviderDetailPage() {
         eyebrow={t("common:detailEyebrows.provider")}
         title={text(provider.displayName, providerId)}
         description={providerId}
-        actions={<><StatusBadge status={status} /><IconButton label={t("common:refreshDetail")} onClick={() => void query.refetch()} disabled={query.isFetching}><RefreshCw size={18} className={query.isFetching ? "spin" : ""} /></IconButton></>}
+        actions={
+          <>
+            <StatusBadge status={status} />
+            <button type="button" className="button secondary" onClick={() => setModelsOpen(true)}><Download size={16} />{t("providers:fetchModels")}</button>
+            <button type="button" className="button primary" onClick={() => setTestOpen(true)}><SlidersHorizontal size={16} />{t("providers:testModels")}</button>
+            <IconButton label={t("common:refreshDetail")} onClick={() => void query.refetch()} disabled={query.isFetching}><RefreshCw size={18} className={query.isFetching ? "spin" : ""} /></IconButton>
+          </>
+        }
       />
 
-      {Object.keys(onboarding).length ? <section className="provider-onboarding-result"><div><ShieldCheck size={20} /><div><strong>{t("providers:onboardingComplete")}</strong><span>{t("providers:onboardingCompleteMeta")}</span></div></div><div><span>{t("providers:authentication")}</span><StatusBadge status={onboardingAuthentication.status} /></div><div><span>{t("providers:health")}</span><StatusBadge status={onboardingHealth.status ?? "not_checked"} /></div><div><span>{t("providers:models")}</span><StatusBadge status={onboardingModelSync.status ?? "skipped"} /></div></section> : null}
-
-      <div className="provider-control-grid">
-        <Panel title={t("providers:configuration")} meta={t("providers:configurationMeta")} className="provider-config-panel">
-          <form className="provider-config-form" onSubmit={form.handleSubmit((values) => saveMutation.mutate(values))}>
-            <div className="form-grid">
-              <label className="field"><span>{t("providers:displayName")}</span><input {...form.register("displayName", { required: true })} /></label>
-              <label className="field"><span>{t("providers:defaultModel")}</span><input list="provider-model-options" {...form.register("defaultModel", { required: true })} /><datalist id="provider-model-options">{models.map((model) => <option key={text(model.model)} value={text(model.model)} />)}</datalist></label>
-            </div>
-            <label className="field provider-url-field"><span>{t("providers:baseUrl")}</span><div><Network size={17} /><input type="url" placeholder="https://api.example.com/v1" {...form.register("baseUrl", { required: true, pattern: /^https?:\/\//i })} /></div></label>
-            <label className="field"><span>{t("providers:healthcheckPath")}</span><input className="mono" placeholder="/models" {...form.register("healthcheckPath", { required: true })} /><small>{healthEndpoint}</small></label>
-            <label className="field"><span>{t("providers:descriptionField")}</span><textarea rows={3} {...form.register("description")} /></label>
-            <label className="toggle-field"><input type="checkbox" {...form.register("enabled")} /><span>{t("providers:enabled")}</span></label>
-            <label className="field"><span>{t("providers:changeReason")}</span><textarea rows={2} {...form.register("reason", { required: true, minLength: 8 })} /></label>
-            {saveMutation.error ? <ErrorState error={saveMutation.error} /> : null}
-            {saveMutation.isSuccess && !form.formState.isDirty ? <div className="operation-success"><Check size={18} />{t("providers:configurationSaved")}</div> : null}
-            <footer className="provider-form-actions"><button className="button primary" type="submit" disabled={!form.formState.isDirty || saveMutation.isPending}>{saveMutation.isPending ? <LoaderCircle className="spin" size={17} /> : <Save size={17} />}{t("providers:saveChanges")}</button></footer>
-          </form>
-        </Panel>
-
-        <Panel title={t("providers:diagnostics")} meta={t("providers:diagnosticsMeta")} className="provider-diagnostics-panel">
-          <div className="diagnostic-endpoint"><span>{t("providers:requestEndpoint")}</span><code>{healthEndpoint}</code></div>
-          <label className="field"><span>{t("providers:credential")}</span><select value={credentialId} onChange={(event) => setCredentialId(event.target.value)} disabled={credentialsQuery.isLoading}><option value="">{t("providers:publicAccess")}</option>{credentials.map((credential) => <option key={text(credential.credentialId)} value={text(credential.credentialId)}>{text(credential.displayName)} · {text(credential.credentialId)}{enabledBindingCredentialIds.includes(text(credential.credentialId, "")) ? ` · ${t("providers:bound")}` : ""}</option>)}</select></label>
-          <div className="credential-context"><KeyRound size={16} /><div><strong>{selectedCredential ? text(selectedCredential.displayName) : t("providers:noCredential")}</strong><span>{selectedCredential ? `${text(selectedCredential.scope)} · ${text(selectedCredential.status)}` : t("providers:publicAccessMeta")}</span></div><button type="button" className="button secondary compact-button" onClick={() => setWritingCredential(true)}><Plus size={15} />{t("providers:addCredential")}</button></div>
-          <label className="field"><span>{t("providers:diagnosticReason")}</span><textarea rows={2} value={diagnosticReason} onChange={(event) => setDiagnosticReason(event.target.value)} /></label>
-          {form.formState.isDirty ? <div className="provider-save-warning"><ShieldAlert size={17} />{t("providers:saveBeforeDiagnostic")}</div> : null}
-          <div className="diagnostic-actions">
-            <button className="button secondary" type="button" onClick={() => healthMutation.mutate()} disabled={form.formState.isDirty || !reasonValid || diagnosticPending}>{healthMutation.isPending ? <LoaderCircle className="spin" size={17} /> : <Activity size={17} />}{t("common:healthCheck")}</button>
-            <button className="button primary" type="button" onClick={() => syncMutation.mutate()} disabled={form.formState.isDirty || !reasonValid || diagnosticPending}>{syncMutation.isPending ? <LoaderCircle className="spin" size={17} /> : <ListRestart size={17} />}{t("common:syncModels")}</button>
-          </div>
-          {healthMutation.error ? <ErrorState error={healthMutation.error} /> : null}
-          {syncMutation.error ? <ErrorState error={syncMutation.error} /> : null}
-          {Object.keys(healthResult).length ? <div className="diagnostic-result"><div><StatusBadge status={healthResult.status} /><strong>{text(healthResult.httpStatus, t("providers:noHttpStatus"))}</strong></div><dl><div><dt>{t("providers:latency")}</dt><dd>{text(healthResult.responseTimeMs)} ms</dd></div><div><dt>{t("providers:lastCheck")}</dt><dd>{formatDate(healthResult.checkedAt)}</dd></div></dl>{healthResult.errorMessage ? <p>{text(healthResult.errorMessage)}</p> : null}</div> : null}
-          {syncMutation.data ? <div className="sync-result"><div><DatabaseZap size={18} /><strong>{t("providers:syncComplete")}</strong></div><dl><div><dt>{t("providers:discovered")}</dt><dd>{text(syncMutation.data.discoveredModelCount, "0")}</dd></div><div><dt>{t("providers:added")}</dt><dd>{list(syncMutation.data.addedModelIds).length}</dd></div><div><dt>{t("providers:disabledModels")}</dt><dd>{list(syncMutation.data.disabledModelIds).length}</dd></div></dl><span><Clock3 size={14} />{formatDate(syncMutation.data.syncedAt)}</span></div> : null}
-        </Panel>
+      <div className="provider-status-strip">
+        <div><span>{t("providers:authentication")}</span><strong><KeyRound size={16} />{credentialConfigured ? t("providers:keyConfigured") : t("providers:keyMissing")}</strong></div>
+        <div><span>{t("providers:lastCheck")}</span><strong>{lastTest.checkedAt ? formatDate(lastTest.checkedAt) : t("providers:notTested")}</strong></div>
+        <div><span>{t("providers:health")}</span><StatusBadge status={lastTest.status ?? "not_checked"} /></div>
+        <div><span>{t("providers:latency")}</span><strong>{lastTest.responseTimeMs == null ? "-" : `${text(lastTest.responseTimeMs)} ms`}</strong></div>
       </div>
 
-      <Panel title={t("providers:modelCatalog")} meta={t("providers:modelCatalogMeta", { count: models.length })}>
-        {models.length ? <div className="table-scroll"><table className="data-table compact provider-model-table"><thead><tr><th>{t("providers:modelId")}</th><th>{t("providers:modelLabel")}</th><th>{t("common:status")}</th><th>{t("providers:routing")}</th></tr></thead><tbody>{models.map((model) => <tr key={text(model.model)}><td><code>{text(model.model)}</code></td><td>{text(model.label)}</td><td><StatusBadge status={model.enabled === false ? "disabled" : "available"} /></td><td>{model.isDefault ? <span className="default-model-mark"><Check size={14} />{t("providers:default")}</span> : "-"}</td></tr>)}</tbody></table></div> : <div className="provider-empty-models"><DatabaseZap size={22} /><span>{t("providers:noModels")}</span></div>}
+      <Panel title={t("providers:configuration")} meta={t("providers:configurationNewApiMeta")} className="provider-config-panel">
+        <form className="provider-config-form" onSubmit={form.handleSubmit((values) => saveMutation.mutate(values))}>
+          <div className="form-grid">
+            <label className="field"><span>{t("providers:displayName")}</span><input {...form.register("displayName", { required: true })} /></label>
+            <label className="field"><span>{t("providers:defaultModel")}</span><input list="provider-model-options" {...form.register("defaultModel", { required: true })} /><datalist id="provider-model-options">{models.map((model) => <option key={text(model.model)} value={text(model.model)} />)}</datalist></label>
+          </div>
+          <label className="field provider-url-field"><span>{t("providers:baseUrl")}</span><div><Network size={17} /><input type="url" placeholder="https://api.example.com/v1" {...form.register("baseUrl", { required: true, pattern: /^https?:\/\//i })} /></div></label>
+          <div className="field"><label htmlFor="provider-api-key">{t("providers:apiKey")}</label><div className="provider-secret-control"><input id="provider-api-key" type={showApiKey ? "text" : "password"} autoComplete="new-password" spellCheck={false} placeholder={credentialConfigured ? t("providers:keyKeepPlaceholder") : t("providers:keyRequiredPlaceholder")} {...form.register("apiKey", { validate: (value) => credentialConfigured || value.trim().length > 0 })} /><IconButton label={showApiKey ? t("providers:hideApiKey") : t("providers:showApiKey")} onClick={() => setShowApiKey((value) => !value)}>{showApiKey ? <EyeOff size={17} /> : <Eye size={17} />}</IconButton></div><small>{t("providers:keyUpdateHint")}</small></div>
+          <label className="field"><span>{t("providers:descriptionField")}</span><textarea rows={3} {...form.register("description")} /></label>
+          <details className="provider-advanced-settings"><summary>{t("providers:advancedSettings")}</summary><label className="field"><span>{t("providers:healthcheckPath")}</span><input className="mono" placeholder="/models" {...form.register("healthcheckPath", { required: true })} /></label></details>
+          <label className="toggle-field"><input type="checkbox" {...form.register("enabled")} /><span>{t("providers:enabled")}</span></label>
+          <label className="field"><span>{t("providers:changeReason")}</span><textarea rows={2} {...form.register("reason", { required: true, minLength: 8 })} /></label>
+          {saveMutation.error ? <ErrorState error={saveMutation.error} /> : null}
+          {saveMutation.isSuccess && !form.formState.isDirty ? <div className="operation-success"><Check size={18} />{t("providers:configurationSaved")}</div> : null}
+          <footer className="provider-form-actions"><button className="button primary" type="submit" disabled={!form.formState.isDirty || saveMutation.isPending}>{saveMutation.isPending ? <LoaderCircle className="spin" size={17} /> : <Save size={17} />}{t("providers:saveChanges")}</button></footer>
+        </form>
+      </Panel>
+
+      <Panel title={t("providers:modelCatalog")} meta={t("providers:modelCatalogNewApiMeta", { count: models.length })}>
+        <div className="provider-model-panel-actions"><p>{t("providers:modelCatalogInstruction")}</p><button type="button" className="button secondary" onClick={() => setModelsOpen(true)}><Download size={16} />{t("providers:fetchModels")}</button></div>
+        {models.length ? <div className="table-scroll"><table className="data-table compact provider-model-table"><thead><tr><th>{t("providers:modelId")}</th><th>{t("providers:modelLabel")}</th><th>{t("common:status")}</th><th>{t("providers:routing")}</th></tr></thead><tbody>{models.map((model) => <tr key={text(model.model)}><td><code>{text(model.model)}</code></td><td>{text(model.label)}</td><td><StatusBadge status={model.enabled === false ? "disabled" : "available"} /></td><td>{model.isDefault ? <span className="default-model-mark"><Check size={14} />{t("providers:default")}</span> : "-"}</td></tr>)}</tbody></table></div> : <div className="provider-empty-models"><Download size={22} /><span>{t("providers:noModels")}</span></div>}
       </Panel>
 
       <div className="provider-secondary-grid">
-        <Panel title={t("providers:bindingSummary")} meta={t("providers:bindingSummaryMeta", { count: bindings.length })}>{bindings.length ? <div className="provider-binding-list">{bindings.map((binding) => <div key={text(binding.bindingId)}><div><strong>{text(binding.workspaceId)}</strong><code>{text(binding.credentialId)}</code></div><StatusBadge status={binding.enabled === false ? "disabled" : "active"} /></div>)}</div> : <span className="muted">{t("providers:noBindings")}</span>}</Panel>
+        <Panel title={t("providers:bindingSummary")} meta={t("providers:bindingSummaryMeta", { count: bindings.length })}><p className="muted">{bindings.length ? t("providers:bindingSecuritySummary", { count: bindings.length }) : t("providers:noBindings")}</p></Panel>
         <Panel title={t("providers:governance")} meta={t("providers:governanceMeta")} className="danger-zone"><button type="button" className={`button ${governanceSpec.tone === "danger" ? "danger" : "secondary"}`} onClick={() => setGovernanceAction(governanceSpec)}><ShieldAlert size={16} />{governanceSpec.label}</button></Panel>
       </div>
 
-      {writingCredential ? <CreateCredentialDialog initialProvider={providerId} bindToProviderId={providerId} onCreated={(credential) => { setCredentialId(text(credential.credentialId, "")); setWritingCredential(false); void query.refetch(); }} onClose={() => setWritingCredential(false)} /> : null}
+      {modelsOpen ? <ProviderModelsDialog provider={reference} onClose={() => setModelsOpen(false)} /> : null}
+      {testOpen ? <ProviderTestDialog provider={reference} onClose={() => setTestOpen(false)} /> : null}
       {governanceAction ? <GovernanceActionDialog resourceType="provider" resourceId={providerId} spec={governanceAction} onClose={() => { setGovernanceAction(null); void query.refetch(); }} /> : null}
     </div>
   );

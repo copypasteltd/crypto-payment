@@ -9,6 +9,7 @@ import type { DataColumn } from "../components/DataTable";
 import { ResourceListPage } from "../components/ResourceListPage";
 import { RowActions, type GovernanceActionSpec } from "../components/GovernanceAction";
 import { CreateCredentialDialog, CreateMcpDialog, CreateProviderDialog, QuotaPolicyDialog } from "../components/CreateDialogs";
+import { ProviderRowOperations } from "../components/ProviderOperations";
 import { StatusBadge, formatDate } from "../components/ui";
 
 function text(value: unknown, fallback = "-") { return value == null || value === "" ? fallback : String(value); }
@@ -129,9 +130,9 @@ export function ProvidersPage() {
     { key: "models", label: t("providers:modelCount"), width: 90, render: (r) => Array.isArray(r.models) ? r.models.length : 0 },
     { key: "bindings", label: t("providers:bindings"), width: 80, render: (r) => number(r.bindingCount) },
     { key: "updated", label: t("common:updatedAt"), width: 180, render: (r) => formatDate(r.updatedAt) },
-    actionsColumn("provider", (r) => text(r.providerId), (r) => text(r.governanceStatus), t),
+    { key: "actions", label: t("common:actions"), width: 250, render: (r) => <ProviderRowOperations provider={r} governance={<RowActions resourceType="provider" resourceId={text(r.providerId)} actions={statusActions("provider", text(r.governanceStatus), t)} />} /> },
   ];
-  return <><ResourceListPage queryKey="providers" endpoint="/providers" eyebrow={t("providers:eyebrow")} title={t("providers:title")} description={t("providers:description")} columns={columns} rowKey={(r) => text(r.providerId)} detailPath={(r) => `/providers/${encodeURIComponent(text(r.providerId))}`} statusOptions={["active", "disabled"]} headerActions={<HeaderButton icon={<Plus size={17} />} onClick={() => setCreating(true)}>{t("providers:create")}</HeaderButton>} />{creating ? <CreateProviderDialog onCreated={(provider) => navigate(`/providers/${encodeURIComponent(text(provider.providerId))}`, { state: { providerOnboarding: provider.onboarding } })} onClose={() => setCreating(false)} /> : null}</>;
+  return <><ResourceListPage queryKey="providers" endpoint="/providers" eyebrow={t("providers:eyebrow")} title={t("providers:title")} description={t("providers:description")} columns={columns} rowKey={(r) => text(r.providerId)} detailPath={(r) => `/providers/${encodeURIComponent(text(r.providerId))}`} statusOptions={["active", "disabled"]} headerActions={<HeaderButton icon={<Plus size={17} />} onClick={() => setCreating(true)}>{t("providers:create")}</HeaderButton>} />{creating ? <CreateProviderDialog onCreated={(provider) => navigate(`/providers/${encodeURIComponent(text(provider.providerId))}`)} onClose={() => setCreating(false)} /> : null}</>;
 }
 
 export function McpsPage() {

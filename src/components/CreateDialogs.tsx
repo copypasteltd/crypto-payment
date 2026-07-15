@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Eye, EyeOff, Gauge, KeyRound, LoaderCircle, Network, PlugZap, Save, ShieldCheck, X } from "lucide-react";
 import { adminRequest } from "../lib/api";
 import type { JsonObject } from "../lib/types";
+import { ProviderModelsDialog } from "./ProviderOperations";
 import { ErrorState, IconButton } from "./ui";
 
 function Drawer({ title, eyebrow, icon, onClose, children }: { title: string; eyebrow: string; icon: React.ReactNode; onClose: () => void; children: React.ReactNode }) {
@@ -34,12 +35,7 @@ type ProviderForm = {
   models: string;
   healthcheckPath: string;
   enabled: boolean;
-  authenticationMode: "bearer" | "none";
   apiKey: string;
-  credentialDisplayName: string;
-  credentialWorkspaceId: string;
-  verifyConnection: boolean;
-  syncModels: boolean;
   reason: string;
 };
 
@@ -47,6 +43,7 @@ export function CreateProviderDialog({ onClose, onCreated }: { onClose: () => vo
   const { t } = useTranslation(["providers", "common"]);
   const queryClient = useQueryClient();
   const [showApiKey, setShowApiKey] = useState(false);
+  const [modelDialogOpen, setModelDialogOpen] = useState(false);
   const form = useForm<ProviderForm>({
     defaultValues: {
       displayName: "",
@@ -56,16 +53,15 @@ export function CreateProviderDialog({ onClose, onCreated }: { onClose: () => vo
       models: "",
       healthcheckPath: "/models",
       enabled: true,
-      authenticationMode: "bearer",
       apiKey: "",
-      credentialDisplayName: "",
-      credentialWorkspaceId: "",
-      verifyConnection: true,
-      syncModels: true,
       reason: "",
     },
   });
-  const authenticationMode = form.watch("authenticationMode");
+  const displayName = form.watch("displayName");
+  const baseUrl = form.watch("baseUrl");
+  const apiKey = form.watch("apiKey");
+  const healthcheckPath = form.watch("healthcheckPath");
+  const models = form.watch("models").split(/[\n,]/).map((model) => model.trim()).filter(Boolean);
   const mutation = useMutation({
     mutationFn: (values: ProviderForm) => adminRequest<JsonObject>("/providers", {
       method: "POST",
@@ -79,29 +75,17 @@ export function CreateProviderDialog({ onClose, onCreated }: { onClose: () => vo
           healthcheckPath: values.healthcheckPath || null,
           enabled: values.enabled,
         },
-        authentication: values.authenticationMode === "bearer"
-          ? {
-              mode: "bearer",
-              apiKey: values.apiKey,
-              displayName: values.credentialDisplayName || `${values.displayName} API Key`,
-              workspaceId: values.credentialWorkspaceId || undefined,
-              verifyConnection: values.verifyConnection,
-              syncModels: values.syncModels,
-            }
-          : {
-              mode: "none",
-              verifyConnection: values.verifyConnection,
-              syncModels: values.syncModels,
-            },
+        authentication: {
+          mode: "bearer",
+          apiKey: values.apiKey,
+          displayName: `${values.displayName} API Key`,
+        },
         reason: values.reason,
       }),
     }),
     onSuccess: async (provider) => {
       form.reset({ ...form.getValues(), apiKey: "" });
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["providers"] }),
-        queryClient.invalidateQueries({ queryKey: ["credentials"] }),
-      ]);
+      await queryClient.invalidateQueries({ queryKey: ["providers"] });
       onCreated?.(provider);
       onClose();
     },
@@ -112,23 +96,24 @@ export function CreateProviderDialog({ onClose, onCreated }: { onClose: () => vo
       <form className="drawer-form" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
         <label className="field"><span>{t("providers:displayName")}</span><input {...form.register("displayName", { required: true })} /></label>
         <label className="field"><span>{t("providers:baseUrl")}</span><input type="url" placeholder="https://api.example.com/v1" {...form.register("baseUrl", { required: true })} /></label>
-        <div className="form-grid"><label className="field"><span>{t("providers:defaultModel")}</span><input {...form.register("defaultModel", { required: true })} /></label><label className="field"><span>{t("providers:healthcheckPath")}</span><input {...form.register("healthcheckPath")} /></label></div>
-        <label className="field"><span>{t("providers:models")}</span><input placeholder="model-a, model-b" {...form.register("models")} /><small>{t("providers:modelsHint")}</small></label>
-        <label className="field"><span>{t("providers:descriptionField")}</span><textarea rows={3} {...form.register("description")} /></label>
         <section className="provider-auth-section">
           <header><ShieldCheck size={18} /><div><strong>{t("providers:authentication")}</strong><span>{t("providers:authenticationMeta")}</span></div></header>
-          <label className="field"><span>{t("providers:authenticationMode")}</span><select {...form.register("authenticationMode")}><option value="bearer">{t("providers:bearerApiKey")}</option><option value="none">{t("providers:noAuthentication")}</option></select></label>
-          {authenticationMode === "bearer" ? <>
-            <label className="field"><span>{t("providers:apiKey")}</span><div className="provider-secret-control"><input type={showApiKey ? "text" : "password"} autoComplete="new-password" spellCheck={false} {...form.register("apiKey", { validate: (value) => value.length > 0 })} /><IconButton label={showApiKey ? t("providers:hideApiKey") : t("providers:showApiKey")} onClick={() => setShowApiKey((value) => !value)}>{showApiKey ? <EyeOff size={17} /> : <Eye size={17} />}</IconButton></div><small>{t("providers:apiKeySecurity")}</small></label>
-            <div className="form-grid"><label className="field"><span>{t("providers:credentialName")}</span><input placeholder={t("providers:credentialNamePlaceholder")} {...form.register("credentialDisplayName")} /></label><label className="field"><span>{t("providers:credentialWorkspace")}</span><input className="mono" placeholder={t("providers:currentAdminWorkspace")} {...form.register("credentialWorkspaceId")} /></label></div>
-          </> : null}
-          <div className="provider-onboarding-options"><label className="toggle-field"><input type="checkbox" {...form.register("verifyConnection")} /><span>{t("providers:verifyAfterCreate")}</span></label><label className="toggle-field"><input type="checkbox" {...form.register("syncModels")} /><span>{t("providers:syncAfterCreate")}</span></label></div>
+          <div className="field"><label htmlFor="create-provider-api-key">{t("providers:apiKey")}</label><div className="provider-secret-control"><input id="create-provider-api-key" type={showApiKey ? "text" : "password"} autoComplete="new-password" spellCheck={false} {...form.register("apiKey", { required: true })} /><IconButton label={showApiKey ? t("providers:hideApiKey") : t("providers:showApiKey")} onClick={() => setShowApiKey((value) => !value)}>{showApiKey ? <EyeOff size={17} /> : <Eye size={17} />}</IconButton></div><small>{t("providers:apiKeySecurity")}</small></div>
         </section>
+        <section className="provider-model-form-section">
+          <div><div><strong>{t("providers:models")}</strong><span>{t("providers:modelsHint")}</span></div><button type="button" className="button secondary" onClick={async () => { const valid = await form.trigger(["baseUrl", "apiKey"]); if (valid) setModelDialogOpen(true); }}><Network size={16} />{t("providers:fetchModels")}</button></div>
+          <label className="field"><span>{t("providers:defaultModel")}</span><input list="create-provider-models" {...form.register("defaultModel", { required: true })} /><datalist id="create-provider-models">{models.map((model) => <option key={model} value={model} />)}</datalist></label>
+          <label className="field"><span>{t("providers:selectedModelList")}</span><textarea className="mono" rows={4} placeholder="model-a, model-b" {...form.register("models")} /></label>
+          <div className="provider-selected-models">{models.slice(0, 12).map((model) => <code key={model}>{model}</code>)}{models.length > 12 ? <span>+{models.length - 12}</span> : null}</div>
+        </section>
+        <label className="field"><span>{t("providers:descriptionField")}</span><textarea rows={3} {...form.register("description")} /></label>
+        <details className="provider-advanced-settings"><summary>{t("providers:advancedSettings")}</summary><label className="field"><span>{t("providers:healthcheckPath")}</span><input {...form.register("healthcheckPath")} /></label></details>
         <label className="toggle-field"><input type="checkbox" {...form.register("enabled")} /><span>{t("providers:enableAfterCreate")}</span></label>
         <label className="field"><span>{t("providers:changeReason")}</span><textarea rows={3} {...form.register("reason", { required: true, minLength: 8 })} /></label>
         {mutation.error ? <ErrorState error={mutation.error} /> : null}
-        <footer><button type="button" className="button secondary" onClick={onClose}>{t("common:cancel")}</button><button type="submit" className="button primary" disabled={mutation.isPending}>{mutation.isPending ? <LoaderCircle className="spin" size={17} /> : <Save size={17} />}{t("providers:createAndVerify")}</button></footer>
+        <footer><button type="button" className="button secondary" onClick={onClose}>{t("common:cancel")}</button><button type="submit" className="button primary" disabled={mutation.isPending}>{mutation.isPending ? <LoaderCircle className="spin" size={17} /> : <Save size={17} />}{t("providers:save")}</button></footer>
       </form>
+      {modelDialogOpen ? <ProviderModelsDialog unsaved={{ displayName, baseUrl, apiKey, healthcheckPath, models }} onModelsSelected={(nextModels) => { form.setValue("models", nextModels.join(", "), { shouldDirty: true }); const currentDefault = form.getValues("defaultModel"); if (!nextModels.includes(currentDefault)) form.setValue("defaultModel", nextModels[0] ?? "", { shouldDirty: true }); }} onClose={() => setModelDialogOpen(false)} /> : null}
     </Drawer>
   );
 }
