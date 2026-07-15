@@ -42,6 +42,7 @@ function json(route, body, status = 200) {
 async function installAdminApiMock(page) {
   const state = {
     providers: [],
+    expiredSessionReturned: false,
   };
 
   await page.route("**/admin/v1/**", async (route) => {
@@ -50,7 +51,14 @@ async function installAdminApiMock(page) {
     const path = url.pathname.replace(/^\/admin\/v1/, "");
     const method = request.method();
 
-    if (path === "/auth/session") return json(route, bootstrap);
+    if (path === "/auth/session") {
+      if (page.url().includes("expired-session=1") && !state.expiredSessionReturned) {
+        state.expiredSessionReturned = true;
+        return json(route, { error: { code: "AUTH_ACCESS_EXPIRED", message: "Access token expired" } }, 401);
+      }
+      return json(route, bootstrap);
+    }
+    if (path === "/auth/refresh") return json(route, { ...bootstrap, csrfToken: "admin-e2e-refreshed-csrf-token" });
     if (path === "/auth/logout") return json(route, { ok: true });
     if (path === "/search") return json(route, []);
     if (path === "/overview") {
@@ -255,5 +263,17 @@ test.describe("independent admin console", () => {
     await page.getByRole("button", { name: "Switch language" }).click();
     await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
     await expect(page.getByRole("heading", { level: 1, name: "用户" })).toBeVisible();
+  });
+
+  test("restores an expired access session with the refresh cookie", async ({ page }) => {
+    let refreshRequests = 0;
+    page.on("request", (request) => {
+      if (new URL(request.url()).pathname === "/admin/v1/auth/refresh") refreshRequests += 1;
+    });
+
+    await page.goto("/?expired-session=1");
+    await expect(page.getByRole("heading", { level: 1, name: "平台总览" })).toBeVisible();
+    await expect.poll(() => refreshRequests).toBe(1);
+    await expect(page.getByRole("heading", { level: 2, name: "总管理员登录" })).toHaveCount(0);
   });
 });

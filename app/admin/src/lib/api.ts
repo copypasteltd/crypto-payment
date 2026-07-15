@@ -2,6 +2,7 @@ import type { AdminBootstrap } from "./types";
 
 const API_BASE = (import.meta.env.VITE_ADMIN_API_BASE_URL || "/admin/v1").replace(/\/$/, "");
 let csrfToken = "";
+let refreshPromise: Promise<AdminBootstrap> | null = null;
 
 export class AdminApiError extends Error {
   constructor(
@@ -34,9 +35,6 @@ async function parseResponse<T>(response: Response): Promise<T> {
       response.headers.get("x-request-id"),
       error?.details ?? null
     );
-    if (response.status === 401) {
-      window.dispatchEvent(new Event("lingban-admin-auth-expired"));
-    }
     throw adminError;
   }
   const result = payload as T;
@@ -46,7 +44,7 @@ async function parseResponse<T>(response: Response): Promise<T> {
   return result;
 }
 
-export async function adminRequest<T>(path: string, init: RequestInit = {}) {
+async function sendRequest(path: string, init: RequestInit) {
   const method = (init.method || "GET").toUpperCase();
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/json");
@@ -56,13 +54,38 @@ export async function adminRequest<T>(path: string, init: RequestInit = {}) {
   if (!["GET", "HEAD", "OPTIONS"].includes(method) && csrfToken) {
     headers.set("X-Admin-CSRF", csrfToken);
   }
-  const response = await fetch(`${API_BASE}${path}`, {
+  return fetch(`${API_BASE}${path}`, {
     ...init,
     method,
     headers,
     credentials: "include",
   });
+}
+
+function expireAdminSession() {
+  csrfToken = "";
+  window.dispatchEvent(new Event("lingban-admin-auth-expired"));
+}
+
+async function requestWithRefresh<T>(path: string, init: RequestInit, allowRefresh: boolean): Promise<T> {
+  const response = await sendRequest(path, init);
+  const canRefresh = path !== "/auth/login" && path !== "/auth/refresh";
+
+  if (response.status === 401 && allowRefresh && canRefresh) {
+    if (!refreshPromise) {
+      refreshPromise = requestWithRefresh<AdminBootstrap>("/auth/refresh", { method: "POST" }, false)
+        .finally(() => { refreshPromise = null; });
+    }
+    await refreshPromise;
+    return requestWithRefresh<T>(path, init, false);
+  }
+
+  if (response.status === 401 && path !== "/auth/login") expireAdminSession();
   return parseResponse<T>(response);
+}
+
+export function adminRequest<T>(path: string, init: RequestInit = {}) {
+  return requestWithRefresh<T>(path, init, true);
 }
 
 export function setAdminCsrfToken(value: string) {

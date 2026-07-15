@@ -146,7 +146,7 @@ Local verification uses native Node.js and pnpm. Runtime-isolation integration t
 
 ## 当前状态 / Current Status
 
-截至 2026-07-15，核心控制面、独立 Admin API、Provider 多路由、认证、文件链、Session 资产、治理域、Realtime 与 Runtime 回调均已实现；原生构建通过，Backend smoke 62/62 与 Admin 控制面烟测通过。当前验收 API 地址为 `http://192.168.31.20:38130`，Admin 同源入口为 `http://192.168.31.20:38140/admin/v1`，线上版本为 `20260715T071211Z`。
+截至 2026-07-15，核心控制面、独立 Admin API、Provider 多路由、认证、文件链、Session 资产、治理域、Realtime 与 Runtime 回调均已实现；原生构建通过，Backend smoke 62/62 与 Admin 控制面烟测通过。当前验收 API 地址为 `http://192.168.31.20:38130`，Admin 同源入口为 `http://192.168.31.20:38140/admin/v1`，线上版本为 `20260715T075447Z`。
 
 As of 2026-07-15, the core control plane, independent Admin API, multi-provider routing, authentication, file chain, session assets, governance domains, realtime transport, and runtime callbacks are implemented. Native builds pass, and both the 62-test backend smoke suite and Admin control-plane smoke test pass.
 

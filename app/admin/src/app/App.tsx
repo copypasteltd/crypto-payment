@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Navigate, Route, Routes } from "react-router-dom";
@@ -36,38 +36,41 @@ import { SettingsPage } from "../pages/SettingsPage";
 export function App() {
   const { t } = useTranslation("common");
   const queryClient = useQueryClient();
+  const [authExpired, setAuthExpired] = useState(false);
   const session = useQuery({
     queryKey: ["admin-session"],
     queryFn: adminApi.session,
     retry: false,
     staleTime: 30_000,
+    enabled: !authExpired,
   });
   const logout = useMutation({
     mutationFn: adminApi.logout,
     onSettled: () => {
       clearAdminCsrfToken();
       queryClient.clear();
-      void session.refetch();
+      setAuthExpired(true);
     },
   });
 
   useEffect(() => {
     const listener = () => {
       clearAdminCsrfToken();
-      queryClient.setQueryData(["admin-session"], undefined);
-      void queryClient.invalidateQueries({ queryKey: ["admin-session"] });
+      void queryClient.cancelQueries({ queryKey: ["admin-session"] });
+      queryClient.removeQueries({ queryKey: ["admin-session"] });
+      setAuthExpired(true);
     };
     window.addEventListener("lingban-admin-auth-expired", listener);
     return () => window.removeEventListener("lingban-admin-auth-expired", listener);
   }, [queryClient]);
 
   if (session.isLoading) return <div className="app-loading"><img src="/assets/logo.svg" alt="" /><LoadingState label={t("validatingSession")} /></div>;
-  if (!session.data) {
+  if (authExpired || !session.data) {
     const status = (session.error as { status?: number } | null)?.status;
     if (session.error && status !== 401 && status !== 403) {
       return <div className="fatal-error"><ErrorState error={session.error} onRetry={() => void session.refetch()} /></div>;
     }
-    return <LoginScreen onAuthenticated={(value) => { setAdminCsrfToken(value.csrfToken); queryClient.setQueryData(["admin-session"], value); }} />;
+    return <LoginScreen onAuthenticated={(value) => { setAdminCsrfToken(value.csrfToken); queryClient.setQueryData(["admin-session"], value); setAuthExpired(false); }} />;
   }
 
   return (
