@@ -66,6 +66,10 @@ export function createFakePostgresPool() {
     lingban_run_files: [],
     lingban_bridge_registrations: [],
     lingban_internal_callbacks: [],
+    lingban_admin_resource_states: [],
+    lingban_admin_audit_events: [],
+    lingban_admin_settings: [],
+    lingban_admin_operations: [],
   };
 
   async function query(sql, params = []) {
@@ -122,6 +126,111 @@ export function createFakePostgresPool() {
           applied_at: new Date(),
         });
       }
+      return { rows: [], rowCount: 1 };
+    }
+
+    if (
+      normalized ===
+      "select state_json from lingban_admin_resource_states order by updated_at desc"
+    ) {
+      const rows = [...tables.lingban_admin_resource_states]
+        .sort((left, right) => compareValues(right.updated_at, left.updated_at))
+        .map((row) => ({ state_json: clone(row.state_json) }));
+      return { rows, rowCount: rows.length };
+    }
+
+    if (
+      normalized ===
+      "select event_json from lingban_admin_audit_events order by occurred_at desc"
+    ) {
+      const rows = [...tables.lingban_admin_audit_events]
+        .sort((left, right) => compareValues(right.occurred_at, left.occurred_at))
+        .map((row) => ({ event_json: clone(row.event_json) }));
+      return { rows, rowCount: rows.length };
+    }
+
+    if (
+      normalized ===
+      "select setting_json from lingban_admin_settings order by setting_key asc"
+    ) {
+      const rows = [...tables.lingban_admin_settings]
+        .sort((left, right) => compareValues(left.setting_key, right.setting_key))
+        .map((row) => ({ setting_json: clone(row.setting_json) }));
+      return { rows, rowCount: rows.length };
+    }
+
+    if (
+      normalized ===
+      "select operation_json from lingban_admin_operations order by expires_at desc"
+    ) {
+      const rows = [...tables.lingban_admin_operations]
+        .sort((left, right) => compareValues(right.expires_at, left.expires_at))
+        .map((row) => ({ operation_json: clone(row.operation_json) }));
+      return { rows, rowCount: rows.length };
+    }
+
+    if (normalized.startsWith("insert into lingban_admin_resource_states")) {
+      const record = {
+        resource_type: params[0],
+        resource_id: params[1],
+        status: params[2],
+        updated_at: params[3],
+        state_json: typeof params[4] === "string" ? JSON.parse(params[4]) : clone(params[4]),
+      };
+      const index = tables.lingban_admin_resource_states.findIndex(
+        (item) => item.resource_type === record.resource_type && item.resource_id === record.resource_id
+      );
+      if (index >= 0) tables.lingban_admin_resource_states[index] = record;
+      else tables.lingban_admin_resource_states.push(record);
+      return { rows: [], rowCount: 1 };
+    }
+
+    if (normalized.startsWith("insert into lingban_admin_audit_events")) {
+      if (!tables.lingban_admin_audit_events.some((item) => item.event_id === params[0])) {
+        tables.lingban_admin_audit_events.push({
+          event_id: params[0],
+          actor_user_id: params[1],
+          action: params[2],
+          resource_type: params[3],
+          resource_id: params[4],
+          outcome: params[5],
+          occurred_at: params[6],
+          event_json: typeof params[7] === "string" ? JSON.parse(params[7]) : clone(params[7]),
+        });
+      }
+      return { rows: [], rowCount: 1 };
+    }
+
+    if (normalized.startsWith("insert into lingban_admin_settings")) {
+      const record = {
+        setting_key: params[0],
+        version: params[1],
+        updated_at: params[2],
+        setting_json: typeof params[3] === "string" ? JSON.parse(params[3]) : clone(params[3]),
+      };
+      const index = tables.lingban_admin_settings.findIndex(
+        (item) => item.setting_key === record.setting_key
+      );
+      if (index >= 0) tables.lingban_admin_settings[index] = record;
+      else tables.lingban_admin_settings.push(record);
+      return { rows: [], rowCount: 1 };
+    }
+
+    if (normalized.startsWith("insert into lingban_admin_operations")) {
+      const record = {
+        operation_id: params[0],
+        resource_type: params[1],
+        resource_id: params[2],
+        action: params[3],
+        expires_at: params[4],
+        consumed_at: params[5],
+        operation_json: typeof params[6] === "string" ? JSON.parse(params[6]) : clone(params[6]),
+      };
+      const index = tables.lingban_admin_operations.findIndex(
+        (item) => item.operation_id === record.operation_id
+      );
+      if (index >= 0) tables.lingban_admin_operations[index] = record;
+      else tables.lingban_admin_operations.push(record);
       return { rows: [], rowCount: 1 };
     }
 

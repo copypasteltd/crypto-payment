@@ -21,7 +21,7 @@ This directory contains the minimum deployment assets required to move the curre
 4. Install the systemd unit files and the Nginx config on the host.
 5. Run `server/install-release.sh` on the host to build, migrate, and switch the active release.
 
-The generated release bundle keeps backend and worker as standalone workspaces, and it includes prebuilt static artifacts for Dashboard and Mobile H5.
+The generated release bundle keeps backend and worker as standalone workspaces, and it includes prebuilt static artifacts for Dashboard, Mobile H5, and the independent Admin Console.
 
 ## Deployment defaults
 
@@ -31,6 +31,7 @@ The generated release bundle keeps backend and worker as standalone workspaces, 
 - Public Dashboard is served by Nginx on `:38110`
 - Public Mobile H5 is served by Nginx on `:38120`
 - Public API gateway is served by Nginx on `:38130`
+- Public Admin Console is served by Nginx on `:38140`
 - Worker launch mode defaults to `local-process`
 - Codex host binary is expected at `CODEX_BIN=/home/lingban/.local/bin/codex`
 

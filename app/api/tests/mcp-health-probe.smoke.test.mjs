@@ -218,6 +218,7 @@ test("mcp health probe smoke: probe snapshots persist healthy/degraded/blocked/u
     assert.equal(healthyProbe.status, "healthy");
     assert.equal(healthyProbe.bindingId, healthyBinding.bindingId);
     assert.equal(healthyProbe.toolCount, 2);
+    assert.deepEqual(healthyProbe.toolNames, ["render_scene", "list_assets"]);
     assert.equal(healthyProbe.policyEnforced, true);
     assert.equal(healthyProbe.httpStatus, 200);
 
@@ -230,6 +231,7 @@ test("mcp health probe smoke: probe snapshots persist healthy/degraded/blocked/u
       }
     );
     assert.equal(latestHealthyProbe.snapshotId, healthyProbe.snapshotId);
+    assert.deepEqual(latestHealthyProbe.toolNames, ["render_scene", "list_assets"]);
 
     const degradedMcp = await requestJson(`${baseUrl}/v1/mcps`, {
       method: "POST",

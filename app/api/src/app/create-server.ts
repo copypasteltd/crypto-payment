@@ -3,6 +3,8 @@ import websocket from "@fastify/websocket";
 import { normalizeErrorPayload } from "./errors.js";
 import { buildApiReadinessReport } from "./ops.js";
 import { registerAuthRoutes, registerWorkspaceRoutes } from "../modules/auth/routes.js";
+import { registerAdminRoutes } from "../modules/admin/routes.js";
+import { initializeAdminInfrastructure } from "../modules/admin/service.js";
 import { registerBatchRunRoutes } from "../modules/batch-runs/routes.js";
 import { initializeBatchRunsInfrastructure } from "../modules/batch-runs/service.js";
 import { initializeAuthInfrastructure } from "../modules/auth/service.js";
@@ -42,7 +44,8 @@ import { registerServiceCatalogRoutes, registerWorkshopRoutes } from "../modules
 import { initializeWorkshopInfrastructure } from "../modules/workshops/service.js";
 
 const defaultCorsAllowMethods = "GET,POST,PATCH,PUT,DELETE,OPTIONS";
-const defaultCorsAllowHeaders = "Authorization,Content-Type,Accept,Origin";
+const defaultCorsAllowHeaders =
+  "Authorization,Content-Type,Accept,Origin,X-Admin-CSRF,X-Request-Id,X-Trace-Id,X-Client-Release";
 const defaultCorsExposeHeaders = "Content-Disposition,Content-Length,Content-Type";
 
 function normalizeConfiguredOrigins(rawValue: string | undefined) {
@@ -69,6 +72,7 @@ function resolveCorsAllowedOrigin(origin: string | undefined, configuredOrigins:
 }
 
 export async function createServer() {
+  await initializeAdminInfrastructure();
   await initializeAuthInfrastructure();
   await initializeBatchRunsInfrastructure();
   await initializeCredentialsInfrastructure();
@@ -110,6 +114,9 @@ export async function createServer() {
     if (allowedOrigin) {
       reply.header("Access-Control-Allow-Origin", allowedOrigin);
       reply.header("Vary", "Origin");
+      if (allowedOrigin !== "*") {
+        reply.header("Access-Control-Allow-Credentials", "true");
+      }
       reply.header("Access-Control-Allow-Methods", defaultCorsAllowMethods);
       reply.header(
         "Access-Control-Allow-Headers",
@@ -158,6 +165,10 @@ export async function createServer() {
 
   server.register(registerAuthRoutes, {
     prefix: "/v1/auth",
+  });
+
+  server.register(registerAdminRoutes, {
+    prefix: "/admin/v1",
   });
 
   server.register(registerWorkspaceRoutes, {

@@ -10,6 +10,10 @@ const releaseRoot = path.join(workspaceRoot, "release");
 
 const standaloneTargets = [
   {
+    target: "admin",
+    sourceDir: "agent-workshop-admin",
+  },
+  {
     target: "backend",
     sourceDir: "agent-workshop-backend",
   },
@@ -28,6 +32,12 @@ const standaloneTargets = [
 ];
 
 const frontendBuilds = [
+  {
+    label: "admin",
+    command: ["-C", path.join(workspaceRoot, "app", "admin"), "build"],
+    distSource: path.join(workspaceRoot, "app", "admin", "dist"),
+    distTarget: path.join(releaseRoot, "static", "admin"),
+  },
   {
     label: "dashboard",
     command: ["-C", path.join(workspaceRoot, "app", "dashboard"), "build"],
@@ -125,10 +135,12 @@ async function writeManifest() {
     workspaceRoot,
     artifacts: {
       static: {
+        admin: "static/admin",
         dashboard: "static/dashboard",
         mobileH5: "static/mobile-h5",
       },
       workspaces: {
+        admin: "workspaces/admin",
         backend: "workspaces/backend",
         runWorker: "workspaces/run-worker",
         dashboard: "workspaces/dashboard",
@@ -141,6 +153,7 @@ async function writeManifest() {
       "Build backend and run-worker standalone workspaces on the target Linux host.",
       "Run backend database migrations before restarting services.",
       "Serve release/static/dashboard and release/static/mobile-h5 through Nginx or another static host.",
+      "Serve release/static/admin from an isolated Admin virtual host and proxy /admin/v1 to the API.",
       "Restart lingban-api and lingban-run-worker systemd services after updating the current symlink.",
     ],
   };

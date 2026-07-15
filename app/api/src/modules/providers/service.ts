@@ -139,6 +139,21 @@ function buildProviderHealthcheckUrl(provider: ProviderProfile) {
   return `${normalizedBaseUrl}/${normalizedPath}`;
 }
 
+function extractProviderModelIds(payload: unknown) {
+  const root = payload && typeof payload === "object" ? payload as Record<string, unknown> : {};
+  const candidates = Array.isArray(root.data) ? root.data : Array.isArray(root.models) ? root.models : [];
+  const ids = candidates
+    .map((item) => {
+      if (typeof item === "string") return item.trim();
+      if (!item || typeof item !== "object") return "";
+      const record = item as Record<string, unknown>;
+      const value = record.id ?? record.model ?? record.name;
+      return typeof value === "string" ? value.trim() : "";
+    })
+    .filter(Boolean);
+  return [...new Set(ids)].slice(0, 500);
+}
+
 function ensureModelAllowed(provider: ProviderProfile, model: string) {
   const knownModels = provider.models.filter((item) => item.enabled).map((item) => item.model);
   if (provider.allowCustomModel || knownModels.length === 0) {
@@ -334,6 +349,7 @@ export class ProvidersService {
     try {
       const response = await fetch(healthcheckUrl, {
         method: "GET",
+        redirect: "manual",
         signal: AbortSignal.timeout(5_000),
         headers: {
           accept: "application/json",
@@ -396,6 +412,93 @@ export class ProvidersService {
         healthcheck,
       });
     }
+  }
+
+  async syncProviderModels(
+    actor: ProviderActor,
+    providerId: string,
+    options: { apiKey?: string | null } = {}
+  ) {
+    assertPlatformProviderManager(actor);
+    const provider = this.getProvider(providerId);
+    const modelListUrl = buildProviderHealthcheckUrl(provider);
+    const headers: Record<string, string> = {
+      accept: "application/json",
+      "user-agent": "lingban-provider-model-sync/1.0",
+    };
+    if (options.apiKey) headers.authorization = `Bearer ${options.apiKey}`;
+    let response: Response;
+    try {
+      response = await fetch(modelListUrl, {
+        method: "GET",
+        redirect: "manual",
+        headers,
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch (error) {
+      throw new AppError(
+        502,
+        "PROVIDER_MODEL_SYNC_UNAVAILABLE",
+        `Provider model endpoint is unavailable: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+    if (!response.ok) {
+      throw new AppError(
+        502,
+        "PROVIDER_MODEL_SYNC_FAILED",
+        `Provider model endpoint returned HTTP ${response.status}`,
+        { providerId, httpStatus: response.status }
+      );
+    }
+    const contentLength = Number(response.headers.get("content-length") ?? 0);
+    if (Number.isFinite(contentLength) && contentLength > 5_000_000) {
+      throw new AppError(502, "PROVIDER_MODEL_SYNC_RESPONSE_TOO_LARGE", "Provider model response exceeds 5 MB");
+    }
+    let payload: unknown;
+    try {
+      payload = await response.json();
+    } catch {
+      throw new AppError(502, "PROVIDER_MODEL_SYNC_INVALID_RESPONSE", "Provider model endpoint did not return JSON");
+    }
+    const discoveredIds = extractProviderModelIds(payload);
+    if (discoveredIds.length === 0) {
+      throw new AppError(502, "PROVIDER_MODEL_SYNC_EMPTY", "Provider model endpoint returned no model identifiers");
+    }
+    const previousById = new Map(provider.models.map((item) => [item.model, item]));
+    const discovered = discoveredIds.map((model) => previousById.get(model) ?? {
+      model,
+      label: null,
+      enabled: true,
+      isDefault: model === provider.defaultModel,
+      capabilities: provider.capabilities,
+    });
+    if (!discoveredIds.includes(provider.defaultModel)) {
+      const existingDefault = previousById.get(provider.defaultModel);
+      discovered.unshift(existingDefault ?? {
+        model: provider.defaultModel,
+        label: null,
+        enabled: true,
+        isDefault: true,
+        capabilities: provider.capabilities,
+      });
+    }
+    const removed = provider.models
+      .filter((item) => !discoveredIds.includes(item.model) && item.model !== provider.defaultModel)
+      .map((item) => ({ ...item, enabled: false, isDefault: false }));
+    const models = normalizeProviderModels([...discovered, ...removed], provider.defaultModel);
+    const saved = await providersRepository.saveProvider(providerProfileSchema.parse({
+      ...provider,
+      models,
+      updatedAt: nowIso(),
+    }));
+    return {
+      provider: saved,
+      modelListUrl,
+      discoveredModelCount: discoveredIds.length,
+      addedModelIds: discoveredIds.filter((model) => !previousById.has(model)),
+      disabledModelIds: removed.map((item) => item.model),
+      syncedAt: saved.updatedAt,
+    };
   }
 
   listWorkspaceBindings(

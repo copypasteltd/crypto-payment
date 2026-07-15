@@ -30,6 +30,11 @@ const copyExcludes = new Set([
 ]);
 
 const repoPresets = {
+  admin: {
+    bundleDirName: "agent-workshop-admin",
+    sourceDir: "app/admin",
+    validateCommand: "pnpm run typecheck && pnpm run build",
+  },
   app: {
     bundleDirName: "agent-workshop-app",
     sourceDir: "app/mobile",
@@ -77,6 +82,7 @@ async function readJson(filePath) {
 
 async function loadWorkspacePackageMap() {
   const candidates = [
+    "app/admin",
     "app/api",
     "app/container-bridge",
     "app/dashboard",

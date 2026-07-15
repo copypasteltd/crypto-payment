@@ -1,0 +1,259 @@
+import { test, expect } from "@playwright/test";
+
+const now = "2026-07-15T08:00:00.000Z";
+const bootstrap = {
+  user: {
+    userId: "usr_admin_e2e",
+    email: "platform-admin@example.com",
+    displayName: "Platform Admin",
+  },
+  role: "platform_admin",
+  session: {
+    sessionId: "ses_admin_e2e",
+    accessTokenExpiresAt: "2026-07-15T09:00:00.000Z",
+    refreshTokenExpiresAt: "2026-07-22T08:00:00.000Z",
+  },
+  csrfToken: "admin-e2e-csrf-token-value",
+  system: { status: "ready", release: "e2e", checkedAt: now },
+};
+
+function pageResult(items = []) {
+  return {
+    items,
+    pageInfo: {
+      page: 1,
+      pageSize: 50,
+      total: items.length,
+      pageCount: 1,
+      hasPreviousPage: false,
+      hasNextPage: false,
+    },
+  };
+}
+
+function json(route, body, status = 200) {
+  return route.fulfill({
+    status,
+    contentType: "application/json",
+    body: JSON.stringify(body),
+  });
+}
+
+async function installAdminApiMock(page) {
+  const state = {
+    providers: [],
+  };
+
+  await page.route("**/admin/v1/**", async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const path = url.pathname.replace(/^\/admin\/v1/, "");
+    const method = request.method();
+
+    if (path === "/auth/session") return json(route, bootstrap);
+    if (path === "/auth/logout") return json(route, { ok: true });
+    if (path === "/search") return json(route, []);
+    if (path === "/overview") {
+      return json(route, {
+        generatedAt: now,
+        health: { api: { status: "ready" } },
+        metrics: {
+          users: 2,
+          workspaces: 2,
+          runs: 4,
+          activeRuns: 1,
+          failedRuns: 0,
+          providers: state.providers.length,
+          providerIssues: 0,
+          mcps: 3,
+          mcpIssues: 0,
+          credentials: 2,
+          expiringCredentials: 0,
+          publishedWorkshops: 2,
+          sessions: 3,
+          quarantinedSessions: 0,
+          suspendedWorkspaces: 0,
+          monthlyCostUsd: 12.45,
+        },
+        anomalies: [],
+        recentAdminEvents: [],
+      });
+    }
+    if (path === "/users") {
+      return json(
+        route,
+        pageResult([
+          {
+            userId: "usr_target_e2e",
+            email: "target@example.com",
+            displayName: "Target User",
+            status: "active",
+            workspaceCount: 1,
+            activeSessionCount: 1,
+            runCount: 2,
+            monthlyCostUsd: 3.4,
+            lastLoginAt: now,
+            createdAt: now,
+            updatedAt: now,
+          },
+        ])
+      );
+    }
+    if (path === "/workspaces") {
+      return json(route, pageResult([{ workspaceId: "wsp_e2e", name: "QA Workspace", slug: "qa", type: "team", status: "active", memberCount: 4, activeRunCount: 1, totalRunCount: 6, costUsd: 8.4, createdAt: now, updatedAt: now }]));
+    }
+    if (path === "/workshops") {
+      return json(route, pageResult([{ workshopId: "wsh_e2e", name: { zh: "财税工坊", en: "Tax Workshop" }, category: { zh: "财税", en: "Tax" }, status: "active", governanceStatus: "active", serviceCount: 2, packageCount: 1, runCount: 5, updatedAt: now }]));
+    }
+    if (path === "/sessions") {
+      return json(route, pageResult([{ sessionVersionId: "sev_e2e", displayName: "Tax filing session", taskVersionId: "tsv_e2e", governanceStatus: "active", mcpRequirements: [], runCount: 2, createdAt: now, updatedAt: now }]));
+    }
+    if (path === "/runs") {
+      return json(route, pageResult([{ run: { runId: "run_e2e", title: "Quarterly filing", workspaceId: "wsp_e2e", status: "RUNNING", updatedAt: now }, provider: { providerId: "prv_e2e", displayName: "Primary", model: "gpt-5" }, fileCount: 3, artifactCount: 1, approvalCount: 0 }]));
+    }
+    if (path === "/runtime") {
+      return json(route, { readiness: { status: "ready" }, diagnostics: { status: "ready", activeRunsCount: 1 }, bridgeConnections: [], fileLifecycle: { sweeperActive: true } });
+    }
+    if (path === "/providers" && method === "GET") return json(route, pageResult(state.providers));
+    if (path === "/providers" && method === "POST") {
+      const payload = request.postDataJSON();
+      const provider = {
+        providerId: "prv_created_e2e",
+        ...payload.input,
+        governanceStatus: payload.input.enabled === false ? "disabled" : "active",
+        lastHealthcheck: null,
+        bindingCount: 0,
+        createdAt: now,
+        updatedAt: now,
+      };
+      state.providers = [provider];
+      return json(route, provider);
+    }
+    if (path === "/mcps") {
+      return json(route, pageResult([{ mcpId: "mcp_e2e", displayName: "External MCP", source: "third-party", transport: "sse", riskLevel: "medium", governanceStatus: "active", latestHealth: { status: "healthy" }, bindingCount: 1, callCount: 20, updatedAt: now }]));
+    }
+    if (path === "/credentials") {
+      return json(route, pageResult([{ credentialId: "cred_e2e", displayName: "Provider key", provider: "openai", secretKind: "api-key", scope: "workspace", governanceStatus: "active", brokerKind: "local-envelope", secretVersion: 1, rotationDueAt: null, materializationCount: 2 }]));
+    }
+    if (path === "/quotas") {
+      return json(route, pageResult([{ policyId: "qpo_e2e", workspaceId: "wsp_e2e", scopeType: "workspace", scopeRefId: "wsp_e2e", metric: "daily_runs", windowType: "day", status: "active", limitValue: 100, counters: [{ currentValue: 12 }], overrides: [], updatedAt: now }]));
+    }
+    if (path === "/ledger") return json(route, { ...pageResult([]), summary: { currency: "USD", totalAmountUsd: 0 } });
+    if (path === "/audit") return json(route, pageResult([]));
+    if (path === "/system") {
+      return json(route, {
+        readiness: { status: "ready", dependencies: {} },
+        runtime: { bridgeRegistry: { initialized: true } },
+        configuration: { authMode: "required", authStore: "postgres" },
+        settings: [],
+        featureFlags: {},
+        notifications: {},
+        retention: {},
+        adminAccounts: [{ email: "platform-admin@example.com", displayName: "Platform Admin", status: "active", mfa: "configured", lastLoginAt: now }],
+        release: "e2e",
+        checkedAt: now,
+      });
+    }
+    if (path === "/actions/impact") {
+      return json(route, {
+        operationId: "aop_e2e",
+        resourceType: "user",
+        resourceId: "usr_target_e2e",
+        action: "suspend",
+        impactHash: "a".repeat(64),
+        impact: { resourceName: "Target User", currentStatus: "active", targetStatus: "suspended", activeSessions: 1, version: 0 },
+        confirmationPhrase: "SUSPEND usr_target_e2e",
+        requestedByUserId: "usr_admin_e2e",
+        createdAt: now,
+        expiresAt: "2026-07-15T08:05:00.000Z",
+        consumedAt: null,
+      });
+    }
+    if (path === "/actions/execute") return json(route, { operationId: "aop_e2e", auditStatus: "persisted", result: { status: "suspended" } });
+
+    return json(route, { error: { code: "E2E_ROUTE_UNHANDLED", message: `${method} ${path}` } }, 404);
+  });
+}
+
+test.describe("independent admin console", () => {
+  test.beforeEach(async ({ page }) => {
+    await installAdminApiMock(page);
+  });
+
+  test("loads all eight management modules without overflow", async ({ page }) => {
+    const routes = [
+      ["/", "平台总览"],
+      ["/accounts/users", "用户"],
+      ["/accounts/workspaces", "工作区"],
+      ["/catalog/workshops", "工坊"],
+      ["/catalog/sessions", "Session 资产"],
+      ["/runs", "运行实例"],
+      ["/runtime", "运行时"],
+      ["/providers", "Provider 与模型"],
+      ["/integrations/mcps", "MCP 注册表"],
+      ["/integrations/credentials", "私有凭证"],
+      ["/billing/quotas", "套餐与配额"],
+      ["/billing/ledger", "用量与账本"],
+      ["/audit", "审计事件"],
+      ["/settings", "审计与系统"],
+    ];
+
+    for (const [path, heading] of routes) {
+      await page.goto(path);
+      await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
+      const dimensions = await page.evaluate(() => ({ body: document.body.scrollWidth, viewport: window.innerWidth }));
+      expect(dimensions.body).toBeLessThanOrEqual(dimensions.viewport);
+    }
+  });
+
+  test("supports theme, drawer, provider creation, and impact review", async ({ page }) => {
+    await page.goto("/providers");
+    await page.getByRole("button", { name: "浅色主题" }).click();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+    await page.getByRole("button", { name: "收起侧栏" }).click();
+    await expect(page.locator(".admin-shell")).toHaveClass(/sidebar-collapsed/);
+
+    await page.getByRole("button", { name: "新建 Provider" }).click();
+    await page.getByLabel("显示名称").fill("E2E Provider");
+    await page.getByLabel("Base URL").fill("https://e2e-provider.example.com/v1");
+    await page.getByRole("textbox", { name: "默认模型", exact: true }).fill("gpt-e2e");
+    await page.getByLabel("模型列表", { exact: false }).fill("gpt-e2e");
+    await page.getByLabel("变更原因").fill("Create provider from the independent Admin E2E flow");
+    await page.getByRole("button", { name: "保存 Provider" }).click();
+    await expect(page.getByText("E2E Provider", { exact: true })).toBeVisible();
+
+    await page.goto("/accounts/users");
+    await page.getByRole("button", { name: "暂停", exact: true }).click();
+    await expect(page.getByRole("dialog", { name: "暂停" })).toBeVisible();
+    await expect(page.getByText("SUSPEND usr_target_e2e", { exact: true })).toBeVisible();
+    await page.getByLabel("操作原因", { exact: false }).fill("Suspend account during Admin E2E governance verification");
+    await page.getByLabel("确认词", { exact: false }).fill("SUSPEND usr_target_e2e");
+    await page.getByRole("button", { name: "确认执行" }).click();
+    await expect(page.getByText("操作已执行，审计记录已写入。")).toBeVisible();
+  });
+
+  test("blocks management controls below the supported viewport", async ({ page }) => {
+    await page.setViewportSize({ width: 1023, height: 768 });
+    await page.goto("/");
+    await expect(page.getByText("Admin Console 需要至少 1024px 的可用宽度。")).toBeVisible();
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await expect(page.getByRole("heading", { level: 1, name: "平台总览" })).toBeVisible();
+  });
+
+  test("switches all visible content to English without losing route state", async ({ page }) => {
+    await page.goto("/accounts/users?q=Target&status=active");
+    await expect(page.getByRole("heading", { level: 1, name: "用户" })).toBeVisible();
+    await page.getByRole("button", { name: "切换语言" }).click();
+
+    await expect(page.locator("html")).toHaveAttribute("lang", "en-US");
+    await expect(page).toHaveURL(/\/accounts\/users\?q=Target&status=active/);
+    await expect(page.getByRole("heading", { level: 1, name: "Users" })).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: "Workspaces" })).toBeVisible();
+    await expect(page.getByRole("table").getByText("Active", { exact: true })).toBeVisible();
+    await expect(page.getByPlaceholder("Name, ID, email, or error code")).toHaveValue("Target");
+
+    await page.getByRole("button", { name: "Switch language" }).click();
+    await expect(page.locator("html")).toHaveAttribute("lang", "zh-CN");
+    await expect(page.getByRole("heading", { level: 1, name: "用户" })).toBeVisible();
+  });
+});

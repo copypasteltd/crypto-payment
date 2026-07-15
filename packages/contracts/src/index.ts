@@ -1,4 +1,5 @@
 export * from "./auth.js";
+export * from "./admin.js";
 export * from "./batch-runs.js";
 export * from "./billing.js";
 export * from "./bridge.js";
