@@ -1,8 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Gauge, KeyRound, LoaderCircle, Network, PlugZap, Save, X } from "lucide-react";
+import { Eye, EyeOff, Gauge, KeyRound, LoaderCircle, Network, PlugZap, Save, ShieldCheck, X } from "lucide-react";
 import { adminRequest } from "../lib/api";
 import type { JsonObject } from "../lib/types";
 import { ErrorState, IconButton } from "./ui";
@@ -26,16 +26,87 @@ function Drawer({ title, eyebrow, icon, onClose, children }: { title: string; ey
   );
 }
 
-type ProviderForm = { displayName: string; description: string; baseUrl: string; defaultModel: string; models: string; healthcheckPath: string; enabled: boolean; reason: string };
+type ProviderForm = {
+  displayName: string;
+  description: string;
+  baseUrl: string;
+  defaultModel: string;
+  models: string;
+  healthcheckPath: string;
+  enabled: boolean;
+  authenticationMode: "bearer" | "none";
+  apiKey: string;
+  credentialDisplayName: string;
+  credentialWorkspaceId: string;
+  verifyConnection: boolean;
+  syncModels: boolean;
+  reason: string;
+};
 
 export function CreateProviderDialog({ onClose, onCreated }: { onClose: () => void; onCreated?: (provider: JsonObject) => void }) {
   const { t } = useTranslation(["providers", "common"]);
   const queryClient = useQueryClient();
-  const form = useForm<ProviderForm>({ defaultValues: { displayName: "", description: "", baseUrl: "", defaultModel: "", models: "", healthcheckPath: "/models", enabled: true, reason: "" } });
-  const mutation = useMutation({
-    mutationFn: (values: ProviderForm) => adminRequest<JsonObject>("/providers", { method: "POST", body: JSON.stringify({ input: { displayName: values.displayName, description: values.description || null, baseUrl: values.baseUrl, defaultModel: values.defaultModel, models: values.models.split(",").map((model) => model.trim()).filter(Boolean).map((model) => ({ model, label: null, enabled: true, isDefault: model === values.defaultModel, capabilities: {} })), healthcheckPath: values.healthcheckPath || null, enabled: values.enabled }, reason: values.reason }) }),
-    onSuccess: async (provider) => { await queryClient.invalidateQueries({ queryKey: ["providers"] }); onCreated?.(provider); onClose(); },
+  const [showApiKey, setShowApiKey] = useState(false);
+  const form = useForm<ProviderForm>({
+    defaultValues: {
+      displayName: "",
+      description: "",
+      baseUrl: "",
+      defaultModel: "",
+      models: "",
+      healthcheckPath: "/models",
+      enabled: true,
+      authenticationMode: "bearer",
+      apiKey: "",
+      credentialDisplayName: "",
+      credentialWorkspaceId: "",
+      verifyConnection: true,
+      syncModels: true,
+      reason: "",
+    },
   });
+  const authenticationMode = form.watch("authenticationMode");
+  const mutation = useMutation({
+    mutationFn: (values: ProviderForm) => adminRequest<JsonObject>("/providers", {
+      method: "POST",
+      body: JSON.stringify({
+        input: {
+          displayName: values.displayName,
+          description: values.description || null,
+          baseUrl: values.baseUrl,
+          defaultModel: values.defaultModel,
+          models: values.models.split(",").map((model) => model.trim()).filter(Boolean).map((model) => ({ model, label: null, enabled: true, isDefault: model === values.defaultModel, capabilities: {} })),
+          healthcheckPath: values.healthcheckPath || null,
+          enabled: values.enabled,
+        },
+        authentication: values.authenticationMode === "bearer"
+          ? {
+              mode: "bearer",
+              apiKey: values.apiKey,
+              displayName: values.credentialDisplayName || `${values.displayName} API Key`,
+              workspaceId: values.credentialWorkspaceId || undefined,
+              verifyConnection: values.verifyConnection,
+              syncModels: values.syncModels,
+            }
+          : {
+              mode: "none",
+              verifyConnection: values.verifyConnection,
+              syncModels: values.syncModels,
+            },
+        reason: values.reason,
+      }),
+    }),
+    onSuccess: async (provider) => {
+      form.reset({ ...form.getValues(), apiKey: "" });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["providers"] }),
+        queryClient.invalidateQueries({ queryKey: ["credentials"] }),
+      ]);
+      onCreated?.(provider);
+      onClose();
+    },
+  });
+  useEffect(() => () => form.reset({ ...form.getValues(), apiKey: "" }), [form]);
   return (
     <Drawer title={t("providers:create")} eyebrow={t("providers:createEyebrow")} icon={<Network size={21} />} onClose={onClose}>
       <form className="drawer-form" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
@@ -44,10 +115,19 @@ export function CreateProviderDialog({ onClose, onCreated }: { onClose: () => vo
         <div className="form-grid"><label className="field"><span>{t("providers:defaultModel")}</span><input {...form.register("defaultModel", { required: true })} /></label><label className="field"><span>{t("providers:healthcheckPath")}</span><input {...form.register("healthcheckPath")} /></label></div>
         <label className="field"><span>{t("providers:models")}</span><input placeholder="model-a, model-b" {...form.register("models")} /><small>{t("providers:modelsHint")}</small></label>
         <label className="field"><span>{t("providers:descriptionField")}</span><textarea rows={3} {...form.register("description")} /></label>
+        <section className="provider-auth-section">
+          <header><ShieldCheck size={18} /><div><strong>{t("providers:authentication")}</strong><span>{t("providers:authenticationMeta")}</span></div></header>
+          <label className="field"><span>{t("providers:authenticationMode")}</span><select {...form.register("authenticationMode")}><option value="bearer">{t("providers:bearerApiKey")}</option><option value="none">{t("providers:noAuthentication")}</option></select></label>
+          {authenticationMode === "bearer" ? <>
+            <label className="field"><span>{t("providers:apiKey")}</span><div className="provider-secret-control"><input type={showApiKey ? "text" : "password"} autoComplete="new-password" spellCheck={false} {...form.register("apiKey", { validate: (value) => value.length > 0 })} /><IconButton label={showApiKey ? t("providers:hideApiKey") : t("providers:showApiKey")} onClick={() => setShowApiKey((value) => !value)}>{showApiKey ? <EyeOff size={17} /> : <Eye size={17} />}</IconButton></div><small>{t("providers:apiKeySecurity")}</small></label>
+            <div className="form-grid"><label className="field"><span>{t("providers:credentialName")}</span><input placeholder={t("providers:credentialNamePlaceholder")} {...form.register("credentialDisplayName")} /></label><label className="field"><span>{t("providers:credentialWorkspace")}</span><input className="mono" placeholder={t("providers:currentAdminWorkspace")} {...form.register("credentialWorkspaceId")} /></label></div>
+          </> : null}
+          <div className="provider-onboarding-options"><label className="toggle-field"><input type="checkbox" {...form.register("verifyConnection")} /><span>{t("providers:verifyAfterCreate")}</span></label><label className="toggle-field"><input type="checkbox" {...form.register("syncModels")} /><span>{t("providers:syncAfterCreate")}</span></label></div>
+        </section>
         <label className="toggle-field"><input type="checkbox" {...form.register("enabled")} /><span>{t("providers:enableAfterCreate")}</span></label>
         <label className="field"><span>{t("providers:changeReason")}</span><textarea rows={3} {...form.register("reason", { required: true, minLength: 8 })} /></label>
         {mutation.error ? <ErrorState error={mutation.error} /> : null}
-        <footer><button type="button" className="button secondary" onClick={onClose}>{t("common:cancel")}</button><button type="submit" className="button primary" disabled={mutation.isPending}>{mutation.isPending ? <LoaderCircle className="spin" size={17} /> : <Save size={17} />}{t("providers:save")}</button></footer>
+        <footer><button type="button" className="button secondary" onClick={onClose}>{t("common:cancel")}</button><button type="submit" className="button primary" disabled={mutation.isPending}>{mutation.isPending ? <LoaderCircle className="spin" size={17} /> : <Save size={17} />}{t("providers:createAndVerify")}</button></footer>
       </form>
     </Drawer>
   );
@@ -82,13 +162,42 @@ export function CreateMcpDialog({ onClose }: { onClose: () => void }) {
 
 type CredentialForm = { workspaceId: string; scope: "workspace" | "user"; displayName: string; provider: string; secretKind: "api-key" | "access-token" | "oauth-token" | "json-file" | "browser-storage-state" | "session-cookie"; mountMode: "env" | "file"; envName: string; secretValue: string; notes: string; reason: string };
 
-export function CreateCredentialDialog({ onClose, onCreated, initialProvider = "openai" }: { onClose: () => void; onCreated?: (credential: JsonObject) => void; initialProvider?: string }) {
+export function CreateCredentialDialog({ onClose, onCreated, initialProvider = "openai", bindToProviderId }: { onClose: () => void; onCreated?: (credential: JsonObject) => void; initialProvider?: string; bindToProviderId?: string }) {
   const { t } = useTranslation(["integrations", "common"]);
   const queryClient = useQueryClient();
   const form = useForm<CredentialForm>({ defaultValues: { workspaceId: "", scope: "workspace", displayName: "", provider: initialProvider, secretKind: "api-key", mountMode: "env", envName: "OPENAI_API_KEY", secretValue: "", notes: "", reason: "" } });
   const mutation = useMutation({
-    mutationFn: (values: CredentialForm) => adminRequest<JsonObject>("/credentials", { method: "POST", body: JSON.stringify({ workspaceId: values.workspaceId || undefined, input: { scope: values.scope, displayName: values.displayName, provider: values.provider, secretKind: values.secretKind, mountMode: values.mountMode, secretValue: values.secretValue, secretRef: null, envName: values.mountMode === "env" ? values.envName : undefined, notes: values.notes || null }, reason: values.reason }) }),
-    onSuccess: async (credential) => { form.reset(); await queryClient.invalidateQueries({ queryKey: ["credentials"] }); onCreated?.(credential); onClose(); },
+    mutationFn: async (values: CredentialForm) => {
+      if (bindToProviderId) {
+        const result = await adminRequest<JsonObject>(`/providers/${encodeURIComponent(bindToProviderId)}/credentials`, {
+          method: "POST",
+          body: JSON.stringify({
+            input: {
+              workspaceId: values.workspaceId || undefined,
+              displayName: values.displayName,
+              apiKey: values.secretValue,
+              makeDefaultBinding: false,
+            },
+            reason: values.reason,
+          }),
+        });
+        const credential = result.credential;
+        if (!credential || typeof credential !== "object" || Array.isArray(credential)) {
+          throw new Error("Provider credential response is invalid");
+        }
+        return credential as JsonObject;
+      }
+      return adminRequest<JsonObject>("/credentials", { method: "POST", body: JSON.stringify({ workspaceId: values.workspaceId || undefined, input: { scope: values.scope, displayName: values.displayName, provider: values.provider, secretKind: values.secretKind, mountMode: values.mountMode, secretValue: values.secretValue, secretRef: null, envName: values.mountMode === "env" ? values.envName : undefined, notes: values.notes || null }, reason: values.reason }) });
+    },
+    onSuccess: async (credential) => {
+      form.reset();
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["credentials"] }),
+        bindToProviderId ? queryClient.invalidateQueries({ queryKey: ["provider", bindToProviderId] }) : Promise.resolve(),
+      ]);
+      onCreated?.(credential);
+      onClose();
+    },
   });
   useEffect(() => () => form.reset({ ...form.getValues(), secretValue: "" }), [form]);
   return (
@@ -96,8 +205,8 @@ export function CreateCredentialDialog({ onClose, onCreated, initialProvider = "
       <form className="drawer-form" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
         <label className="field"><span>{t("integrations:targetWorkspace")}</span><input className="mono" placeholder={t("integrations:currentWorkspaceHint")} {...form.register("workspaceId")} /></label>
         <div className="form-grid"><label className="field"><span>{t("integrations:name")}</span><input {...form.register("displayName", { required: true })} /></label><label className="field"><span>{t("integrations:provider")}</span><input {...form.register("provider", { required: true })} /></label></div>
-        <div className="form-grid"><label className="field"><span>{t("integrations:scope")}</span><select {...form.register("scope")}><option value="workspace">{t("integrations:scopeWorkspace")}</option><option value="user">{t("integrations:scopeUser")}</option></select></label><label className="field"><span>{t("integrations:secretType")}</span><select {...form.register("secretKind")}><option value="api-key">{t("integrations:secretApiKey")}</option><option value="access-token">{t("integrations:secretAccessToken")}</option><option value="oauth-token">{t("integrations:secretOauthToken")}</option><option value="json-file">{t("integrations:secretJsonFile")}</option><option value="browser-storage-state">{t("integrations:secretBrowserState")}</option><option value="session-cookie">{t("integrations:secretSessionCookie")}</option></select></label></div>
-        <div className="form-grid"><label className="field"><span>{t("integrations:mountMode")}</span><select {...form.register("mountMode")}><option value="env">{t("integrations:mountEnvironment")}</option><option value="file">{t("integrations:mountFile")}</option></select></label><label className="field"><span>{t("integrations:envName")}</span><input className="mono" {...form.register("envName")} /></label></div>
+        <div className="form-grid"><label className="field"><span>{t("integrations:scope")}</span><select disabled={Boolean(bindToProviderId)} {...form.register("scope")}><option value="workspace">{t("integrations:scopeWorkspace")}</option><option value="user">{t("integrations:scopeUser")}</option></select></label><label className="field"><span>{t("integrations:secretType")}</span><select disabled={Boolean(bindToProviderId)} {...form.register("secretKind")}><option value="api-key">{t("integrations:secretApiKey")}</option><option value="access-token">{t("integrations:secretAccessToken")}</option><option value="oauth-token">{t("integrations:secretOauthToken")}</option><option value="json-file">{t("integrations:secretJsonFile")}</option><option value="browser-storage-state">{t("integrations:secretBrowserState")}</option><option value="session-cookie">{t("integrations:secretSessionCookie")}</option></select></label></div>
+        <div className="form-grid"><label className="field"><span>{t("integrations:mountMode")}</span><select disabled={Boolean(bindToProviderId)} {...form.register("mountMode")}><option value="env">{t("integrations:mountEnvironment")}</option><option value="file">{t("integrations:mountFile")}</option></select></label><label className="field"><span>{t("integrations:envName")}</span><input className="mono" disabled={Boolean(bindToProviderId)} {...form.register("envName")} /></label></div>
         <label className="field secret-field"><span>{t("integrations:secret")}</span><textarea rows={5} autoComplete="new-password" spellCheck={false} {...form.register("secretValue", { required: true })} /><small>{t("integrations:secretHint")}</small></label>
         <label className="field"><span>{t("integrations:notes")}</span><textarea rows={2} {...form.register("notes")} /></label>
         <label className="field"><span>{t("integrations:writeReason")}</span><textarea rows={3} {...form.register("reason", { required: true, minLength: 8 })} /></label>

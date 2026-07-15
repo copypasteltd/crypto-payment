@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useForm } from "react-hook-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   Activity,
   ArrowLeft,
@@ -16,6 +16,7 @@ import {
   Plus,
   RefreshCw,
   Save,
+  ShieldCheck,
   ShieldAlert,
 } from "lucide-react";
 import { CreateCredentialDialog } from "../components/CreateDialogs";
@@ -72,12 +73,17 @@ function initialForm(provider: JsonObject): ProviderForm {
 export function ProviderDetailPage() {
   const { t } = useTranslation(["providers", "common"]);
   const navigate = useNavigate();
+  const location = useLocation();
   const { providerId = "" } = useParams();
   const queryClient = useQueryClient();
   const [credentialId, setCredentialId] = useState("");
   const [diagnosticReason, setDiagnosticReason] = useState(() => t("providers:diagnosticReasonDefault"));
   const [writingCredential, setWritingCredential] = useState(false);
   const [governanceAction, setGovernanceAction] = useState<GovernanceActionSpec | null>(null);
+  const onboarding = asObject((location.state as { providerOnboarding?: JsonValue } | null)?.providerOnboarding);
+  const onboardingAuthentication = asObject(onboarding.authentication);
+  const onboardingHealth = asObject(onboarding.healthcheck);
+  const onboardingModelSync = asObject(onboarding.modelSync);
 
   const query = useQuery({
     queryKey: ["provider", providerId],
@@ -191,6 +197,8 @@ export function ProviderDetailPage() {
         actions={<><StatusBadge status={status} /><IconButton label={t("common:refreshDetail")} onClick={() => void query.refetch()} disabled={query.isFetching}><RefreshCw size={18} className={query.isFetching ? "spin" : ""} /></IconButton></>}
       />
 
+      {Object.keys(onboarding).length ? <section className="provider-onboarding-result"><div><ShieldCheck size={20} /><div><strong>{t("providers:onboardingComplete")}</strong><span>{t("providers:onboardingCompleteMeta")}</span></div></div><div><span>{t("providers:authentication")}</span><StatusBadge status={onboardingAuthentication.status} /></div><div><span>{t("providers:health")}</span><StatusBadge status={onboardingHealth.status ?? "not_checked"} /></div><div><span>{t("providers:models")}</span><StatusBadge status={onboardingModelSync.status ?? "skipped"} /></div></section> : null}
+
       <div className="provider-control-grid">
         <Panel title={t("providers:configuration")} meta={t("providers:configurationMeta")} className="provider-config-panel">
           <form className="provider-config-form" onSubmit={form.handleSubmit((values) => saveMutation.mutate(values))}>
@@ -235,7 +243,7 @@ export function ProviderDetailPage() {
         <Panel title={t("providers:governance")} meta={t("providers:governanceMeta")} className="danger-zone"><button type="button" className={`button ${governanceSpec.tone === "danger" ? "danger" : "secondary"}`} onClick={() => setGovernanceAction(governanceSpec)}><ShieldAlert size={16} />{governanceSpec.label}</button></Panel>
       </div>
 
-      {writingCredential ? <CreateCredentialDialog initialProvider={providerId} onCreated={(credential) => { setCredentialId(text(credential.credentialId, "")); setWritingCredential(false); }} onClose={() => setWritingCredential(false)} /> : null}
+      {writingCredential ? <CreateCredentialDialog initialProvider={providerId} bindToProviderId={providerId} onCreated={(credential) => { setCredentialId(text(credential.credentialId, "")); setWritingCredential(false); void query.refetch(); }} onClose={() => setWritingCredential(false)} /> : null}
       {governanceAction ? <GovernanceActionDialog resourceType="provider" resourceId={providerId} spec={governanceAction} onClose={() => { setGovernanceAction(null); void query.refetch(); }} /> : null}
     </div>
   );
