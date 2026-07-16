@@ -2640,6 +2640,23 @@ test("createPostgresDatabaseManager loads, dry-runs, and applies migrations idem
   }
 });
 
+test("splitSqlStatements preserves trigger bodies and quoted semicolons", async () => {
+  const { splitSqlStatements } = await import("../dist/index.js");
+  const statements = splitSqlStatements(`
+CREATE FUNCTION sample_trigger() RETURNS TRIGGER AS $$
+BEGIN
+  RAISE EXCEPTION 'blocked; immutable';
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+CREATE TRIGGER sample BEFORE UPDATE ON sample_table
+FOR EACH ROW EXECUTE FUNCTION sample_trigger();
+`);
+  assert.equal(statements.length, 2);
+  assert.match(statements[0], /RETURN NEW;/);
+  assert.match(statements[1], /CREATE TRIGGER sample/);
+});
+
 test("createPostgresDatabaseManager exposes reusable transaction helper with commit and rollback behavior", async () => {
   const directory = await createMigrationDirectory();
 
@@ -3908,4 +3925,112 @@ test("runPostgresDatabaseCli dispatches migrate, reset, and seed commands", asyn
     ),
     /--confirm-reset/
   );
+});
+
+test("in-memory session asset repository persists replay evidence and enforces draft concurrency", async () => {
+  const { InMemorySessionAssetRepository } = await import("../dist/index.js");
+  const repository = new InMemorySessionAssetRepository();
+  const at = "2026-07-17T00:00:00.000Z";
+  await repository.createSession({
+    sessionId: "ses_replay_repo",
+    workspaceId: "wsp_replay_repo",
+    name: "Replay repository",
+    description: "",
+    taskFamily: null,
+    status: "active",
+    createdByUserId: null,
+    createdAt: at,
+    updatedAt: at,
+  });
+  const draft = await repository.createDraft({
+    draftId: "sdf_replay_repo",
+    sessionId: "ses_replay_repo",
+    sourceCaptureId: "cap_replay_repo",
+    parentSessionVersionId: null,
+    status: "editing",
+    currentRevisionId: null,
+    createdByUserId: null,
+    version: 1,
+    createdAt: at,
+    updatedAt: at,
+  });
+  const revision = {
+    revisionId: "sdr_replay_repo",
+    draftId: draft.draftId,
+    revisionNumber: 1,
+    inputFingerprint: "a".repeat(64),
+    workspaceSelection: {
+      targetPath: "/workspace/target",
+      includeGlobs: ["**/*"],
+      excludeGlobs: [".git/**"],
+      includeArtifacts: true,
+      maxFiles: 100,
+      maxBytes: 1024,
+    },
+    redactionRules: [],
+    candidateObjectKey: "session-drafts/replay.pack",
+    candidateSha256: "b".repeat(64),
+    candidateSizeBytes: 128,
+    validationReport: { valid: true },
+    securityReport: { passed: true },
+    createdByUserId: null,
+    createdAt: at,
+  };
+  const revisedDraft = {
+    ...draft,
+    status: "ready_to_seal",
+    currentRevisionId: revision.revisionId,
+    version: 2,
+    updatedAt: at,
+  };
+  assert.ok(await repository.addRevision(revisedDraft, revision, 1));
+
+  const replay = {
+    replayId: "replay_repo_0001",
+    draftId: draft.draftId,
+    revisionId: revision.revisionId,
+    mode: "restore-validation",
+    validatorVersion: "session-replay/v1",
+    status: "passed",
+    candidateSha256: revision.candidateSha256,
+    checks: [{ checkId: "workspace-inventory", status: "passed", detail: "verified", expected: null, actual: null }],
+    restoredFileCount: 1,
+    restoredBytes: 16,
+    eventCount: 2,
+    conversationMessageCount: 1,
+    toolEventCount: 0,
+    approvalEventCount: 0,
+    failureCode: null,
+    createdByUserId: null,
+    startedAt: at,
+    finishedAt: at,
+  };
+  const replayedDraft = { ...revisedDraft, version: 3 };
+  assert.ok(await repository.addReplay(replay, replayedDraft, 2));
+  assert.equal((await repository.listReplays(draft.draftId))[0].replayId, replay.replayId);
+  assert.equal(await repository.addReplay({ ...replay, replayId: "replay_repo_stale" }, { ...replayedDraft, version: 4 }, 2), null);
+
+  const sealed = await repository.sealVersion({
+    version: {
+      sessionVersionId: "sev_replay_repo",
+      sessionId: "ses_replay_repo",
+      sealedFromRevisionId: revision.revisionId,
+      sealedFromReplayId: replay.replayId,
+      parentSessionVersionId: null,
+      manifestVersion: "lingban.session-pack/v2",
+      packObjectKey: "session-versions/replay.pack",
+      packSha256: "c".repeat(64),
+      packSizeBytes: 256,
+      signatureAlgorithm: "hmac-sha256",
+      signatureKeyId: "key_test",
+      signatureValue: "signature",
+      contentState: "sealed",
+      sealedByUserId: null,
+      sealedAt: at,
+    },
+    draft: { ...replayedDraft, status: "sealed", version: 4 },
+    expectedDraftVersion: 3,
+    lineage: null,
+  });
+  assert.equal(sealed.sealedFromReplayId, replay.replayId);
 });
