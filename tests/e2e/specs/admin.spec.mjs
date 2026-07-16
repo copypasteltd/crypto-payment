@@ -373,6 +373,14 @@ test.describe("independent admin console", () => {
     await expect(validationToast).toContainText("API Key");
     await expect(validationToast).toContainText("默认模型");
     await expect(page.locator(".form-error-summary")).toBeVisible();
+    const layout = await page.evaluate(() => {
+      const toast = document.querySelector('[data-testid="admin-toast-warning"]')?.getBoundingClientRect();
+      const drawer = document.querySelector(".form-drawer")?.getBoundingClientRect();
+      return toast && drawer ? { toastRight: toast.right, drawerLeft: drawer.left, overflow: document.documentElement.scrollWidth > innerWidth } : null;
+    });
+    expect(layout).not.toBeNull();
+    expect(layout.toastRight).toBeLessThanOrEqual(layout.drawerLeft);
+    expect(layout.overflow).toBe(false);
 
     await page.getByLabel("显示名称").fill("Rejected Provider");
     await page.getByLabel("Base URL").fill("https://rejected-provider.example.com/v1");
