@@ -48,6 +48,7 @@ import {
 } from "./observability.js";
 import { WorkerOpsHttpServer } from "./ops-http.js";
 import { BullmqQueueEventTelemetry } from "./queue-event-telemetry.js";
+import { processSessionCapture } from "./services/session-capture/capture-orchestrator.js";
 
 function formatExitReason(
   handle: ManagedBridgeRuntimeHandle,
@@ -98,12 +99,17 @@ export type ProcessBullmqRunStartPayloadDependencies = {
   startManagedBridgeRuntimeImpl?: typeof startManagedBridgeRuntime;
   cleanupRunWorkspaceImpl?: typeof cleanupRunWorkspace;
   scheduleWorkspaceCleanup?: (runId: string) => void;
-  onActiveHandle?: (runId: string, handle: ManagedBridgeRuntimeHandle) => void;
+  onActiveHandle?: (
+    runId: string,
+    handle: ManagedBridgeRuntimeHandle,
+    job: Awaited<ReturnType<typeof startRunJob>>
+  ) => void;
   onRuntimeStopped?: (runId: string) => void;
 };
 
 export type ProcessBullmqRunCleanupPayloadDependencies = {
   cleanupRunWorkspaceImpl?: typeof cleanupRunWorkspace;
+  apiConnector?: Pick<ApiConnector, "getSessionCaptureCleanupGate">;
 };
 
 type FailedRunStartJobLike = {
@@ -638,7 +644,7 @@ export async function processBullmqRunStartPayload(
       apiBaseUrl: dependencies.config.apiBaseUrl,
       authToken: dependencies.config.internalAuthToken,
     });
-    dependencies.onActiveHandle?.(runId, handle);
+    dependencies.onActiveHandle?.(runId, handle, accepted);
     await dependencies.apiConnector.syncRunRuntime(runId, {
       launchMode: handle.launchMode,
       containerName:
@@ -709,6 +715,14 @@ export async function processBullmqRunCleanupPayload(
   payload: CleanupRunJobPayload,
   dependencies: ProcessBullmqRunCleanupPayloadDependencies = {}
 ) {
+  if (dependencies.apiConnector) {
+    const gate = await dependencies.apiConnector.getSessionCaptureCleanupGate(payload.runId);
+    if (!gate.allowed) {
+      throw new Error(
+        `RUN_CLEANUP_CAPTURE_PENDING:${payload.runId}:${gate.blockingCaptureIds.join(",")}`
+      );
+    }
+  }
   const cleanupRunWorkspaceImpl =
     dependencies.cleanupRunWorkspaceImpl ?? cleanupRunWorkspace;
   await cleanupRunWorkspaceImpl({ runId: payload.runId });
@@ -729,6 +743,7 @@ export class BullmqRunWorkerDaemon {
   #startQueueEvents: RunQueueEventsLike | null = null;
   #cleanupQueueEvents: RunQueueEventsLike | null = null;
   #active = new Map<string, ManagedBridgeRuntimeHandle>();
+  #activeJobs = new Map<string, Awaited<ReturnType<typeof startRunJob>>>();
   #queueTelemetry = new BullmqQueueEventTelemetry();
   #started = false;
   #stopping = false;
@@ -928,6 +943,7 @@ export class BullmqRunWorkerDaemon {
 
     const activeHandles = [...this.#active.entries()];
     this.#active.clear();
+    this.#activeJobs.clear();
     await Promise.all(
       activeHandles.map(async ([runId, handle]) => {
         try {
@@ -960,14 +976,16 @@ export class BullmqRunWorkerDaemon {
         config: this.#config,
         apiConnector: this.#apiConnector,
         scheduleWorkspaceCleanup: (runId) => this.#scheduleWorkspaceCleanup(runId),
-        onActiveHandle: (runId, handle) => {
+        onActiveHandle: (runId, handle, job) => {
           this.#active.set(runId, handle);
+          this.#activeJobs.set(runId, job);
           this.#metrics.runtimeHandlesStartedTotal += 1;
         },
         onRuntimeStopped: (runId) => {
           if (this.#active.delete(runId)) {
             this.#metrics.runtimeHandlesStoppedTotal += 1;
           }
+          this.#activeJobs.delete(runId);
         },
         cleanupRunWorkspaceImpl: cleanupRunWorkspace,
       });
@@ -994,6 +1012,7 @@ export class BullmqRunWorkerDaemon {
     try {
       await processBullmqRunCleanupPayload(payload, {
         cleanupRunWorkspaceImpl: cleanupRunWorkspace,
+        apiConnector: this.#apiConnector,
       });
       this.#metrics.cleanupJobsSucceededTotal += 1;
       this.#lastCleanupJobFinishedAt = nowIso();
@@ -1007,6 +1026,30 @@ export class BullmqRunWorkerDaemon {
       );
       throw error;
     }
+  }
+
+  async processSessionCapture(runId: string, captureId: string) {
+    const handle = this.#active.get(runId);
+    const job = this.#activeJobs.get(runId);
+    if (!handle || !job) {
+      throw new Error(`Active runtime is unavailable for capture ${captureId}`);
+    }
+    return processSessionCapture({
+      runId,
+      captureId,
+      workerId: `bullmq-worker:${process.pid}`,
+      targetPath: job.preparedWorkspace.hostPaths.targetPath,
+      runtimePath: job.preparedWorkspace.hostPaths.runtimePath,
+      handle,
+      apiConnector: this.#apiConnector,
+    });
+  }
+
+  async stopRun(runId: string) {
+    const handle = this.#active.get(runId);
+    if (!handle) return { stopped: false, reason: "runtime-not-active" };
+    await handle.stop();
+    return { stopped: true };
   }
 
   #scheduleWorkspaceCleanup(runId: string) {
@@ -1253,6 +1296,8 @@ async function main() {
     getDiagnostics: async () => await daemon.getDiagnostics(),
     getMetricsText: async () =>
       buildRunWorkerMetricsText(await daemon.getDiagnostics(), await daemon.getReadinessReport()),
+    processCapture: async (runId, captureId) => await daemon.processSessionCapture(runId, captureId),
+    stopRun: async (runId) => await daemon.stopRun(runId),
   });
   await daemon.start();
   await opsServer.start();

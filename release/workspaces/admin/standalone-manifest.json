@@ -1,0 +1,12 @@
+{
+  "target": "admin",
+  "bundleDirName": "agent-workshop-admin",
+  "sourceDir": "app/admin",
+  "validateCommand": "pnpm run typecheck && pnpm run build",
+  "includedPackages": [
+    {
+      "name": "@lingban/admin",
+      "relativeDir": "app/admin"
+    }
+  ]
+}

@@ -20,6 +20,8 @@ import {
 import { credentialMountSchema, mcpBindingSchema } from "./runtime.js";
 import { mcpNetworkPolicySchema } from "./mcp.js";
 import { resolvedRunProviderSchema, runProviderSelectionSchema } from "./providers.js";
+import { agentThreadSummarySchema } from "./agent-runtime.js";
+import { sessionCaptureSummarySchema } from "./session-captures.js";
 
 export const runStatusSchema = z.enum([
   "CREATED",
@@ -265,6 +267,10 @@ export const runConversationMessageSchema = z.object({
   text: z.string().min(1),
   attachments: z.array(runConversationAttachmentSchema).default([]),
   slotValues: z.array(runConversationSlotValueSchema).default([]),
+  sequence: z.number().int().nonnegative().nullable().default(null),
+  threadId: z.string().trim().min(1).max(240).nullable().default(null),
+  turnId: z.string().trim().min(1).max(240).nullable().default(null),
+  itemId: z.string().trim().min(1).max(240).nullable().default(null),
   createdAt: isoDatetimeSchema,
 });
 
@@ -396,6 +402,8 @@ export const runSnapshotSchema = z.object({
   files: z.array(runFileEntrySchema),
   artifacts: z.array(runArtifactSchema),
   approvals: z.array(runApprovalSchema),
+  agentThread: agentThreadSummarySchema.nullable().default(null),
+  sessionCaptures: z.array(sessionCaptureSummarySchema).default([]),
 });
 
 export const runListStatusCountsSchema = z.object({

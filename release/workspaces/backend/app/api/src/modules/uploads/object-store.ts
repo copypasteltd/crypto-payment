@@ -1,7 +1,7 @@
 import { constants as fsConstants, createReadStream, createWriteStream } from "node:fs";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import {
@@ -9,6 +9,7 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadBucketCommand,
+  HeadObjectCommand,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -40,6 +41,7 @@ type CreateDownloadUrlInput = {
 
 export interface ObjectStore {
   putBuffer(objectKey: string, input: PutObjectBufferInput): Promise<StoredObjectInfo>;
+  putBufferImmutable(objectKey: string, input: PutObjectBufferInput): Promise<StoredObjectInfo>;
   putPath(objectKey: string, input: PutObjectPathInput): Promise<StoredObjectInfo>;
   createReadStream(objectKey: string): Promise<NodeJS.ReadableStream>;
   copyObjectToPath(objectKey: string, absolutePath: string): Promise<void>;
@@ -51,6 +53,16 @@ export interface ObjectStore {
     ready: boolean;
     detail: string | null;
   }>;
+}
+
+export class ObjectStoreImmutableConflictError extends Error {
+  readonly objectKey: string;
+
+  constructor(objectKey: string) {
+    super(`Immutable object already exists with different content: ${objectKey}`);
+    this.name = "ObjectStoreImmutableConflictError";
+    this.objectKey = objectKey;
+  }
 }
 
 function buildSha256(content: Buffer) {
@@ -122,6 +134,38 @@ class FilesystemObjectStore implements ObjectStore {
       sizeBytes: input.content.byteLength,
       sha256: buildSha256(input.content),
     };
+  }
+
+  async putBufferImmutable(objectKey: string, input: PutObjectBufferInput): Promise<StoredObjectInfo> {
+    const absolutePath = this.#resolveObjectPath(objectKey);
+    const expected = {
+      objectKey,
+      sizeBytes: input.content.byteLength,
+      sha256: buildSha256(input.content),
+    };
+    await fs.mkdir(path.dirname(absolutePath), { recursive: true });
+    const temporaryPath = `${absolutePath}.${process.pid}.${randomUUID()}.tmp`;
+
+    try {
+      await fs.writeFile(temporaryPath, input.content, { flag: "wx" });
+      try {
+        await fs.link(temporaryPath, absolutePath);
+        return expected;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+      }
+    } finally {
+      await fs.rm(temporaryPath, { force: true }).catch(() => undefined);
+    }
+
+    const stats = await fs.stat(absolutePath);
+    const existingSha256 = stats.size === expected.sizeBytes
+      ? await buildFileSha256(absolutePath)
+      : null;
+    if (stats.size !== expected.sizeBytes || existingSha256 !== expected.sha256) {
+      throw new ObjectStoreImmutableConflictError(objectKey);
+    }
+    return expected;
   }
 
   async putPath(objectKey: string, input: PutObjectPathInput): Promise<StoredObjectInfo> {
@@ -227,6 +271,50 @@ class S3ObjectStore implements ObjectStore {
       sizeBytes: input.content.byteLength,
       sha256: buildSha256(input.content),
     };
+  }
+
+  async putBufferImmutable(objectKey: string, input: PutObjectBufferInput): Promise<StoredObjectInfo> {
+    const expected = {
+      objectKey,
+      sizeBytes: input.content.byteLength,
+      sha256: buildSha256(input.content),
+    };
+    try {
+      await this.#client.send(
+        new PutObjectCommand({
+          Bucket: this.#bucket,
+          Key: objectKey,
+          Body: input.content,
+          ContentLength: input.content.byteLength,
+          ContentType: input.contentType ?? undefined,
+          IfNoneMatch: "*",
+          Metadata: { sha256: expected.sha256 },
+        })
+      );
+      return expected;
+    } catch (error) {
+      const statusCode = (error as { $metadata?: { httpStatusCode?: number } }).$metadata?.httpStatusCode;
+      const errorName = (error as { name?: string }).name;
+      if (statusCode !== 412 && errorName !== "PreconditionFailed") throw error;
+    }
+
+    const head = await this.#client.send(new HeadObjectCommand({
+      Bucket: this.#bucket,
+      Key: objectKey,
+    }));
+    let existingSha256 = head.Metadata?.sha256 ?? null;
+    if (!existingSha256 && head.ContentLength === expected.sizeBytes) {
+      const hash = createHash("sha256");
+      const stream = await this.createReadStream(objectKey);
+      for await (const chunk of stream as AsyncIterable<Buffer | Uint8Array | string>) {
+        hash.update(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+      }
+      existingSha256 = hash.digest("hex");
+    }
+    if (head.ContentLength !== expected.sizeBytes || existingSha256 !== expected.sha256) {
+      throw new ObjectStoreImmutableConflictError(objectKey);
+    }
+    return expected;
   }
 
   async putPath(objectKey: string, input: PutObjectPathInput): Promise<StoredObjectInfo> {

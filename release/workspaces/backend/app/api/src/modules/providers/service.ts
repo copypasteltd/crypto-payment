@@ -139,6 +139,106 @@ function buildProviderHealthcheckUrl(provider: ProviderProfile) {
   return `${normalizedBaseUrl}/${normalizedPath}`;
 }
 
+function buildProviderApiUrl(baseUrl: string, path: string) {
+  if (/^https?:\/\//i.test(path)) {
+    return path;
+  }
+
+  const normalizedBaseUrl = baseUrl.replace(/\/+$/g, "");
+  const normalizedPath = path.replace(/^\/+/, "");
+  return `${normalizedBaseUrl}/${normalizedPath}`;
+}
+
+function extractProviderModelIds(payload: unknown) {
+  const root = payload && typeof payload === "object" ? payload as Record<string, unknown> : {};
+  const candidates = Array.isArray(payload)
+    ? payload
+    : Array.isArray(root.data)
+      ? root.data
+      : Array.isArray(root.models)
+        ? root.models
+        : [];
+  const ids = candidates
+    .map((item) => {
+      if (typeof item === "string") return item.trim();
+      if (!item || typeof item !== "object") return "";
+      const record = item as Record<string, unknown>;
+      const value = record.id ?? record.model ?? record.name;
+      return typeof value === "string" ? value.trim() : "";
+    })
+    .filter(Boolean);
+  return [...new Set(ids)].slice(0, 500);
+}
+
+async function readResponseText(response: Response, maxBytes: number) {
+  const reader = response.body?.getReader();
+  if (!reader) {
+    return "";
+  }
+
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+    totalBytes += value.byteLength;
+    if (totalBytes > maxBytes) {
+      await reader.cancel();
+      throw new AppError(502, "PROVIDER_RESPONSE_TOO_LARGE", `Provider response exceeds ${maxBytes} bytes`);
+    }
+    chunks.push(value);
+  }
+
+  const merged = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(merged);
+}
+
+function parseProviderErrorMessage(text: string, status: number) {
+  if (!text.trim()) {
+    return `Provider returned HTTP ${status}`;
+  }
+
+  try {
+    const payload = JSON.parse(text) as Record<string, unknown>;
+    const nestedError = payload.error && typeof payload.error === "object"
+      ? payload.error as Record<string, unknown>
+      : null;
+    const message = nestedError?.message ?? payload.message ?? payload.error;
+    if (typeof message === "string" && message.trim()) {
+      return message.trim().slice(0, 2_000);
+    }
+  } catch {
+    // Upstream errors may be plain text or an HTML gateway response.
+  }
+
+  return text.replace(/\s+/g, " ").trim().slice(0, 2_000);
+}
+
+function providerModelDiff(provider: ProviderProfile, fetchedModelIds: string[]) {
+  const currentModelIds = provider.models.map((item) => item.model);
+  const currentSet = new Set(currentModelIds);
+  const fetchedSet = new Set(fetchedModelIds);
+  return {
+    fetchedModelIds,
+    addedModelIds: fetchedModelIds.filter((model) => !currentSet.has(model)),
+    existingModelIds: fetchedModelIds.filter((model) => currentSet.has(model)),
+    removedModelIds: currentModelIds.filter((model) => !fetchedSet.has(model)),
+  };
+}
+
+type ProviderTestEndpoint = "auto" | "openai" | "openai-response";
+
+function resolveProviderTestEndpoint(model: string, endpointType: ProviderTestEndpoint) {
+  if (endpointType !== "auto") return endpointType;
+  return /codex/i.test(model) ? "openai-response" : "openai";
+}
+
 function ensureModelAllowed(provider: ProviderProfile, model: string) {
   const knownModels = provider.models.filter((item) => item.enabled).map((item) => item.model);
   if (provider.allowCustomModel || knownModels.length === 0) {
@@ -313,31 +413,43 @@ export class ProvidersService {
     const current = this.getProvider(providerId);
     const parsed = updateProviderInputSchema.parse(input);
     const defaultModel = parsed.defaultModel ?? current.defaultModel;
+    const endpointChanged =
+      (parsed.baseUrl !== undefined && parsed.baseUrl !== current.baseUrl) ||
+      (parsed.healthcheckPath !== undefined && parsed.healthcheckPath !== current.healthcheckPath);
     const next = providerProfileSchema.parse({
       ...current,
       ...parsed,
       models: parsed.models ? normalizeProviderModels(parsed.models, defaultModel) : current.models,
       defaultModel,
+      lastHealthcheck: endpointChanged ? null : current.lastHealthcheck,
       updatedAt: nowIso(),
     });
 
     return await providersRepository.saveProvider(next);
   }
 
-  async checkProviderHealth(actor: ProviderActor, providerId: string): Promise<ProviderHealthcheckResult> {
+  async checkProviderHealth(
+    actor: ProviderActor,
+    providerId: string,
+    options: { apiKey?: string | null } = {}
+  ): Promise<ProviderHealthcheckResult> {
     assertPlatformProviderManager(actor);
     const provider = this.getProvider(providerId);
     const checkedAt = nowIso();
     const healthcheckUrl = buildProviderHealthcheckUrl(provider);
     const startedAt = Date.now();
+    const headers: Record<string, string> = {
+      accept: "application/json",
+      "user-agent": "lingban-provider-healthcheck/1.0",
+    };
+    if (options.apiKey) headers.authorization = `Bearer ${options.apiKey}`;
 
     try {
       const response = await fetch(healthcheckUrl, {
         method: "GET",
+        redirect: "manual",
         signal: AbortSignal.timeout(5_000),
-        headers: {
-          accept: "application/json",
-        },
+        headers,
       });
 
       const responseTimeMs = Date.now() - startedAt;
@@ -395,6 +507,238 @@ export class ProvidersService {
         baseUrl: savedProvider.baseUrl,
         healthcheck,
       });
+    }
+  }
+
+  async fetchProviderModelsFromConfiguration(
+    actor: ProviderActor,
+    input: {
+      baseUrl: string;
+      healthcheckPath?: string | null;
+      apiKey?: string | null;
+    }
+  ) {
+    assertPlatformProviderManager(actor);
+    const modelListUrl = buildProviderApiUrl(input.baseUrl, input.healthcheckPath?.trim() || "/models");
+    const headers: Record<string, string> = {
+      accept: "application/json",
+      "user-agent": "lingban-provider-model-fetch/1.0",
+    };
+    if (input.apiKey) headers.authorization = `Bearer ${input.apiKey}`;
+    let response: Response;
+    try {
+      response = await fetch(modelListUrl, {
+        method: "GET",
+        redirect: "manual",
+        headers,
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch (error) {
+      throw new AppError(
+        502,
+        "PROVIDER_MODEL_FETCH_UNAVAILABLE",
+        `Provider model endpoint is unavailable: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+    if (!response.ok) {
+      const responseText = await readResponseText(response, 64_000).catch(() => "");
+      throw new AppError(
+        502,
+        "PROVIDER_MODEL_FETCH_FAILED",
+        parseProviderErrorMessage(responseText, response.status),
+        { httpStatus: response.status, modelListUrl }
+      );
+    }
+    const contentLength = Number(response.headers.get("content-length") ?? 0);
+    if (Number.isFinite(contentLength) && contentLength > 5_000_000) {
+      throw new AppError(502, "PROVIDER_MODEL_SYNC_RESPONSE_TOO_LARGE", "Provider model response exceeds 5 MB");
+    }
+    let payload: unknown;
+    try {
+      payload = JSON.parse(await readResponseText(response, 5_000_000));
+    } catch {
+      throw new AppError(502, "PROVIDER_MODEL_FETCH_INVALID_RESPONSE", "Provider model endpoint did not return valid JSON");
+    }
+    const discoveredIds = extractProviderModelIds(payload);
+    if (discoveredIds.length === 0) {
+      throw new AppError(502, "PROVIDER_MODEL_FETCH_EMPTY", "Provider model endpoint returned no model identifiers");
+    }
+    return {
+      modelListUrl,
+      fetchedModelIds: discoveredIds,
+      fetchedAt: nowIso(),
+    };
+  }
+
+  async fetchProviderModels(
+    actor: ProviderActor,
+    providerId: string,
+    options: { apiKey?: string | null } = {}
+  ) {
+    const provider = this.getProvider(providerId);
+    const result = await this.fetchProviderModelsFromConfiguration(actor, {
+      baseUrl: provider.baseUrl,
+      healthcheckPath: provider.healthcheckPath,
+      apiKey: options.apiKey,
+    });
+    return {
+      providerId,
+      ...result,
+      ...providerModelDiff(provider, result.fetchedModelIds),
+    };
+  }
+
+  async applyProviderModels(
+    actor: ProviderActor,
+    providerId: string,
+    input: { modelIds: string[]; defaultModel: string }
+  ) {
+    assertPlatformProviderManager(actor);
+    const provider = this.getProvider(providerId);
+    const modelIds = [...new Set(input.modelIds.map((model) => model.trim()).filter(Boolean))].slice(0, 500);
+    if (modelIds.length === 0) {
+      throw new AppError(400, "PROVIDER_MODELS_REQUIRED", "Select at least one model");
+    }
+    if (!modelIds.includes(input.defaultModel)) {
+      throw new AppError(400, "PROVIDER_DEFAULT_MODEL_REQUIRED", "The default model must be selected");
+    }
+
+    const previousById = new Map(provider.models.map((item) => [item.model, item]));
+    const models = normalizeProviderModels(
+      modelIds.map((model) => previousById.get(model) ?? {
+        model,
+        label: null,
+        enabled: true,
+        isDefault: model === input.defaultModel,
+        capabilities: provider.capabilities,
+      }),
+      input.defaultModel
+    );
+    return await providersRepository.saveProvider(providerProfileSchema.parse({
+      ...provider,
+      defaultModel: input.defaultModel,
+      models,
+      updatedAt: nowIso(),
+    }));
+  }
+
+  async testProvider(
+    actor: ProviderActor,
+    providerId: string,
+    input: {
+      model?: string;
+      endpointType?: ProviderTestEndpoint;
+      stream?: boolean;
+      apiKey?: string | null;
+    } = {}
+  ) {
+    assertPlatformProviderManager(actor);
+    const provider = this.getProvider(providerId);
+    const model = input.model?.trim() || resolveProviderDefaultModel(provider);
+    ensureModelAllowed(provider, model);
+    const requestedEndpointType = input.endpointType ?? "auto";
+    const endpointType = resolveProviderTestEndpoint(model, requestedEndpointType);
+    const testUrl = buildProviderApiUrl(
+      provider.baseUrl,
+      endpointType === "openai-response" ? "/responses" : "/chat/completions"
+    );
+    const checkedAt = nowIso();
+    const startedAt = Date.now();
+    const headers: Record<string, string> = {
+      accept: input.stream ? "text/event-stream, application/json" : "application/json",
+      "content-type": "application/json",
+      "user-agent": "lingban-provider-test/1.0",
+    };
+    if (input.apiKey) headers.authorization = `Bearer ${input.apiKey}`;
+    const body = endpointType === "openai-response"
+      ? {
+          model,
+          input: "Reply with OK.",
+          max_output_tokens: 16,
+          stream: Boolean(input.stream),
+        }
+      : {
+          model,
+          messages: [{ role: "user", content: "Reply with OK." }],
+          max_tokens: 8,
+          stream: Boolean(input.stream),
+        };
+
+    try {
+      const response = await fetch(testUrl, {
+        method: "POST",
+        redirect: "manual",
+        signal: AbortSignal.timeout(30_000),
+        headers,
+        body: JSON.stringify(body),
+      });
+      const responseTimeMs = Date.now() - startedAt;
+      const responseText = await readResponseText(response, 1_000_000).catch((error) =>
+        error instanceof Error ? error.message : "Unable to read Provider response"
+      );
+      const status = response.ok
+        ? "healthy"
+        : response.status === 401 || response.status === 403
+          ? "auth_required"
+          : "degraded";
+      const errorMessage = response.ok ? null : parseProviderErrorMessage(responseText, response.status);
+      const healthcheck = providerHealthSummarySchema.parse({
+        checkedAt,
+        healthcheckUrl: testUrl,
+        status,
+        reachable: true,
+        httpStatus: response.status,
+        responseTimeMs,
+        errorMessage,
+      });
+      await providersRepository.saveProvider(providerProfileSchema.parse({
+        ...provider,
+        lastHealthcheck: healthcheck,
+        updatedAt: nowIso(),
+      }));
+      return {
+        success: response.ok,
+        providerId,
+        model,
+        requestedEndpointType,
+        endpointType,
+        stream: Boolean(input.stream),
+        responseTimeMs,
+        httpStatus: response.status,
+        message: errorMessage ?? "",
+        testedAt: checkedAt,
+        healthcheck,
+      };
+    } catch (error) {
+      const responseTimeMs = Date.now() - startedAt;
+      const message = error instanceof Error ? error.message : "Provider test failed";
+      const healthcheck = providerHealthSummarySchema.parse({
+        checkedAt,
+        healthcheckUrl: testUrl,
+        status: "unreachable",
+        reachable: false,
+        httpStatus: null,
+        responseTimeMs,
+        errorMessage: message,
+      });
+      await providersRepository.saveProvider(providerProfileSchema.parse({
+        ...provider,
+        lastHealthcheck: healthcheck,
+        updatedAt: nowIso(),
+      }));
+      return {
+        success: false,
+        providerId,
+        model,
+        requestedEndpointType,
+        endpointType,
+        stream: Boolean(input.stream),
+        responseTimeMs,
+        httpStatus: null,
+        message,
+        testedAt: checkedAt,
+        healthcheck,
+      };
     }
   }
 

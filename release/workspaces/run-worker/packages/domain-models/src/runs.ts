@@ -470,6 +470,13 @@ export function applyBridgeEventToRunSnapshot(snapshot: RunSnapshot, event: Brid
       });
     case "heartbeat":
       return current;
+    case "agent.runtime.event":
+      return current;
+    case "agent.thread.state":
+      return runSnapshotSchema.parse({
+        ...current,
+        agentThread: parsed.thread,
+      });
   }
 }
 

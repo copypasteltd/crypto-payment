@@ -14,6 +14,8 @@ type WorkerOpsHttpServerOptions = {
   getReadiness: () => WorkerReadinessReport | Promise<WorkerReadinessReport>;
   getDiagnostics: () => WorkerDaemonDiagnostics | Promise<WorkerDaemonDiagnostics>;
   getMetricsText: () => string | Promise<string>;
+  processCapture?: (runId: string, captureId: string) => unknown | Promise<unknown>;
+  stopRun?: (runId: string) => unknown | Promise<unknown>;
 };
 
 function sendJson(response: http.ServerResponse, statusCode: number, payload: unknown) {
@@ -44,6 +46,8 @@ export class WorkerOpsHttpServer {
   #getReadiness: () => WorkerReadinessReport | Promise<WorkerReadinessReport>;
   #getDiagnostics: () => WorkerDaemonDiagnostics | Promise<WorkerDaemonDiagnostics>;
   #getMetricsText: () => string | Promise<string>;
+  #processCapture?: (runId: string, captureId: string) => unknown | Promise<unknown>;
+  #stopRun?: (runId: string) => unknown | Promise<unknown>;
   #startedAt: string | null = null;
   #inFlightRequests = 0;
   #requestsTotal = 0;
@@ -63,6 +67,8 @@ export class WorkerOpsHttpServer {
     this.#getReadiness = options.getReadiness;
     this.#getDiagnostics = options.getDiagnostics;
     this.#getMetricsText = options.getMetricsText;
+    this.#processCapture = options.processCapture;
+    this.#stopRun = options.stopRun;
     this.#server = http.createServer(async (request, response) => {
       const route = this.#resolveRoute(request);
       const respondJson = (statusCode: number, payload: unknown) => {
@@ -122,6 +128,47 @@ export class WorkerOpsHttpServer {
 
           const metrics = await this.#getMetricsText();
           respondText(200, metrics, "text/plain; version=0.0.4; charset=utf-8");
+          return;
+        }
+
+        if (request.method === "POST" && request.url === "/captures/process") {
+          if (!this.#isAuthorized(request)) {
+            respondJson(401, { error: "invalid ops token" });
+            return;
+          }
+          if (!this.#processCapture) {
+            respondJson(503, { error: "capture processor unavailable" });
+            return;
+          }
+          const body = await this.#readJsonBody(request);
+          const runId = typeof body.runId === "string" ? body.runId.trim() : "";
+          const captureId = typeof body.captureId === "string" ? body.captureId.trim() : "";
+          if (!runId || !captureId) {
+            respondJson(400, { error: "runId and captureId are required" });
+            return;
+          }
+          const result = await this.#processCapture(runId, captureId);
+          respondJson(202, { accepted: true, result });
+          return;
+        }
+
+        if (request.method === "POST" && request.url === "/runs/stop") {
+          if (!this.#isAuthorized(request)) {
+            respondJson(401, { error: "invalid ops token" });
+            return;
+          }
+          if (!this.#stopRun) {
+            respondJson(503, { error: "run stop controller unavailable" });
+            return;
+          }
+          const body = await this.#readJsonBody(request);
+          const runId = typeof body.runId === "string" ? body.runId.trim() : "";
+          if (!runId) {
+            respondJson(400, { error: "runId is required" });
+            return;
+          }
+          const result = await this.#stopRun(runId);
+          respondJson(202, { accepted: true, result });
           return;
         }
 
@@ -218,6 +265,12 @@ export class WorkerOpsHttpServer {
     if (request.method === "GET" && pathname === "/metrics") {
       return "metrics";
     }
+    if (request.method === "POST" && pathname === "/captures/process") {
+      return "captures.process";
+    }
+    if (request.method === "POST" && pathname === "/runs/stop") {
+      return "runs.stop";
+    }
     return "unknown";
   }
 
@@ -225,6 +278,23 @@ export class WorkerOpsHttpServer {
     const headerValue = request.headers["x-lingban-worker-ops-token"];
     const providedToken = Array.isArray(headerValue) ? headerValue[0] : headerValue;
     return !this.#authToken || providedToken === this.#authToken;
+  }
+
+  async #readJsonBody(request: http.IncomingMessage) {
+    const chunks: Buffer[] = [];
+    let size = 0;
+    for await (const chunk of request) {
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      size += buffer.byteLength;
+      if (size > 64 * 1024) throw new Error("request body exceeds 64 KiB");
+      chunks.push(buffer);
+    }
+    const raw = Buffer.concat(chunks).toString("utf8");
+    const parsed = raw ? JSON.parse(raw) as unknown : {};
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+      throw new Error("request body must be a JSON object");
+    }
+    return parsed as Record<string, unknown>;
   }
 
   #recordResponse(route: string, statusCode: number) {

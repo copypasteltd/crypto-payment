@@ -18,6 +18,7 @@ import {
   startRunJobPayloadSchema,
 } from "./runs.js";
 import { mcpCallRecordSchema } from "./mcp.js";
+import { agentRuntimeEventBridgeSchema, agentThreadStateBridgeSchema } from "./agent-runtime.js";
 
 export const bridgeCommandTypeSchema = z.enum([
   "sendMessage",
@@ -26,6 +27,7 @@ export const bridgeCommandTypeSchema = z.enum([
   "ping",
   "syncFiles",
   "flushArtifacts",
+  "captureBarrier",
 ]);
 
 export const bridgeRegistrationSchema = z.object({
@@ -46,6 +48,7 @@ export const bridgeRegistrationSchema = z.object({
     "ping",
     "syncFiles",
     "flushArtifacts",
+    "captureBarrier",
   ]),
   connectedAt: isoDatetimeSchema,
   lastSeenAt: isoDatetimeSchema.optional(),
@@ -73,9 +76,14 @@ export const runControlCommandSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("flushArtifacts"),
   }),
+  z.object({
+    type: z.literal("captureBarrier"),
+  }),
 ]);
 
 export const bridgeEventSchema = z.discriminatedUnion("type", [
+  agentRuntimeEventBridgeSchema,
+  agentThreadStateBridgeSchema,
   z.object({
     type: z.literal("run.status.changed"),
     runId: runIdSchema,

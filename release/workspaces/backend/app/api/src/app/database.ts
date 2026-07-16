@@ -89,6 +89,10 @@ export function resetApiDatabaseForTests() {
   return apiDatabaseManager.resetForTests();
 }
 
+export function closeApiDatabaseConnection() {
+  return apiDatabaseManager.resetConnectionState();
+}
+
 export function setApiDatabasePoolFactoryForTests(factory: (() => Pool) | null) {
   apiDatabaseManager.setPoolFactoryForTests(factory);
 }

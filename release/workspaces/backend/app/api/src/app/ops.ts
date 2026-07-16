@@ -5,7 +5,9 @@ import { runsService } from "../modules/runs/service.js";
 import { runFileSecurityService } from "../modules/uploads/file-security.js";
 import { objectStore } from "../modules/uploads/object-store.js";
 import { uploadRetentionManager } from "../modules/uploads/retention.js";
+import { sessionControlMetrics } from "../modules/session-control/metrics.js";
 import { probeApiDatabaseReadiness } from "./database.js";
+import { getApiRuntimeConfig } from "./runtime.js";
 import { buildInternalRuntimeDiagnosticsReport, probeWorkerOpsRuntime } from "./runtime-diagnostics.js";
 
 type ReadinessDependencyStatus = "ready" | "not_ready" | "disabled";
@@ -42,9 +44,25 @@ function escapeMetricLabel(value: string) {
   return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n");
 }
 
-function pushMetricHeader(lines: string[], name: string, type: "gauge" | "counter", help: string) {
+function pushMetricHeader(lines: string[], name: string, type: "gauge" | "counter" | "histogram", help: string) {
   lines.push(`# HELP ${name} ${help}`);
   lines.push(`# TYPE ${name} ${type}`);
+}
+
+function pushHistogram(
+  lines: string[],
+  name: string,
+  help: string,
+  histogram: { count: number; sum: number; buckets: Array<{ le: number; count: number }> },
+  labels: Record<string, string> = {}
+) {
+  pushMetricHeader(lines, name, "histogram", help);
+  for (const bucket of histogram.buckets) {
+    pushMetricSample(lines, `${name}_bucket`, bucket.count, { ...labels, le: bucket.le });
+  }
+  pushMetricSample(lines, `${name}_bucket`, histogram.count, { ...labels, le: "+Inf" });
+  pushMetricSample(lines, `${name}_sum`, histogram.sum, labels);
+  pushMetricSample(lines, `${name}_count`, histogram.count, labels);
 }
 
 function pushMetricSample(
@@ -191,7 +209,51 @@ export async function buildApiMetricsText() {
   const retention = uploadRetentionManager.getDiagnostics();
   const fileLifecycle = runFileLifecycleManager.getDiagnostics();
   const fileSecurity = await runFileSecurityService.getDiagnostics();
+  const sessionMetrics = sessionControlMetrics.snapshot();
+  const apiConfig = getApiRuntimeConfig();
   const lines: string[] = [];
+
+  pushMetricHeader(lines, "session_control_feature_enabled", "gauge", "Whether each Session Control rollout gate is enabled.");
+  pushMetricSample(lines, "session_control_feature_enabled", apiConfig.sessionCaptureV2Enabled ? 1 : 0, { feature: "capture_v2" });
+  pushMetricSample(lines, "session_control_feature_enabled", apiConfig.sessionPackV2WriteEnabled ? 1 : 0, { feature: "pack_v2_write" });
+  pushMetricSample(lines, "session_control_feature_enabled", apiConfig.sessionVersionImmutabilityEnforced ? 1 : 0, { feature: "version_immutability" });
+  pushMetricSample(lines, "session_control_feature_enabled", apiConfig.creatorExplicitSessionBindingEnabled ? 1 : 0, { feature: "explicit_binding" });
+
+  pushMetricHeader(lines, "session_capture_requested_total", "counter", "Session Capture requests accepted by this API process.");
+  pushMetricSample(lines, "session_capture_requested_total", sessionMetrics.captureRequestedTotal);
+  pushMetricHeader(lines, "session_capture_completed_total", "counter", "Session Captures completed and verified by this API process.");
+  pushMetricSample(lines, "session_capture_completed_total", sessionMetrics.captureCompletedTotal);
+  pushMetricHeader(lines, "session_capture_retry_total", "counter", "Session Capture retries accepted by this API process.");
+  pushMetricSample(lines, "session_capture_retry_total", sessionMetrics.captureRetryTotal);
+  pushMetricHeader(lines, "session_capture_failed_total", "counter", "Session Capture failures grouped by stable error code.");
+  for (const [code, value] of Object.entries(sessionMetrics.captureFailedByCode)) {
+    pushMetricSample(lines, "session_capture_failed_total", value, { code });
+  }
+  pushMetricHeader(lines, "session_capture_bytes_total", "counter", "Session Capture object bytes uploaded by object type.");
+  for (const [objectType, value] of Object.entries(sessionMetrics.captureBytesByObjectType)) {
+    pushMetricSample(lines, "session_capture_bytes_total", value, { object_type: objectType });
+  }
+  pushHistogram(lines, "session_capture_duration_seconds", "End-to-end Session Capture duration.", sessionMetrics.captureDuration, { stage: "total" });
+  pushHistogram(lines, "session_capture_workspace_files", "Files included in completed Session Captures.", sessionMetrics.workspaceFiles);
+  pushHistogram(lines, "session_draft_revision_build_seconds", "Session Draft Revision build duration.", sessionMetrics.draftBuildDuration);
+  pushMetricHeader(lines, "session_redaction_uncovered_total", "gauge", "Uncovered sensitive-content findings in the latest built Draft Revision.");
+  pushMetricSample(lines, "session_redaction_uncovered_total", sessionMetrics.redactionUncovered);
+  pushMetricHeader(lines, "session_replay_completed_total", "counter", "Session Draft restore replays grouped by result.");
+  for (const [status, value] of Object.entries(sessionMetrics.replayByStatus)) {
+    pushMetricSample(lines, "session_replay_completed_total", value, { status });
+  }
+  pushHistogram(lines, "session_pack_restore_seconds", "Session Draft replay restore duration.", sessionMetrics.replayDuration);
+  pushMetricHeader(lines, "session_version_sealed_total", "counter", "Session Versions sealed by this API process.");
+  pushMetricSample(lines, "session_version_sealed_total", sessionMetrics.versionSealedTotal);
+  pushMetricHeader(lines, "session_capture_raw_access_total", "counter", "Audited Raw Capture object access grants grouped by object type and access mode.");
+  for (const [key, value] of Object.entries(sessionMetrics.rawCaptureAccessByMode)) {
+    const [objectType, mode] = key.split(":");
+    pushMetricSample(lines, "session_capture_raw_access_total", value, { object_type: objectType ?? "unknown", mode: mode ?? "unknown" });
+  }
+  pushMetricHeader(lines, "session_legacy_migration_total", "counter", "Legacy Session Archive migration outcomes grouped by status.");
+  for (const [status, value] of Object.entries(sessionMetrics.legacyMigrationByStatus)) {
+    pushMetricSample(lines, "session_legacy_migration_total", value, { status });
+  }
 
   pushMetricHeader(lines, "lingban_api_ready", "gauge", "Whether the API instance is ready to receive traffic.");
   pushMetricSample(lines, "lingban_api_ready", readiness.status === "ready" ? 1 : 0);

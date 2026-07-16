@@ -1,12 +1,14 @@
 {
-  "generatedAt": "2026-07-14T15:44:17.659Z",
+  "generatedAt": "2026-07-16T21:56:03.825Z",
   "workspaceRoot": "C:\\dev\\copypaste\\agent-workshop",
   "artifacts": {
     "static": {
+      "admin": "static/admin",
       "dashboard": "static/dashboard",
       "mobileH5": "static/mobile-h5"
     },
     "workspaces": {
+      "admin": "workspaces/admin",
       "backend": "workspaces/backend",
       "runWorker": "workspaces/run-worker",
       "dashboard": "workspaces/dashboard",
@@ -19,6 +21,7 @@
     "Build backend and run-worker standalone workspaces on the target Linux host.",
     "Run backend database migrations before restarting services.",
     "Serve release/static/dashboard and release/static/mobile-h5 through Nginx or another static host.",
+    "Serve release/static/admin from an isolated Admin virtual host and proxy /admin/v1 to the API.",
     "Restart lingban-api and lingban-run-worker systemd services after updating the current symlink."
   ]
 }

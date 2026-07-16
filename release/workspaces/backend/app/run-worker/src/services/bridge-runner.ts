@@ -473,6 +473,9 @@ function buildDockerRuntimeEnv(input: {
       : {}),
     ...firewallEnv,
     ...(input.authToken ? { LINGBAN_INTERNAL_AUTH_TOKEN: input.authToken } : {}),
+    CODEX_RUNTIME_PROTOCOL: process.env.CODEX_RUNTIME_PROTOCOL ?? "app-server",
+    CODEX_APP_SERVER_REQUEST_TIMEOUT_MS:
+      process.env.CODEX_APP_SERVER_REQUEST_TIMEOUT_MS ?? "30000",
     ...(input.codex?.command ? { CODEX_BIN: input.codex.command } : {}),
     ...(input.codex?.args ? { CODEX_ARGS_JSON: JSON.stringify(input.codex.args) } : {}),
   };
@@ -769,6 +772,9 @@ export async function startLocalBridgeProcess(
           ? { LINGBAN_INTERNAL_AUTH_TOKEN: options.authToken ?? workerConfig.internalAuthToken }
           : {}),
         ...(options.codex?.command ? { CODEX_BIN: options.codex.command } : {}),
+        CODEX_RUNTIME_PROTOCOL: process.env.CODEX_RUNTIME_PROTOCOL ?? "app-server",
+        CODEX_APP_SERVER_REQUEST_TIMEOUT_MS:
+          process.env.CODEX_APP_SERVER_REQUEST_TIMEOUT_MS ?? "30000",
         ...(options.codex?.args ? { CODEX_ARGS_JSON: JSON.stringify(options.codex.args) } : {}),
       },
       stdio: "pipe",

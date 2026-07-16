@@ -32,6 +32,11 @@ import { runsService } from "../runs/service.js";
 import { sessionCatalogService, signSessionPackBundleForApiRuntime } from "../sessions/service.js";
 import { bridgeRegistry } from "./registry.js";
 import { withInternalIdempotency } from "./request-guard.js";
+import {
+  ensureSealedSessionVersionVerified,
+  getSealedSessionVersion,
+} from "../session-drafts/version-registry.js";
+import { objectStore } from "../uploads/object-store.js";
 
 const storageRetentionSweepBodySchema = z
   .object({
@@ -357,6 +362,21 @@ export async function registerBridgeInternalRoutes(server: FastifyInstance) {
   server.get("/runs/:runId/session-pack/archive", async (request, reply) => {
     const params = runIdParamsSchema.parse(request.params);
     const snapshot = runsService.getRun(params.runId);
+    const sealedVersion = getSealedSessionVersion(snapshot.run.sessionVersionId);
+    if (sealedVersion) {
+      await ensureSealedSessionVersionVerified(sealedVersion.sessionVersionId);
+      reply.header("content-type", "application/zstd");
+      reply.header(
+        "content-disposition",
+        buildContentDisposition(`${sealedVersion.sessionVersionId}.session-pack.tar.zst`)
+      );
+      reply.header("x-lingban-session-pack-source", "sealed-v2");
+      reply.header(
+        "x-lingban-session-pack-file-name",
+        `${sealedVersion.sessionVersionId}.session-pack.tar.zst`
+      );
+      return reply.send(await objectStore.createReadStream(sealedVersion.packObjectKey));
+    }
     let exported;
     try {
       exported = await sessionCatalogService.exportSessionPackArchiveForRun(params.runId);

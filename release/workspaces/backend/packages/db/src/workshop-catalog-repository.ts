@@ -62,8 +62,10 @@ export interface WorkshopCatalogRepository {
   getContextByRuntimeWorkspaceId(workspaceId: string): WorkspaceContextSummary | null;
   listWorkshops(): WorkshopCatalogRecord[];
   getWorkshopById(workshopId: string): WorkshopCatalogRecord | null;
+  saveWorkshop(workshop: WorkshopCatalogRecord): Promise<WorkshopCatalogRecord>;
   listServices(): ServiceCatalogRecord[];
   getServiceById(serviceId: string): ServiceCatalogRecord | null;
+  saveService(service: ServiceCatalogRecord): Promise<ServiceCatalogRecord>;
   listLaunchTemplates(): LaunchTemplateRecord[];
   findLaunchTemplate(
     serviceId: string,
@@ -126,12 +128,32 @@ export abstract class CachedWorkshopCatalogRepository implements WorkshopCatalog
     return this.#state.workshops.find((item) => item.workshopId === workshopId) ?? null;
   }
 
+  async saveWorkshop(workshop: WorkshopCatalogRecord) {
+    await this.init();
+    const parsed = workshopCatalogRecordSchema.parse(workshop);
+    await this.updateState((state) => ({
+      ...state,
+      workshops: replaceByKey(state.workshops, parsed, (item) => item.workshopId),
+    }));
+    return parsed;
+  }
+
   listServices() {
     return [...this.#state.services].sort((left, right) => left.serviceId.localeCompare(right.serviceId));
   }
 
   getServiceById(serviceId: string) {
     return this.#state.services.find((item) => item.serviceId === serviceId) ?? null;
+  }
+
+  async saveService(service: ServiceCatalogRecord) {
+    await this.init();
+    const parsed = serviceCatalogRecordSchema.parse(service);
+    await this.updateState((state) => ({
+      ...state,
+      services: replaceByKey(state.services, parsed, (item) => item.serviceId),
+    }));
+    return parsed;
   }
 
   listLaunchTemplates() {

@@ -112,6 +112,7 @@ import { AppError } from "../../app/errors.js";
 import { getApiRuntimeConfig } from "../../app/runtime.js";
 import { creatorRepository } from "../creator/repository.js";
 import { runsRepository, type RunAggregate } from "../runs/repository.js";
+import { adminRepository } from "../admin/repository.js";
 import { workshopCatalogRepository } from "../workshops/repository.js";
 import {
   launchTemplateRecordSchema,
@@ -3818,6 +3819,15 @@ class SessionCatalogService {
   }
 
   requireSessionPack(sessionVersionId: string, constraint: SessionPackConstraint = {}) {
+    const governanceState = adminRepository.getResourceState("session", sessionVersionId);
+    if (governanceState?.status === "quarantined" || governanceState?.status === "disabled") {
+      throw new AppError(
+        409,
+        "SESSION_PACK_QUARANTINED",
+        `Session pack is unavailable by platform governance: ${sessionVersionId}`
+      );
+    }
+
     if (!sessionInfrastructureReady) {
       throw new Error("Session infrastructure is not initialized.");
     }

@@ -118,6 +118,7 @@ test("runtime system smoke: local-process API->worker->bridge chain supports run
     "LINGBAN_INTERNAL_AUTH_TOKEN",
     "LINGBAN_AUTH_MODE",
     "CODEX_BIN",
+    "CODEX_RUNTIME_PROTOCOL",
     "LINGBAN_BRIDGE_ARGS",
   ];
 
@@ -157,6 +158,7 @@ test("runtime system smoke: local-process API->worker->bridge chain supports run
     process.env.LINGBAN_INTERNAL_AUTH_TOKEN = "runtime-system-internal-token";
     process.env.LINGBAN_AUTH_MODE = "disabled";
     process.env.CODEX_BIN = process.platform === "win32" ? "powershell.exe" : process.execPath;
+    process.env.CODEX_RUNTIME_PROTOCOL = "legacy-pty";
     process.env.LINGBAN_BRIDGE_ARGS =
       process.platform === "win32"
         ? JSON.stringify(["-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", fakeCodexScriptPath])

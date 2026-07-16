@@ -1002,6 +1002,80 @@ export class CredentialsService {
     return toPublicCredential(next);
   }
 
+  async openCredentialForAdminProbe(params: {
+    credentialId: string;
+    actorUserId: string;
+    isPlatformAdmin: boolean;
+    reason: string;
+    traceId?: string | null;
+  }) {
+    if (!params.isPlatformAdmin) {
+      throw new AppError(403, "PLATFORM_ADMIN_REQUIRED", "Platform administrator access is required");
+    }
+    const current = credentialsRepository.getById(params.credentialId);
+    if (!current) {
+      throw new AppError(404, "CREDENTIAL_NOT_FOUND", `Credential not found: ${params.credentialId}`);
+    }
+    if (!current.workspaceId) {
+      throw new AppError(
+        409,
+        "ADMIN_PROBE_CREDENTIAL_SCOPE_INVALID",
+        `Credential ${params.credentialId} must belong to a workspace`
+      );
+    }
+    await this.reconcileDerivedStatuses({
+      workspaceId: current.workspaceId,
+      credentialId: current.credentialId,
+    });
+    const record = credentialsRepository.getById(current.credentialId) ?? current;
+    ensureCredentialActiveForRun(record, record.ownerUserId);
+    if (!record.secretEnvelope) {
+      throw new AppError(
+        409,
+        "CREDENTIAL_SECRET_UNAVAILABLE",
+        `Credential ${record.credentialId} does not have a materializable secret payload`
+      );
+    }
+    let secretValue: string;
+    try {
+      const broker = getCredentialBrokerForKind(record.secretEnvelope.brokerKind);
+      secretValue = await broker.openSecret({
+        envelope: record.secretEnvelope,
+        aad: buildCredentialAad(record),
+      });
+    } catch (error) {
+      throw new AppError(
+        502,
+        "CREDENTIAL_BROKER_OPEN_FAILED",
+        `Credential broker failed to open ${record.credentialId}: ${error instanceof Error ? error.message : String(error)}`
+      );
+    }
+    const occurredAt = nowIso();
+    await credentialsRepository.save({
+      ...record,
+      lastMaterializedAt: occurredAt,
+      updatedAt: occurredAt,
+    });
+    await this.#recordAuditEvent({
+      credentialId: record.credentialId,
+      workspaceId: record.workspaceId,
+      actorUserId: params.actorUserId,
+      runId: null,
+      leaseId: null,
+      action: "materialized",
+      outcome: "success",
+      statusBefore: record.status,
+      statusAfter: record.status,
+      secretVersion: record.secretVersion,
+      mountMode: record.mountMode,
+      reasonCode: "ADMIN_CONTROL_PLANE_PROBE",
+      reasonDetail: params.reason,
+      traceId: params.traceId ?? null,
+      occurredAt,
+    });
+    return secretValue;
+  }
+
   async resolveRunCredentials(params: {
     workspaceId: string;
     requestedByUserId: string | null | undefined;

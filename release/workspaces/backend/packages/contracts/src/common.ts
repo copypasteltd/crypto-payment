@@ -34,6 +34,15 @@ export const mcpHealthSnapshotIdSchema = prefixedId("chs_");
 export const bridgeIdSchema = prefixedId("brg_");
 export const providerIdSchema = prefixedId("prv_");
 export const workspaceProviderBindingIdSchema = prefixedId("wpb_");
+export const sessionCaptureIdSchema = prefixedId("cap_");
+export const sessionCaptureAccessAuditIdSchema = prefixedId("scaa_");
+export const sessionDraftIdSchema = prefixedId("sdf_");
+export const sessionDraftRevisionIdSchema = prefixedId("sdr_");
+export const sessionReviewIdSchema = prefixedId("srw_");
+export const sessionReplayIdSchema = prefixedId("replay_");
+export const creatorPackageSessionBindingIdSchema = prefixedId("cpsb_");
+export const serviceSessionBindingIdSchema = prefixedId("ssb_");
+export const agentEventIdSchema = prefixedId("aev_");
 
 export const entrySurfaceSchema = z.enum(["dashboard", "h5", "mini-program"]);
 export const messageRoleSchema = z.enum(["system", "user", "agent"]);

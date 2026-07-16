@@ -247,6 +247,7 @@ export const mcpHealthSnapshotSchema = z.object({
   httpStatus: z.number().int().min(100).max(599).nullable().default(null),
   latencyMs: z.number().int().nonnegative().nullable().default(null),
   toolCount: z.number().int().nonnegative().nullable().default(null),
+  toolNames: z.array(z.string().trim().min(1).max(240)).max(500).default([]),
   policyEnforced: z.boolean().default(false),
   probedAt: isoDatetimeSchema,
   recordedAt: isoDatetimeSchema,
