@@ -67,10 +67,10 @@ fi
 
 ln -sfn "${RELEASE_TARGET}" "${CURRENT_LINK}"
 systemctl daemon-reload
-if systemctl list-unit-files | grep -q '^lingban-api.service'; then
+if systemctl cat lingban-api.service >/dev/null 2>&1; then
   systemctl restart lingban-api
 fi
-if systemctl list-unit-files | grep -q '^lingban-run-worker.service'; then
+if systemctl cat lingban-run-worker.service >/dev/null 2>&1; then
   systemctl restart lingban-run-worker
 fi
 
