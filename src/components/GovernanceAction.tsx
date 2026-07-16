@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Check, LoaderCircle, ShieldAlert, X } from "lucide-react";
 import { adminRequest } from "../lib/api";
 import type { JsonObject } from "../lib/types";
+import { toast } from "../lib/toast";
 import { ErrorState, IconButton, RecordView } from "./ui";
 
 type Impact = {
@@ -61,7 +62,10 @@ export function GovernanceActionDialog({
               : null,
         }),
       }),
-    onSuccess: () => queryClient.invalidateQueries({ refetchType: "none" }),
+    onSuccess: () => {
+      toast.success(t("toast.operationSucceeded"), { description: displayLabel });
+      return queryClient.invalidateQueries({ refetchType: "none" });
+    },
   });
 
   useEffect(() => {
@@ -72,11 +76,29 @@ export function GovernanceActionDialog({
 
   const operation = impact.data;
   const displayLabel = spec.labelKey ? t(spec.labelKey) : spec.label;
-  const canExecute =
-    Boolean(operation) &&
-    reason.trim().length >= 8 &&
-    confirmation === operation?.confirmationPhrase &&
-    !execute.isPending;
+  const canExecute = Boolean(operation) && reason.trim().length >= 8 && confirmation === operation?.confirmationPhrase;
+
+  const requestExecute = () => {
+    if (!operation) {
+      toast.warning(t("toast.impactUnavailable"));
+      return;
+    }
+    if (Date.now() >= new Date(operation.expiresAt).getTime()) {
+      toast.warning(t("toast.operationExpired"));
+      setConfirmation("");
+      impact.mutate();
+      return;
+    }
+    if (reason.trim().length < 8) {
+      toast.warning(t("toast.reasonRequired"), { description: t("minimumLength", { count: 8 }) });
+      return;
+    }
+    if (confirmation !== operation.confirmationPhrase) {
+      toast.warning(t("toast.confirmationMismatch"));
+      return;
+    }
+    execute.mutate(operation);
+  };
 
   const closeDialog = () => {
     const shouldRefresh = execute.isSuccess;
@@ -117,13 +139,13 @@ export function GovernanceActionDialog({
               </div>
               <label className="field">
                 <span>{t("operationReason")}</span>
-                <textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={3} placeholder={t("operationReasonPlaceholder")} />
+                <textarea value={reason} aria-invalid={reason.length > 0 && reason.trim().length < 8} onChange={(event) => setReason(event.target.value)} rows={3} placeholder={t("operationReasonPlaceholder")} />
                 <small>{reason.trim().length}/8 · {t("minimumLength", { count: 8 })}</small>
               </label>
               <label className="field">
                 <span>{t("confirmationPhrase")}</span>
                 <code className="confirmation-phrase">{operation.confirmationPhrase}</code>
-                <input value={confirmation} onChange={(event) => setConfirmation(event.target.value)} autoComplete="off" spellCheck={false} />
+                <input value={confirmation} aria-invalid={confirmation.length > 0 && confirmation !== operation.confirmationPhrase} onChange={(event) => setConfirmation(event.target.value)} autoComplete="off" spellCheck={false} />
               </label>
               {execute.error ? <ErrorState error={execute.error} /> : null}
               {execute.isSuccess ? (
@@ -135,7 +157,7 @@ export function GovernanceActionDialog({
         <footer className="modal-footer">
           <button type="button" className="button secondary" onClick={closeDialog}>{execute.isSuccess ? t("close") : t("cancel")}</button>
           {!execute.isSuccess ? (
-            <button type="button" className={`button ${spec.tone === "danger" ? "danger" : "primary"}`} disabled={!canExecute} onClick={() => operation && execute.mutate(operation)}>
+            <button type="button" className={`button ${spec.tone === "danger" ? "danger" : "primary"}`} data-ready={canExecute} disabled={execute.isPending} onClick={requestExecute}>
               {execute.isPending ? <LoaderCircle className="spin" size={17} /> : <Check size={17} />}
               {t("confirmExecute")}
             </button>

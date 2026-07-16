@@ -2549,6 +2549,208 @@ textarea:focus {
   background: var(--admin-surface-raised);
 }
 
+.toast-viewport {
+  position: fixed;
+  top: 82px;
+  right: 20px;
+  z-index: 400;
+  display: grid;
+  width: min(430px, calc(100vw - 40px));
+  gap: 10px;
+  pointer-events: none;
+}
+
+.admin-toast {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  min-height: 76px;
+  padding: 13px 13px 15px;
+  overflow: hidden;
+  border: 1px solid var(--admin-line-strong);
+  border-left-width: 4px;
+  border-radius: 8px;
+  background: var(--admin-surface);
+  box-shadow: var(--admin-shadow);
+  pointer-events: auto;
+  animation: toast-enter 180ms ease-out both;
+}
+
+.admin-toast.toast-success { border-left-color: var(--admin-success); }
+.admin-toast.toast-error { border-left-color: var(--admin-danger); }
+.admin-toast.toast-warning { border-left-color: var(--admin-warning); }
+.admin-toast.toast-info { border-left-color: var(--admin-accent); }
+
+.toast-icon {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border-radius: 7px;
+  background: var(--admin-surface-deep);
+}
+
+.toast-success .toast-icon { background: var(--admin-success-soft); color: var(--admin-success); }
+.toast-error .toast-icon { background: var(--admin-danger-soft); color: var(--admin-danger); }
+.toast-warning .toast-icon { background: var(--admin-warning-soft); color: var(--admin-warning); }
+.toast-info .toast-icon { background: var(--admin-accent-soft); color: var(--admin-accent-strong); }
+
+.toast-content {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 5px;
+}
+
+.toast-content > strong {
+  padding-right: 4px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.toast-content > p {
+  margin: 0;
+  color: var(--admin-text-muted);
+  font-size: 11px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.toast-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 8px;
+  color: var(--admin-text-muted);
+  font-size: 9px;
+}
+
+.toast-meta code,
+.toast-meta span,
+.toast-meta button {
+  max-width: 100%;
+  padding: 2px 5px;
+  border: 1px solid var(--admin-line);
+  border-radius: 4px;
+  background: var(--admin-surface-deep);
+  color: inherit;
+  font: inherit;
+}
+
+.toast-meta .toast-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toast-meta button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.toast-close {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--admin-text-muted);
+  cursor: pointer;
+}
+
+.toast-close:hover {
+  background: var(--admin-surface-deep);
+  color: var(--admin-text);
+}
+
+.toast-life {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  background: currentColor;
+  opacity: 0.42;
+  transform-origin: left;
+  animation-name: toast-life;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
+.admin-toast:hover .toast-life,
+.admin-toast:focus-within .toast-life {
+  animation-play-state: paused;
+}
+
+.form-error-summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 9px;
+  padding: 10px 11px;
+  border: 1px solid rgba(255, 107, 107, 0.34);
+  border-radius: 7px;
+  background: var(--admin-danger-soft);
+  color: var(--admin-danger);
+}
+
+.form-error-summary strong {
+  font-size: 11px;
+}
+
+.form-error-summary ul {
+  display: grid;
+  gap: 3px;
+  margin: 4px 0 0;
+  padding-left: 18px;
+  font-size: 10px;
+}
+
+.field [aria-invalid="true"] {
+  border-color: var(--admin-danger);
+  outline: 2px solid var(--admin-danger-soft);
+}
+
+.field-error-text {
+  color: var(--admin-danger) !important;
+  font-weight: 650;
+}
+
+.admin-boundary-error {
+  color: var(--admin-text);
+}
+
+.admin-boundary-error > svg {
+  color: var(--admin-danger);
+}
+
+.admin-boundary-error h1,
+.admin-boundary-error p {
+  margin: 0;
+}
+
+.admin-boundary-error p {
+  max-width: 680px;
+  color: var(--admin-text-muted);
+  overflow-wrap: anywhere;
+}
+
+@keyframes toast-enter {
+  from { opacity: 0; transform: translateY(-8px) translateX(12px); }
+  to { opacity: 1; transform: translateY(0) translateX(0); }
+}
+
+@keyframes toast-life {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
 .app-loading,
 .fatal-error {
   display: grid;

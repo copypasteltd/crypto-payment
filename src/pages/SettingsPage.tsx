@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { NavLink } from "react-router-dom";
 import { Bell, Database, Flag, HeartPulse, LoaderCircle, Save, ShieldCheck } from "lucide-react";
 import { adminRequest } from "../lib/api";
+import { toast } from "../lib/toast";
 import type { JsonObject } from "../lib/types";
 import { ErrorState, LoadingState, PageHeader, Panel, RecordView, StatusBadge, formatDate } from "../components/ui";
 
@@ -19,7 +20,7 @@ function SettingEditor({ settingKey, title, description, icon, initial, system }
   const current = system.settings.find((item) => item.key === settingKey);
   const mutation = useMutation({
     mutationFn: () => adminRequest<JsonObject>(`/settings/${settingKey}`, { method: "PUT", body: JSON.stringify({ value: JSON.parse(value), expectedVersion: typeof current?.version === "number" ? current.version : null, reason }) }),
-    onSuccess: async () => { setReason(""); await queryClient.invalidateQueries({ queryKey: ["system"] }); },
+    onSuccess: async () => { toast.success(t("audit:configSaved"), { description: title }); setReason(""); await queryClient.invalidateQueries({ queryKey: ["system"] }); },
   });
   let valid = true;
   try { JSON.parse(value); } catch { valid = false; }
@@ -27,14 +28,14 @@ function SettingEditor({ settingKey, title, description, icon, initial, system }
     <Panel title={title} meta={description} actions={<div className="settings-icon">{icon}</div>}>
       <label className="field">
         <span>{t("audit:versionedConfig")}</span>
-        <textarea className="config-editor" rows={10} value={value} onChange={(event) => setValue(event.target.value)} spellCheck={false} />
-        <small>{t("audit:currentVersion", { version: String(current?.version ?? 0) })}</small>
+        <textarea className="config-editor" rows={10} aria-invalid={!valid} value={value} onChange={(event) => setValue(event.target.value)} spellCheck={false} />
+        <small className={!valid ? "field-error-text" : undefined}>{valid ? t("audit:currentVersion", { version: String(current?.version ?? 0) }) : t("common:validation.invalidJson")}</small>
       </label>
       <label className="field"><span>{t("audit:changeReason")}</span><input value={reason} onChange={(event) => setReason(event.target.value)} /></label>
       {mutation.error ? <ErrorState error={mutation.error} /> : null}
       {mutation.isSuccess ? <div className="operation-success"><ShieldCheck size={17} />{t("audit:configSaved")}</div> : null}
       <div className="panel-form-actions">
-        <button type="button" className="button primary" disabled={!valid || reason.trim().length < 8 || mutation.isPending} onClick={() => mutation.mutate()}>
+        <button type="button" className="button primary" data-ready={valid && reason.trim().length >= 8} disabled={mutation.isPending} onClick={() => { if (!valid) { toast.warning(t("common:validation.invalidJson")); return; } if (reason.trim().length < 8) { toast.warning(t("common:toast.reasonRequired"), { description: t("common:validation.minLength", { count: 8 }) }); return; } mutation.mutate(); }}>
           {mutation.isPending ? <LoaderCircle className="spin" size={17} /> : <Save size={17} />}
           {t("audit:saveChanges")}
         </button>

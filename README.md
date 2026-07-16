@@ -31,6 +31,28 @@ Lingban Admin Console is the independent platform control plane for the single p
 
 All high-impact governance actions use impact preflight, an explicit reason, a confirmation phrase, version validation, CSRF protection, and an immutable audit record. Credential values are accepted only by write forms and are never returned by read APIs.
 
+## 操作反馈 / Operation Feedback
+
+Admin Console 使用全局 Toast 处理全部可恢复操作结果，并在表单内保留字段级错误汇总：
+
+- 客户端校验失败会列出字段名称和具体规则，提交按钮保持可操作，用户可直接获得缺失条件。
+- API 错误显示服务端消息、错误码、HTTP 状态、请求方法、请求路径和可复制的 Request ID。
+- 网络失败使用 `ADMIN_NETWORK_ERROR`，保留前端生成的 Request ID，便于关联网关和 Backend 日志。
+- Provider 测活同时检查 HTTP 状态和响应中的 `success`。HTTP 200 且 `success: false` 仍显示失败。
+- 批量模型测活按最多三个并发执行，完成后汇总通过与失败数量，避免重复通知。
+- 相同 API 错误在 30 秒内去重；错误通知保留 12 秒，支持手动关闭。
+- React 渲染错误、未处理 Promise、脚本异常和会话过期均有独立反馈路径。
+
+Admin Console uses global toasts for every recoverable operation and keeps field-level summaries inside forms:
+
+- Client validation identifies each field and failed rule while keeping actions available for explicit feedback.
+- API errors include the server message, error code, HTTP status, method, path, and a copyable request ID.
+- Network failures use `ADMIN_NETWORK_ERROR` and preserve the client-generated request ID for gateway and backend log correlation.
+- Provider probes evaluate both HTTP status and the response `success` field. HTTP 200 with `success: false` is treated as a failure.
+- Batch model tests run with up to three concurrent requests and emit one pass/fail summary.
+- Identical API errors are deduplicated for 30 seconds. Error toasts remain visible for 12 seconds and can be dismissed manually.
+- React rendering errors, unhandled promises, script failures, and expired sessions have dedicated feedback paths.
+
 ## 本地开发 / Local Development
 
 本地开发仅使用 Node.js、pnpm、Vite 和浏览器。项目脚本不会启动 Docker、WSL、Podman 或其他虚拟化环境。
@@ -46,9 +68,9 @@ pnpm build
 pnpm preview
 ```
 
-Admin E2E 从工作区根目录执行，覆盖全部模块、Provider 创建、治理影响预检、主题、语言与最小宽度保护。
+Admin E2E 从工作区根目录执行，覆盖全部模块、Provider 创建、客户端校验、结构化 API 错误、网络错误、业务层测活失败、治理影响预检、主题、语言与最小宽度保护。
 
-Run Admin E2E from the workspace root. It covers every module, provider creation, governance impact review, themes, languages, and minimum-width protection.
+Run Admin E2E from the workspace root. It covers every module, provider creation, client validation, structured API errors, network failures, business-level probe failures, governance impact review, themes, languages, and minimum-width protection.
 
 ```bash
 pnpm test:e2e:admin

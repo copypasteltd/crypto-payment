@@ -5,6 +5,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Eye, EyeOff, Gauge, KeyRound, LoaderCircle, Network, PlugZap, Save, ShieldCheck, X } from "lucide-react";
 import { adminRequest } from "../lib/api";
 import type { JsonObject } from "../lib/types";
+import { toast } from "../lib/toast";
+import { FormErrorSummary, invalidSubmitHandler, notifyFormInvalid } from "./FormFeedback";
 import { ProviderModelsDialog } from "./ProviderOperations";
 import { ErrorState, IconButton } from "./ui";
 
@@ -25,6 +27,25 @@ function Drawer({ title, eyebrow, icon, onClose, children }: { title: string; ey
       </aside>
     </div>
   );
+}
+
+function isHttpUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function isMcpEndpoint(value: string, transport: McpForm["transport"]) {
+  try {
+    const url = new URL(value);
+    const protocols = transport === "websocket" ? ["ws:", "wss:", "http:", "https:"] : ["http:", "https:"];
+    return protocols.includes(url.protocol);
+  } catch {
+    return false;
+  }
 }
 
 type ProviderForm = {
@@ -62,16 +83,24 @@ export function CreateProviderDialog({ onClose, onCreated }: { onClose: () => vo
   const apiKey = form.watch("apiKey");
   const healthcheckPath = form.watch("healthcheckPath");
   const models = form.watch("models").split(/[\n,]/).map((model) => model.trim()).filter(Boolean);
+  const labels: Partial<Record<keyof ProviderForm, string>> = {
+    displayName: t("providers:displayName"),
+    baseUrl: t("providers:baseUrl"),
+    apiKey: t("providers:apiKey"),
+    defaultModel: t("providers:defaultModel"),
+    models: t("providers:selectedModelList"),
+    reason: t("providers:changeReason"),
+  };
   const mutation = useMutation({
     mutationFn: (values: ProviderForm) => adminRequest<JsonObject>("/providers", {
       method: "POST",
       body: JSON.stringify({
         input: {
-          displayName: values.displayName,
+          displayName: values.displayName.trim(),
           description: values.description || null,
-          baseUrl: values.baseUrl,
-          defaultModel: values.defaultModel,
-          models: values.models.split(",").map((model) => model.trim()).filter(Boolean).map((model) => ({ model, label: null, enabled: true, isDefault: model === values.defaultModel, capabilities: {} })),
+          baseUrl: values.baseUrl.trim(),
+          defaultModel: values.defaultModel.trim(),
+          models: values.models.split(/[\n,]/).map((model) => model.trim()).filter(Boolean).map((model) => ({ model, label: null, enabled: true, isDefault: model === values.defaultModel, capabilities: {} })),
           healthcheckPath: values.healthcheckPath || null,
           enabled: values.enabled,
         },
@@ -84,6 +113,7 @@ export function CreateProviderDialog({ onClose, onCreated }: { onClose: () => vo
       }),
     }),
     onSuccess: async (provider) => {
+      toast.success(t("common:toast.operationSucceeded"), { description: `${t("providers:create")}：${displayName}` });
       form.reset({ ...form.getValues(), apiKey: "" });
       await queryClient.invalidateQueries({ queryKey: ["providers"] });
       onCreated?.(provider);
@@ -93,23 +123,24 @@ export function CreateProviderDialog({ onClose, onCreated }: { onClose: () => vo
   useEffect(() => () => form.reset({ ...form.getValues(), apiKey: "" }), [form]);
   return (
     <Drawer title={t("providers:create")} eyebrow={t("providers:createEyebrow")} icon={<Network size={21} />} onClose={onClose}>
-      <form className="drawer-form" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
-        <label className="field"><span>{t("providers:displayName")}</span><input {...form.register("displayName", { required: true })} /></label>
-        <label className="field"><span>{t("providers:baseUrl")}</span><input type="url" placeholder="https://api.example.com/v1" {...form.register("baseUrl", { required: true })} /></label>
+      <form className="drawer-form" noValidate onSubmit={form.handleSubmit((values) => mutation.mutate(values), invalidSubmitHandler(labels))}>
+        <label className="field"><span>{t("providers:displayName")}</span><input aria-invalid={Boolean(form.formState.errors.displayName)} {...form.register("displayName", { required: t("common:validation.required") })} /></label>
+        <label className="field"><span>{t("providers:baseUrl")}</span><input type="url" aria-invalid={Boolean(form.formState.errors.baseUrl)} placeholder="https://api.example.com/v1" {...form.register("baseUrl", { required: t("common:validation.required"), validate: (value) => isHttpUrl(value) || t("common:validation.invalidUrl") })} /></label>
         <section className="provider-auth-section">
           <header><ShieldCheck size={18} /><div><strong>{t("providers:authentication")}</strong><span>{t("providers:authenticationMeta")}</span></div></header>
-          <div className="field"><label htmlFor="create-provider-api-key">{t("providers:apiKey")}</label><div className="provider-secret-control"><input id="create-provider-api-key" type={showApiKey ? "text" : "password"} autoComplete="new-password" spellCheck={false} {...form.register("apiKey", { required: true })} /><IconButton label={showApiKey ? t("providers:hideApiKey") : t("providers:showApiKey")} onClick={() => setShowApiKey((value) => !value)}>{showApiKey ? <EyeOff size={17} /> : <Eye size={17} />}</IconButton></div><small>{t("providers:apiKeySecurity")}</small></div>
+          <div className="field"><label htmlFor="create-provider-api-key">{t("providers:apiKey")}</label><div className="provider-secret-control"><input id="create-provider-api-key" type={showApiKey ? "text" : "password"} aria-invalid={Boolean(form.formState.errors.apiKey)} autoComplete="new-password" spellCheck={false} {...form.register("apiKey", { required: t("common:validation.required") })} /><IconButton label={showApiKey ? t("providers:hideApiKey") : t("providers:showApiKey")} onClick={() => setShowApiKey((value) => !value)}>{showApiKey ? <EyeOff size={17} /> : <Eye size={17} />}</IconButton></div><small>{t("providers:apiKeySecurity")}</small></div>
         </section>
         <section className="provider-model-form-section">
-          <div><div><strong>{t("providers:models")}</strong><span>{t("providers:modelsHint")}</span></div><button type="button" className="button secondary" onClick={async () => { const valid = await form.trigger(["baseUrl", "apiKey"]); if (valid) setModelDialogOpen(true); }}><Network size={16} />{t("providers:fetchModels")}</button></div>
-          <label className="field"><span>{t("providers:defaultModel")}</span><input list="create-provider-models" {...form.register("defaultModel", { required: true })} /><datalist id="create-provider-models">{models.map((model) => <option key={model} value={model} />)}</datalist></label>
+          <div><div><strong>{t("providers:models")}</strong><span>{t("providers:modelsHint")}</span></div><button type="button" className="button secondary" onClick={async () => { const valid = await form.trigger(["baseUrl", "apiKey"]); if (valid) setModelDialogOpen(true); else notifyFormInvalid(form.formState.errors, labels); }}><Network size={16} />{t("providers:fetchModels")}</button></div>
+          <label className="field"><span>{t("providers:defaultModel")}</span><input list="create-provider-models" aria-invalid={Boolean(form.formState.errors.defaultModel)} {...form.register("defaultModel", { required: t("common:validation.defaultModelRequired"), validate: (value) => models.length === 0 || models.includes(value.trim()) || t("common:validation.modelInCatalog") })} /><datalist id="create-provider-models">{models.map((model) => <option key={model} value={model} />)}</datalist></label>
           <label className="field"><span>{t("providers:selectedModelList")}</span><textarea className="mono" rows={4} placeholder="model-a, model-b" {...form.register("models")} /></label>
           <div className="provider-selected-models">{models.slice(0, 12).map((model) => <code key={model}>{model}</code>)}{models.length > 12 ? <span>+{models.length - 12}</span> : null}</div>
         </section>
         <label className="field"><span>{t("providers:descriptionField")}</span><textarea rows={3} {...form.register("description")} /></label>
         <details className="provider-advanced-settings"><summary>{t("providers:advancedSettings")}</summary><label className="field"><span>{t("providers:healthcheckPath")}</span><input {...form.register("healthcheckPath")} /></label></details>
         <label className="toggle-field"><input type="checkbox" {...form.register("enabled")} /><span>{t("providers:enableAfterCreate")}</span></label>
-        <label className="field"><span>{t("providers:changeReason")}</span><textarea rows={3} {...form.register("reason", { required: true, minLength: 8 })} /></label>
+        <label className="field"><span>{t("providers:changeReason")}</span><textarea rows={3} aria-invalid={Boolean(form.formState.errors.reason)} {...form.register("reason", { required: t("common:validation.required"), minLength: { value: 8, message: t("common:validation.minLength", { count: 8 }) } })} /></label>
+        <FormErrorSummary errors={form.formState.errors} labels={labels} />
         {mutation.error ? <ErrorState error={mutation.error} /> : null}
         <footer><button type="button" className="button secondary" onClick={onClose}>{t("common:cancel")}</button><button type="submit" className="button primary" disabled={mutation.isPending}>{mutation.isPending ? <LoaderCircle className="spin" size={17} /> : <Save size={17} />}{t("providers:save")}</button></footer>
       </form>
@@ -124,20 +155,27 @@ export function CreateMcpDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation(["integrations", "common"]);
   const queryClient = useQueryClient();
   const form = useForm<McpForm>({ defaultValues: { workspaceId: "", mcpId: "", displayName: "", description: "", transport: "sse", ref: "", riskLevel: "medium", approvalRequired: true, reason: "" } });
+  const labels: Partial<Record<keyof McpForm, string>> = {
+    mcpId: t("integrations:mcpId"),
+    displayName: t("integrations:displayName"),
+    ref: t("integrations:endpoint"),
+    reason: t("integrations:registrationReason"),
+  };
   const mutation = useMutation({
     mutationFn: (values: McpForm) => adminRequest<JsonObject>("/mcps", { method: "POST", body: JSON.stringify({ workspaceId: values.workspaceId || undefined, input: { mcpId: values.mcpId, displayName: values.displayName, description: values.description || null, source: "third-party", transport: values.transport, ref: values.ref, status: "active", riskLevel: values.riskLevel, defaultCredentialId: null, defaultNetworkPolicyRef: null, approvalRequired: values.approvalRequired, tags: [] }, reason: values.reason }) }),
-    onSuccess: async () => { await queryClient.invalidateQueries({ queryKey: ["mcps"] }); onClose(); },
+    onSuccess: async () => { toast.success(t("common:toast.operationSucceeded"), { description: t("integrations:registerMcp") }); await queryClient.invalidateQueries({ queryKey: ["mcps"] }); onClose(); },
   });
   return (
     <Drawer title={t("integrations:registerThirdPartyMcp")} eyebrow={t("integrations:registryEyebrow")} icon={<PlugZap size={21} />} onClose={onClose}>
-      <form className="drawer-form" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
-        <div className="form-grid"><label className="field"><span>{t("integrations:mcpId")}</span><input className="mono" {...form.register("mcpId", { required: true })} /></label><label className="field"><span>{t("integrations:displayName")}</span><input {...form.register("displayName", { required: true })} /></label></div>
+      <form className="drawer-form" noValidate onSubmit={form.handleSubmit((values) => mutation.mutate(values), invalidSubmitHandler(labels))}>
+        <div className="form-grid"><label className="field"><span>{t("integrations:mcpId")}</span><input className="mono" aria-invalid={Boolean(form.formState.errors.mcpId)} {...form.register("mcpId", { required: t("common:validation.required") })} /></label><label className="field"><span>{t("integrations:displayName")}</span><input aria-invalid={Boolean(form.formState.errors.displayName)} {...form.register("displayName", { required: t("common:validation.required") })} /></label></div>
         <label className="field"><span>{t("integrations:targetWorkspace")}</span><input className="mono" placeholder={t("integrations:currentWorkspaceHint")} {...form.register("workspaceId")} /></label>
         <div className="form-grid"><label className="field"><span>{t("integrations:transport")}</span><select {...form.register("transport")}><option value="sse">{t("integrations:transportSse")}</option><option value="http">{t("integrations:transportHttp")}</option><option value="websocket">{t("integrations:transportWebsocket")}</option></select></label><label className="field"><span>{t("integrations:riskLevel")}</span><select {...form.register("riskLevel")}><option value="low">{t("common:statusValues.low")}</option><option value="medium">{t("common:statusValues.medium")}</option><option value="high">{t("common:statusValues.high")}</option><option value="critical">{t("common:statusValues.critical")}</option></select></label></div>
-        <label className="field"><span>{t("integrations:endpoint")}</span><input type="url" {...form.register("ref", { required: true })} /></label>
+        <label className="field"><span>{t("integrations:endpoint")}</span><input aria-invalid={Boolean(form.formState.errors.ref)} {...form.register("ref", { required: t("common:validation.required"), validate: (value) => isMcpEndpoint(value, form.getValues("transport")) || t("common:validation.invalidEndpoint") })} /></label>
         <label className="field"><span>{t("integrations:descriptionField")}</span><textarea rows={3} {...form.register("description")} /></label>
         <label className="toggle-field"><input type="checkbox" {...form.register("approvalRequired")} /><span>{t("integrations:requireApproval")}</span></label>
-        <label className="field"><span>{t("integrations:registrationReason")}</span><textarea rows={3} {...form.register("reason", { required: true, minLength: 8 })} /></label>
+        <label className="field"><span>{t("integrations:registrationReason")}</span><textarea rows={3} aria-invalid={Boolean(form.formState.errors.reason)} {...form.register("reason", { required: t("common:validation.required"), minLength: { value: 8, message: t("common:validation.minLength", { count: 8 }) } })} /></label>
+        <FormErrorSummary errors={form.formState.errors} labels={labels} />
         {mutation.error ? <ErrorState error={mutation.error} /> : null}
         <footer><button type="button" className="button secondary" onClick={onClose}>{t("common:cancel")}</button><button type="submit" className="button primary" disabled={mutation.isPending}>{mutation.isPending ? <LoaderCircle className="spin" size={17} /> : <Save size={17} />}{t("integrations:registerMcp")}</button></footer>
       </form>
@@ -151,6 +189,14 @@ export function CreateCredentialDialog({ onClose, onCreated, initialProvider = "
   const { t } = useTranslation(["integrations", "common"]);
   const queryClient = useQueryClient();
   const form = useForm<CredentialForm>({ defaultValues: { workspaceId: "", scope: "workspace", displayName: "", provider: initialProvider, secretKind: "api-key", mountMode: "env", envName: "OPENAI_API_KEY", secretValue: "", notes: "", reason: "" } });
+  const mountMode = form.watch("mountMode");
+  const labels: Partial<Record<keyof CredentialForm, string>> = {
+    displayName: t("integrations:name"),
+    provider: t("integrations:provider"),
+    envName: t("integrations:envName"),
+    secretValue: t("integrations:secret"),
+    reason: t("integrations:writeReason"),
+  };
   const mutation = useMutation({
     mutationFn: async (values: CredentialForm) => {
       if (bindToProviderId) {
@@ -175,6 +221,7 @@ export function CreateCredentialDialog({ onClose, onCreated, initialProvider = "
       return adminRequest<JsonObject>("/credentials", { method: "POST", body: JSON.stringify({ workspaceId: values.workspaceId || undefined, input: { scope: values.scope, displayName: values.displayName, provider: values.provider, secretKind: values.secretKind, mountMode: values.mountMode, secretValue: values.secretValue, secretRef: null, envName: values.mountMode === "env" ? values.envName : undefined, notes: values.notes || null }, reason: values.reason }) });
     },
     onSuccess: async (credential) => {
+      toast.success(t("common:toast.operationSucceeded"), { description: t("integrations:encryptedWrite") });
       form.reset();
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["credentials"] }),
@@ -187,14 +234,15 @@ export function CreateCredentialDialog({ onClose, onCreated, initialProvider = "
   useEffect(() => () => form.reset({ ...form.getValues(), secretValue: "" }), [form]);
   return (
     <Drawer title={t("integrations:writePrivateCredential")} eyebrow={t("integrations:credentialBroker")} icon={<KeyRound size={21} />} onClose={onClose}>
-      <form className="drawer-form" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
+      <form className="drawer-form" noValidate onSubmit={form.handleSubmit((values) => mutation.mutate(values), invalidSubmitHandler(labels))}>
         <label className="field"><span>{t("integrations:targetWorkspace")}</span><input className="mono" placeholder={t("integrations:currentWorkspaceHint")} {...form.register("workspaceId")} /></label>
-        <div className="form-grid"><label className="field"><span>{t("integrations:name")}</span><input {...form.register("displayName", { required: true })} /></label><label className="field"><span>{t("integrations:provider")}</span><input {...form.register("provider", { required: true })} /></label></div>
+        <div className="form-grid"><label className="field"><span>{t("integrations:name")}</span><input aria-invalid={Boolean(form.formState.errors.displayName)} {...form.register("displayName", { required: t("common:validation.required") })} /></label><label className="field"><span>{t("integrations:provider")}</span><input aria-invalid={Boolean(form.formState.errors.provider)} {...form.register("provider", { required: t("common:validation.required") })} /></label></div>
         <div className="form-grid"><label className="field"><span>{t("integrations:scope")}</span><select disabled={Boolean(bindToProviderId)} {...form.register("scope")}><option value="workspace">{t("integrations:scopeWorkspace")}</option><option value="user">{t("integrations:scopeUser")}</option></select></label><label className="field"><span>{t("integrations:secretType")}</span><select disabled={Boolean(bindToProviderId)} {...form.register("secretKind")}><option value="api-key">{t("integrations:secretApiKey")}</option><option value="access-token">{t("integrations:secretAccessToken")}</option><option value="oauth-token">{t("integrations:secretOauthToken")}</option><option value="json-file">{t("integrations:secretJsonFile")}</option><option value="browser-storage-state">{t("integrations:secretBrowserState")}</option><option value="session-cookie">{t("integrations:secretSessionCookie")}</option></select></label></div>
-        <div className="form-grid"><label className="field"><span>{t("integrations:mountMode")}</span><select disabled={Boolean(bindToProviderId)} {...form.register("mountMode")}><option value="env">{t("integrations:mountEnvironment")}</option><option value="file">{t("integrations:mountFile")}</option></select></label><label className="field"><span>{t("integrations:envName")}</span><input className="mono" disabled={Boolean(bindToProviderId)} {...form.register("envName")} /></label></div>
-        <label className="field secret-field"><span>{t("integrations:secret")}</span><textarea rows={5} autoComplete="new-password" spellCheck={false} {...form.register("secretValue", { required: true })} /><small>{t("integrations:secretHint")}</small></label>
+        <div className="form-grid"><label className="field"><span>{t("integrations:mountMode")}</span><select disabled={Boolean(bindToProviderId)} {...form.register("mountMode")}><option value="env">{t("integrations:mountEnvironment")}</option><option value="file">{t("integrations:mountFile")}</option></select></label><label className="field"><span>{t("integrations:envName")}</span><input className="mono" aria-invalid={Boolean(form.formState.errors.envName)} disabled={Boolean(bindToProviderId)} {...form.register("envName", { validate: (value) => Boolean(bindToProviderId) || mountMode !== "env" || value.trim().length > 0 || t("common:validation.required") })} /></label></div>
+        <label className="field secret-field"><span>{t("integrations:secret")}</span><textarea rows={5} aria-invalid={Boolean(form.formState.errors.secretValue)} autoComplete="new-password" spellCheck={false} {...form.register("secretValue", { required: t("common:validation.required") })} /><small>{t("integrations:secretHint")}</small></label>
         <label className="field"><span>{t("integrations:notes")}</span><textarea rows={2} {...form.register("notes")} /></label>
-        <label className="field"><span>{t("integrations:writeReason")}</span><textarea rows={3} {...form.register("reason", { required: true, minLength: 8 })} /></label>
+        <label className="field"><span>{t("integrations:writeReason")}</span><textarea rows={3} aria-invalid={Boolean(form.formState.errors.reason)} {...form.register("reason", { required: t("common:validation.required"), minLength: { value: 8, message: t("common:validation.minLength", { count: 8 }) } })} /></label>
+        <FormErrorSummary errors={form.formState.errors} labels={labels} />
         {mutation.error ? <ErrorState error={mutation.error} /> : null}
         <footer><button type="button" className="button secondary" onClick={onClose}>{t("common:cancel")}</button><button type="submit" className="button primary" disabled={mutation.isPending}>{mutation.isPending ? <LoaderCircle className="spin" size={17} /> : <Save size={17} />}{t("integrations:encryptedWrite")}</button></footer>
       </form>
@@ -247,6 +295,14 @@ export function QuotaPolicyDialog({ initial, onClose }: { initial?: JsonObject; 
   const queryClient = useQueryClient();
   const form = useForm<QuotaForm>({ defaultValues: quotaDefaults(initial) });
   const policyId = typeof initial?.policyId === "string" ? initial.policyId : null;
+  const labels: Partial<Record<keyof QuotaForm, string>> = {
+    workspaceId: t("billing:targetWorkspace"),
+    scopeRefId: t("billing:scopeObject"),
+    limitValue: t("billing:standardLimit"),
+    softLimitValue: t("billing:softLimit"),
+    hardLimitValue: t("billing:hardLimit"),
+    reason: t("billing:changeReason"),
+  };
   const mutation = useMutation({
     mutationFn: (values: QuotaForm) => {
       const input = {
@@ -270,21 +326,23 @@ export function QuotaPolicyDialog({ initial, onClose }: { initial?: JsonObject; 
       });
     },
     onSuccess: async () => {
+      toast.success(t("common:toast.operationSucceeded"), { description: policyId ? t("billing:savePolicy") : t("billing:submitCreatePolicy") });
       await queryClient.invalidateQueries({ queryKey: ["quotas"] });
       onClose();
     },
   });
   return (
     <Drawer title={policyId ? t("billing:editPolicyTitle") : t("billing:createPolicyTitle")} eyebrow={t("billing:governanceEyebrow")} icon={<Gauge size={21} />} onClose={onClose}>
-      <form className="drawer-form" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
-        <label className="field"><span>{t("billing:targetWorkspace")}</span><input className="mono" readOnly={Boolean(policyId)} {...form.register("workspaceId", { required: true })} /></label>
-        <div className="form-grid"><label className="field"><span>{t("billing:scopeType")}</span><select {...form.register("scopeType")}><option value="workspace">{t("billing:scopeWorkspace")}</option><option value="user">{t("billing:scopeUser")}</option><option value="workspace-context">{t("billing:scopeWorkspaceContext")}</option><option value="service">{t("billing:scopeService")}</option><option value="task-version">{t("billing:scopeTaskVersion")}</option><option value="session-version">{t("billing:scopeSessionVersion")}</option><option value="package">{t("billing:scopePackage")}</option><option value="entry-surface">{t("billing:scopeEntrySurface")}</option></select></label><label className="field"><span>{t("billing:scopeObject")}</span><input className="mono" {...form.register("scopeRefId", { required: true })} /></label></div>
+      <form className="drawer-form" noValidate onSubmit={form.handleSubmit((values) => mutation.mutate(values), invalidSubmitHandler(labels))}>
+        <label className="field"><span>{t("billing:targetWorkspace")}</span><input className="mono" aria-invalid={Boolean(form.formState.errors.workspaceId)} readOnly={Boolean(policyId)} {...form.register("workspaceId", { required: t("common:validation.required") })} /></label>
+        <div className="form-grid"><label className="field"><span>{t("billing:scopeType")}</span><select {...form.register("scopeType")}><option value="workspace">{t("billing:scopeWorkspace")}</option><option value="user">{t("billing:scopeUser")}</option><option value="workspace-context">{t("billing:scopeWorkspaceContext")}</option><option value="service">{t("billing:scopeService")}</option><option value="task-version">{t("billing:scopeTaskVersion")}</option><option value="session-version">{t("billing:scopeSessionVersion")}</option><option value="package">{t("billing:scopePackage")}</option><option value="entry-surface">{t("billing:scopeEntrySurface")}</option></select></label><label className="field"><span>{t("billing:scopeObject")}</span><input className="mono" aria-invalid={Boolean(form.formState.errors.scopeRefId)} {...form.register("scopeRefId", { required: t("common:validation.required") })} /></label></div>
         <div className="form-grid"><label className="field"><span>{t("billing:metric")}</span><select {...form.register("metric")}><option value="active_runs">{t("billing:metricActiveRuns")}</option><option value="daily_runs">{t("billing:metricDailyRuns")}</option><option value="browser_minutes">{t("billing:metricBrowserMinutes")}</option><option value="model_tokens">{t("billing:metricModelTokens")}</option><option value="image_credits">{t("billing:metricImageCredits")}</option><option value="mcp_calls">{t("billing:metricMcpCalls")}</option><option value="storage_bytes">{t("billing:metricStorageBytes")}</option><option value="download_bytes">{t("billing:metricDownloadBytes")}</option><option value="audit_exports">{t("billing:metricAuditExports")}</option><option value="replays">{t("billing:metricReplays")}</option><option value="ws_connections">{t("billing:metricRealtimeConnections")}</option></select></label><label className="field"><span>{t("billing:window")}</span><select {...form.register("windowType")}><option value="instant">{t("billing:windowInstant")}</option><option value="daily">{t("billing:windowDaily")}</option><option value="monthly">{t("billing:windowMonthly")}</option></select></label></div>
-        <div className="form-grid three"><label className="field"><span>{t("billing:standardLimit")}</span><input type="number" min="0" step="any" {...form.register("limitValue", { required: true, valueAsNumber: true, min: 0 })} /></label><label className="field"><span>{t("billing:softLimit")}</span><input type="number" min="0" step="any" {...form.register("softLimitValue", { setValueAs: (value) => value === "" ? null : Number(value) })} /></label><label className="field"><span>{t("billing:hardLimit")}</span><input type="number" min="0" step="any" {...form.register("hardLimitValue", { setValueAs: (value) => value === "" ? null : Number(value) })} /></label></div>
+        <div className="form-grid three"><label className="field"><span>{t("billing:standardLimit")}</span><input type="number" min="0" step="any" aria-invalid={Boolean(form.formState.errors.limitValue)} {...form.register("limitValue", { required: t("common:validation.required"), valueAsNumber: true, min: { value: 0, message: t("common:validation.nonNegative") } })} /></label><label className="field"><span>{t("billing:softLimit")}</span><input type="number" min="0" step="any" aria-invalid={Boolean(form.formState.errors.softLimitValue)} {...form.register("softLimitValue", { setValueAs: (value) => value === "" ? null : Number(value), validate: (value) => value == null || value >= 0 || t("common:validation.nonNegative") })} /></label><label className="field"><span>{t("billing:hardLimit")}</span><input type="number" min="0" step="any" aria-invalid={Boolean(form.formState.errors.hardLimitValue)} {...form.register("hardLimitValue", { setValueAs: (value) => value === "" ? null : Number(value), validate: (value) => value == null || value >= 0 || t("common:validation.nonNegative") })} /></label></div>
         <div className="form-grid"><label className="field"><span>{t("billing:softAction")}</span><select {...form.register("actionOnSoftLimit")}><option value="warn">{t("billing:actionWarn")}</option><option value="require_approval">{t("billing:actionRequireApproval")}</option></select></label><label className="field"><span>{t("billing:hardAction")}</span><select {...form.register("actionOnHardLimit")}><option value="block">{t("billing:actionBlock")}</option><option value="require_override">{t("billing:actionRequireOverride")}</option></select></label></div>
         <div className="form-grid three"><label className="field"><span>{t("common:status")}</span><select {...form.register("status")}><option value="active">{t("common:statusValues.active")}</option><option value="disabled">{t("common:statusValues.disabled")}</option><option value="archived">{t("common:statusValues.archived")}</option></select></label><label className="field"><span>{t("billing:priority")}</span><input type="number" {...form.register("priority", { valueAsNumber: true })} /></label><label className="toggle-field compact"><input type="checkbox" {...form.register("enabled")} /><span>{t("billing:policyEnabled")}</span></label></div>
         <label className="field"><span>{t("billing:policyNotes")}</span><textarea rows={2} {...form.register("notes")} /></label>
-        <label className="field"><span>{t("billing:changeReason")}</span><textarea rows={3} {...form.register("reason", { required: true, minLength: 8 })} /></label>
+        <label className="field"><span>{t("billing:changeReason")}</span><textarea rows={3} aria-invalid={Boolean(form.formState.errors.reason)} {...form.register("reason", { required: t("common:validation.required"), minLength: { value: 8, message: t("common:validation.minLength", { count: 8 }) } })} /></label>
+        <FormErrorSummary errors={form.formState.errors} labels={labels} />
         {mutation.error ? <ErrorState error={mutation.error} /> : null}
         <footer><button type="button" className="button secondary" onClick={onClose}>{t("common:cancel")}</button><button type="submit" className="button primary" disabled={mutation.isPending}>{mutation.isPending ? <LoaderCircle className="spin" size={17} /> : <Save size={17} />}{policyId ? t("billing:savePolicy") : t("billing:submitCreatePolicy")}</button></footer>
       </form>

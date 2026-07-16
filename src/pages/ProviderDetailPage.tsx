@@ -18,6 +18,7 @@ import {
   SlidersHorizontal,
 } from "lucide-react";
 import { GovernanceActionDialog, type GovernanceActionSpec } from "../components/GovernanceAction";
+import { FormErrorSummary, invalidSubmitHandler } from "../components/FormFeedback";
 import {
   ProviderModelsDialog,
   ProviderTestDialog,
@@ -26,6 +27,7 @@ import {
 import { ErrorState, IconButton, LoadingState, PageHeader, Panel, StatusBadge, formatDate } from "../components/ui";
 import { adminRequest } from "../lib/api";
 import type { JsonObject, JsonValue } from "../lib/types";
+import { toast } from "../lib/toast";
 
 type ProviderForm = {
   displayName: string;
@@ -65,6 +67,15 @@ function initialForm(provider: JsonObject): ProviderForm {
   };
 }
 
+function isHttpUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export function ProviderDetailPage() {
   const { t } = useTranslation(["providers", "common"]);
   const navigate = useNavigate();
@@ -86,6 +97,14 @@ export function ProviderDetailPage() {
   const bindings = asRows(data.bindings);
   const credentialConfigured = data.managementCredentialConfigured === true;
   const form = useForm<ProviderForm>({ defaultValues: initialForm(provider) });
+  const labels: Partial<Record<keyof ProviderForm, string>> = {
+    displayName: t("providers:displayName"),
+    baseUrl: t("providers:baseUrl"),
+    apiKey: t("providers:apiKey"),
+    healthcheckPath: t("providers:healthcheckPath"),
+    defaultModel: t("providers:defaultModel"),
+    reason: t("providers:changeReason"),
+  };
 
   useEffect(() => {
     if (query.data) form.reset(initialForm(asObject(query.data.provider)));
@@ -113,6 +132,7 @@ export function ProviderDetailPage() {
       }),
     }),
     onSuccess: async () => {
+      toast.success(t("providers:configurationSaved"), { description: text(provider.displayName, providerId) });
       await Promise.all([
         query.refetch(),
         queryClient.invalidateQueries({ queryKey: ["providers"] }),
@@ -155,20 +175,21 @@ export function ProviderDetailPage() {
       </div>
 
       <Panel title={t("providers:configuration")} meta={t("providers:configurationNewApiMeta")} className="provider-config-panel">
-        <form className="provider-config-form" onSubmit={form.handleSubmit((values) => saveMutation.mutate(values))}>
+        <form className="provider-config-form" noValidate onSubmit={form.handleSubmit((values) => saveMutation.mutate(values), invalidSubmitHandler(labels))}>
           <div className="form-grid">
-            <label className="field"><span>{t("providers:displayName")}</span><input {...form.register("displayName", { required: true })} /></label>
-            <label className="field"><span>{t("providers:defaultModel")}</span><input list="provider-model-options" {...form.register("defaultModel", { required: true })} /><datalist id="provider-model-options">{models.map((model) => <option key={text(model.model)} value={text(model.model)} />)}</datalist></label>
+            <label className="field"><span>{t("providers:displayName")}</span><input aria-invalid={Boolean(form.formState.errors.displayName)} {...form.register("displayName", { required: t("common:validation.required") })} /></label>
+            <label className="field"><span>{t("providers:defaultModel")}</span><input list="provider-model-options" aria-invalid={Boolean(form.formState.errors.defaultModel)} {...form.register("defaultModel", { required: t("common:validation.defaultModelRequired"), validate: (value) => models.length === 0 || models.some((model) => text(model.model, "") === value.trim()) || t("common:validation.modelInCatalog") })} /><datalist id="provider-model-options">{models.map((model) => <option key={text(model.model)} value={text(model.model)} />)}</datalist></label>
           </div>
-          <label className="field provider-url-field"><span>{t("providers:baseUrl")}</span><div><Network size={17} /><input type="url" placeholder="https://api.example.com/v1" {...form.register("baseUrl", { required: true, pattern: /^https?:\/\//i })} /></div></label>
-          <div className="field"><label htmlFor="provider-api-key">{t("providers:apiKey")}</label><div className="provider-secret-control"><input id="provider-api-key" type={showApiKey ? "text" : "password"} autoComplete="new-password" spellCheck={false} placeholder={credentialConfigured ? t("providers:keyKeepPlaceholder") : t("providers:keyRequiredPlaceholder")} {...form.register("apiKey", { validate: (value) => credentialConfigured || value.trim().length > 0 })} /><IconButton label={showApiKey ? t("providers:hideApiKey") : t("providers:showApiKey")} onClick={() => setShowApiKey((value) => !value)}>{showApiKey ? <EyeOff size={17} /> : <Eye size={17} />}</IconButton></div><small>{t("providers:keyUpdateHint")}</small></div>
+          <label className="field provider-url-field"><span>{t("providers:baseUrl")}</span><div><Network size={17} /><input type="url" aria-invalid={Boolean(form.formState.errors.baseUrl)} placeholder="https://api.example.com/v1" {...form.register("baseUrl", { required: t("common:validation.required"), validate: (value) => isHttpUrl(value) || t("common:validation.invalidUrl") })} /></div></label>
+          <div className="field"><label htmlFor="provider-api-key">{t("providers:apiKey")}</label><div className="provider-secret-control"><input id="provider-api-key" type={showApiKey ? "text" : "password"} aria-invalid={Boolean(form.formState.errors.apiKey)} autoComplete="new-password" spellCheck={false} placeholder={credentialConfigured ? t("providers:keyKeepPlaceholder") : t("providers:keyRequiredPlaceholder")} {...form.register("apiKey", { validate: (value) => credentialConfigured || value.trim().length > 0 || t("common:validation.required") })} /><IconButton label={showApiKey ? t("providers:hideApiKey") : t("providers:showApiKey")} onClick={() => setShowApiKey((value) => !value)}>{showApiKey ? <EyeOff size={17} /> : <Eye size={17} />}</IconButton></div><small>{t("providers:keyUpdateHint")}</small></div>
           <label className="field"><span>{t("providers:descriptionField")}</span><textarea rows={3} {...form.register("description")} /></label>
-          <details className="provider-advanced-settings"><summary>{t("providers:advancedSettings")}</summary><label className="field"><span>{t("providers:healthcheckPath")}</span><input className="mono" placeholder="/models" {...form.register("healthcheckPath", { required: true })} /></label></details>
+          <details className="provider-advanced-settings"><summary>{t("providers:advancedSettings")}</summary><label className="field"><span>{t("providers:healthcheckPath")}</span><input className="mono" aria-invalid={Boolean(form.formState.errors.healthcheckPath)} placeholder="/models" {...form.register("healthcheckPath", { required: t("common:validation.required") })} /></label></details>
           <label className="toggle-field"><input type="checkbox" {...form.register("enabled")} /><span>{t("providers:enabled")}</span></label>
-          <label className="field"><span>{t("providers:changeReason")}</span><textarea rows={2} {...form.register("reason", { required: true, minLength: 8 })} /></label>
+          <label className="field"><span>{t("providers:changeReason")}</span><textarea rows={2} aria-invalid={Boolean(form.formState.errors.reason)} {...form.register("reason", { required: t("common:validation.required"), minLength: { value: 8, message: t("common:validation.minLength", { count: 8 }) } })} /></label>
+          <FormErrorSummary errors={form.formState.errors} labels={labels} />
           {saveMutation.error ? <ErrorState error={saveMutation.error} /> : null}
           {saveMutation.isSuccess && !form.formState.isDirty ? <div className="operation-success"><Check size={18} />{t("providers:configurationSaved")}</div> : null}
-          <footer className="provider-form-actions"><button className="button primary" type="submit" disabled={!form.formState.isDirty || saveMutation.isPending}>{saveMutation.isPending ? <LoaderCircle className="spin" size={17} /> : <Save size={17} />}{t("providers:saveChanges")}</button></footer>
+          <footer className="provider-form-actions"><button className="button primary" type="button" disabled={saveMutation.isPending} onClick={() => { if (!form.formState.isDirty) { toast.info(t("common:toast.noChanges")); return; } void form.handleSubmit((values) => saveMutation.mutate(values), invalidSubmitHandler(labels))(); }}>{saveMutation.isPending ? <LoaderCircle className="spin" size={17} /> : <Save size={17} />}{t("providers:saveChanges")}</button></footer>
         </form>
       </Panel>
 

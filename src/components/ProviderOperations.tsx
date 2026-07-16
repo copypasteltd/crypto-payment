@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { adminRequest } from "../lib/api";
 import type { JsonObject, JsonValue } from "../lib/types";
+import { toast } from "../lib/toast";
 import { ErrorState, IconButton, StatusBadge } from "./ui";
 
 type ModelFetchResponse = {
@@ -120,6 +121,7 @@ export function ProviderModelsDialog({
           }),
         }),
     onSuccess: (response) => {
+      toast.success(t("providers:modelsFetched"), { description: t("providers:modelsFetchedSummary", { count: response.fetchedModelIds.length }) });
       setResult(response);
       setSelected(existingModels);
       setActiveTab(
@@ -150,6 +152,7 @@ export function ProviderModelsDialog({
       });
     },
     onSuccess: async () => {
+      toast.success(onModelsSelected ? t("providers:modelsFilled") : t("providers:modelsSaved"), { description: t("providers:selectedModels", { count: selected.length }) });
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["providers"] }),
         provider
@@ -238,7 +241,7 @@ export function ProviderModelsDialog({
         </div>
         <footer className="modal-footer">
           <button type="button" className="button secondary" onClick={onClose}>{t("common:cancel")}</button>
-          <button type="button" className="button primary" disabled={!result || selected.length === 0 || applyMutation.isPending} onClick={() => applyMutation.mutate()}>
+          <button type="button" className="button primary" disabled={!result || applyMutation.isPending} onClick={() => { if (!selected.length) { toast.warning(t("providers:selectAtLeastOneModel")); return; } applyMutation.mutate(); }}>
             {applyMutation.isPending ? <LoaderCircle className="spin" size={17} /> : <Check size={17} />}
             {onModelsSelected ? t("providers:fillModels") : t("providers:saveModels")}
           </button>
@@ -261,32 +264,37 @@ export function ProviderTestDialog({ provider, onClose }: { provider: ProviderRe
   const visibleModels = models.filter((model) => model.toLowerCase().includes(search.trim().toLowerCase()));
   const allVisibleSelected = visibleModels.length > 0 && visibleModels.every((model) => selected.includes(model));
 
-  async function testModel(model: string) {
+  async function testModel(model: string, quiet = false): Promise<ProviderTestResponse> {
     setTesting((current) => new Set(current).add(model));
     try {
       const response = await adminRequest<ProviderTestResponse>(`/providers/${encodeURIComponent(provider.providerId)}/test`, {
         method: "POST",
         body: JSON.stringify({ input: { model, endpointType, stream } }),
+        feedback: { silentError: quiet },
       });
       setResults((current) => ({ ...current, [model]: response }));
+      if (!quiet) {
+        if (response.success) toast.success(t("providers:testSucceeded"), { description: `${model} · ${response.responseTimeMs} ms` });
+        else toast.error(t("providers:testFailed"), { description: `${model}：${response.message}` });
+      }
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["providers"] }),
         queryClient.invalidateQueries({ queryKey: ["provider", provider.providerId] }),
       ]);
+      return response;
     } catch (error) {
-      setResults((current) => ({
-        ...current,
-        [model]: {
-          success: false,
-          model,
-          endpointType,
-          stream,
-          responseTimeMs: 0,
-          httpStatus: null,
-          message: error instanceof Error ? error.message : t("providers:testFailed"),
-          testedAt: new Date().toISOString(),
-        },
-      }));
+      const response: ProviderTestResponse = {
+        success: false,
+        model,
+        endpointType,
+        stream,
+        responseTimeMs: 0,
+        httpStatus: null,
+        message: error instanceof Error ? error.message : t("providers:testFailed"),
+        testedAt: new Date().toISOString(),
+      };
+      setResults((current) => ({ ...current, [model]: response }));
+      return response;
     } finally {
       setTesting((current) => {
         const next = new Set(current);
@@ -298,14 +306,25 @@ export function ProviderTestDialog({ provider, onClose }: { provider: ProviderRe
 
   async function testSelected() {
     const queue = normalizeModels(selected);
+    if (!queue.length) {
+      toast.warning(t("providers:selectAtLeastOneModel"));
+      return;
+    }
     let cursor = 0;
+    const batchResults: ProviderTestResponse[] = [];
     const workers = Array.from({ length: Math.min(3, queue.length) }, async () => {
       while (cursor < queue.length) {
         const model = queue[cursor++];
-        await testModel(model);
+        batchResults.push(await testModel(model, true));
       }
     });
     await Promise.all(workers);
+    const succeeded = batchResults.filter((response) => response.success).length;
+    const failed = batchResults.length - succeeded;
+    const summary = t("providers:testBatchSummary", { succeeded, failed });
+    if (failed === 0) toast.success(t("providers:testSucceeded"), { description: summary });
+    else if (succeeded === 0) toast.error(t("providers:testFailed"), { description: summary });
+    else toast.warning(t("providers:testPartiallySucceeded"), { description: summary });
   }
 
   return (
@@ -317,7 +336,7 @@ export function ProviderTestDialog({ provider, onClose }: { provider: ProviderRe
             <label className="field"><span>{t("providers:endpointType")}</span><select value={endpointType} onChange={(event) => setEndpointType(event.target.value as typeof endpointType)}><option value="auto">{t("providers:endpointAuto")}</option><option value="openai">OpenAI /chat/completions</option><option value="openai-response">OpenAI /responses</option></select></label>
             <label className="toggle-field"><input type="checkbox" checked={stream} onChange={(event) => setStream(event.target.checked)} /><span>{t("providers:streamTest")}</span></label>
           </div>
-          <div className="provider-test-toolbar"><label className="search-field"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("providers:searchModels")} /></label><button type="button" className="button primary" onClick={() => void testSelected()} disabled={!selected.length || testing.size > 0}>{testing.size ? <LoaderCircle className="spin" size={16} /> : <Play size={16} />}{t("providers:testSelected", { count: selected.length })}</button></div>
+          <div className="provider-test-toolbar"><label className="search-field"><Search size={16} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={t("providers:searchModels")} /></label><button type="button" className="button primary" onClick={() => void testSelected()} disabled={testing.size > 0}>{testing.size ? <LoaderCircle className="spin" size={16} /> : <Play size={16} />}{t("providers:testSelected", { count: selected.length })}</button></div>
           <div className="table-scroll provider-test-table-wrap">
             <table className="data-table compact provider-test-table"><thead><tr><th><input type="checkbox" checked={allVisibleSelected} onChange={() => setSelected((current) => { const next = new Set(current); if (allVisibleSelected) visibleModels.forEach((model) => next.delete(model)); else visibleModels.forEach((model) => next.add(model)); return [...next]; })} /></th><th>{t("providers:modelId")}</th><th>{t("common:status")}</th><th>{t("providers:latency")}</th><th>{t("providers:testResult")}</th><th></th></tr></thead><tbody>
               {visibleModels.map((model) => {
@@ -345,7 +364,9 @@ export function ProviderRowOperations({ provider, governance }: { provider: Json
       method: "POST",
       body: JSON.stringify({ input: { model: reference.defaultModel, endpointType: "auto", stream: false } }),
     }),
-    onSuccess: async () => {
+    onSuccess: async (response) => {
+      if (response.success) toast.success(t("testSucceeded"), { description: `${reference.displayName} · ${response.responseTimeMs} ms` });
+      else toast.error(t("testFailed"), { description: response.message });
       await queryClient.invalidateQueries({ queryKey: ["providers"] });
     },
   });

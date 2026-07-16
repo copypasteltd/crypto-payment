@@ -6,6 +6,7 @@ import { ArrowLeft, Check, KeyRound, ListRestart, LoaderCircle, Play, RefreshCw,
 import { adminRequest } from "../lib/api";
 import i18n from "../i18n";
 import type { JsonObject, JsonValue } from "../lib/types";
+import { toast } from "../lib/toast";
 import { GovernanceActionDialog, type GovernanceActionSpec } from "../components/GovernanceAction";
 import { ErrorState, IconButton, LoadingState, PageHeader, Panel, RecordView, StatusBadge, formatDate } from "../components/ui";
 
@@ -37,11 +38,12 @@ function RotateCredential({ credentialId, onClose }: { credentialId: string; onC
   const queryClient = useQueryClient();
   const [secretValue, setSecretValue] = useState("");
   const [reason, setReason] = useState("");
+  const [attempted, setAttempted] = useState(false);
   const mutation = useMutation({
     mutationFn: () => adminRequest<JsonObject>(`/credentials/${encodeURIComponent(credentialId)}/rotate`, { method: "POST", body: JSON.stringify({ input: { secretValue, secretRef: null, note: reason }, reason }) }),
-    onSuccess: async () => { setSecretValue(""); await queryClient.invalidateQueries(); },
+    onSuccess: async () => { toast.success(t("integrations:rotateSuccess")); setAttempted(false); setSecretValue(""); await queryClient.invalidateQueries(); },
   });
-  return <div className="modal-backdrop"><section className="modal"><header className="modal-header"><div className="modal-icon warning"><KeyRound size={20} /></div><div><p className="eyebrow">{t("integrations:credentialBroker")}</p><h2>{t("integrations:rotateTitle")}</h2><code>{credentialId}</code></div><IconButton label={t("common:closeDialog")} onClick={() => { setSecretValue(""); onClose(); }}><ArrowLeft size={18} /></IconButton></header><div className="modal-body"><label className="field"><span>{t("integrations:newSecret")}</span><textarea rows={6} value={secretValue} onChange={(event) => setSecretValue(event.target.value)} autoComplete="new-password" spellCheck={false} /></label><label className="field"><span>{t("integrations:rotateReason")}</span><textarea rows={3} value={reason} onChange={(event) => setReason(event.target.value)} /></label>{mutation.error ? <ErrorState error={mutation.error} /> : null}{mutation.isSuccess ? <div className="operation-success"><Check size={18} />{t("integrations:rotateSuccess")}</div> : null}</div><footer className="modal-footer"><button className="button secondary" type="button" onClick={onClose}>{t("common:close")}</button><button className="button primary" type="button" disabled={secretValue.length < 1 || reason.trim().length < 8 || mutation.isPending} onClick={() => mutation.mutate()}>{mutation.isPending ? <LoaderCircle className="spin" size={17} /> : <RotateCw size={17} />}{t("integrations:executeRotate")}</button></footer></section></div>;
+  return <div className="modal-backdrop"><section className="modal"><header className="modal-header"><div className="modal-icon warning"><KeyRound size={20} /></div><div><p className="eyebrow">{t("integrations:credentialBroker")}</p><h2>{t("integrations:rotateTitle")}</h2><code>{credentialId}</code></div><IconButton label={t("common:closeDialog")} onClick={() => { setSecretValue(""); onClose(); }}><ArrowLeft size={18} /></IconButton></header><div className="modal-body"><label className="field"><span>{t("integrations:newSecret")}</span><textarea rows={6} aria-invalid={attempted && secretValue.length === 0} value={secretValue} onChange={(event) => setSecretValue(event.target.value)} autoComplete="new-password" spellCheck={false} /></label><label className="field"><span>{t("integrations:rotateReason")}</span><textarea rows={3} aria-invalid={attempted && reason.trim().length < 8} value={reason} onChange={(event) => setReason(event.target.value)} /></label>{mutation.error ? <ErrorState error={mutation.error} /> : null}{mutation.isSuccess ? <div className="operation-success"><Check size={18} />{t("integrations:rotateSuccess")}</div> : null}</div><footer className="modal-footer"><button className="button secondary" type="button" onClick={onClose}>{t("common:close")}</button><button className="button primary" type="button" data-ready={secretValue.length > 0 && reason.trim().length >= 8} disabled={mutation.isPending} onClick={() => { setAttempted(true); if (!secretValue) { toast.warning(t("common:toast.formInvalid"), { description: `${t("integrations:newSecret")}：${t("common:validation.required")}` }); return; } if (reason.trim().length < 8) { toast.warning(t("common:toast.reasonRequired"), { description: t("common:validation.minLength", { count: 8 }) }); return; } mutation.mutate(); }}>{mutation.isPending ? <LoaderCircle className="spin" size={17} /> : <RotateCw size={17} />}{t("integrations:executeRotate")}</button></footer></section></div>;
 }
 
 export function DetailPage({ kind }: { kind: DetailKind }) {
@@ -54,7 +56,7 @@ export function DetailPage({ kind }: { kind: DetailKind }) {
   const [tab, setTab] = useState("overview");
   const [action, setAction] = useState<GovernanceActionSpec | null>(null);
   const [rotating, setRotating] = useState(false);
-  const directMutation = useMutation({ mutationFn: (path: string) => adminRequest<JsonObject>(path, { method: "POST", body: JSON.stringify({ input: {}, reason: "Manual Admin diagnostic request" }) }), onSuccess: () => void query.refetch() });
+  const directMutation = useMutation({ mutationFn: (path: string) => adminRequest<JsonObject>(path, { method: "POST", body: JSON.stringify({ input: {}, reason: "Manual Admin diagnostic request" }) }), onSuccess: (_, path) => { toast.success(t("operationComplete"), { description: path }); void query.refetch(); } });
   const data = query.data ?? {};
   const record = asObject(data[config.mainKey]) || {};
   const sections = useMemo(() => Object.keys(data).filter((key) => key !== config.mainKey && key !== "governanceStatus"), [data, config.mainKey]);
