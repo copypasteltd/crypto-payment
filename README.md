@@ -10,15 +10,16 @@ Lingban Workshop is a cloud agent-workshop platform for organizations and indivi
 | --- | --- |
 | Mobile H5 | 已部署，`http://192.168.31.20:38120/` |
 | Workspace Dashboard | 已部署，`http://192.168.31.20:38110/workspace/workshops` |
-| Platform Admin | 已部署，`http://192.168.31.20:38110/admin/overview` |
+| Platform Admin | 已独立部署，`http://192.168.31.20:38140/` |
 | Backend API | 已部署，`http://192.168.31.20:38130` |
-| Frontend E2E | 23/23 通过 |
+| Session Control v2 | 已部署，Migration `0030_session_control` 已应用 |
+| Frontend E2E | 32/32 通过 |
 | Backend smoke | 62/62 通过 |
-| Run Worker tests | 27/27 通过 |
-| Runtime Bridge tests | 23/23 通过 |
-| Dashboard 视觉状态 | 52/52 通过 |
-| Mobile 视觉状态 | 14/14 通过 |
-| 最近验证日期 | 2026-07-14 |
+| Run Worker tests | 28/28 通过 |
+| Runtime Bridge tests | 25/25 通过 |
+| Session Pack tests | 24/24 通过 |
+| Dashboard 视觉状态 | 1440×1000、1024×768、390×844 通过 |
+| 最近验证日期 | 2026-07-17 |
 
 当前地址属于 HZ01 验收环境。生产扩容仍需完成外部 PostgreSQL、Redis、对象存储、集中密钥管理、告警、备份和多节点容量验证。
 
@@ -29,7 +30,7 @@ These URLs point to the HZ01 acceptance environment. Production scale-out still 
 | 仓库 | 本地路径 | 远端 | 职责 |
 | --- | --- | --- | --- |
 | `agent-workshop-app` | `app/mobile` | `git@github.com:copypasteltd/agent-workshop-app.git` | Taro Mobile H5 与后续小程序 |
-| `agent-workshop-dashboard` | `app/dashboard` | `git@github.com:copypasteltd/agent-workshop-dashboard.git` | Workspace、Creator 与 Admin 控制台 |
+| `agent-workshop-dashboard` | `app/dashboard` | `git@github.com:copypasteltd/agent-workshop-dashboard.git` | Workspace 与 Creator 控制台 |
 | `agent-workshop-backend` | `app/api` | `git@github.com:copypasteltd/agent-workshop-backend.git` | Fastify API、控制面与 Runtime 回调 |
 | `agent-workshop-run-worker` | `app/run-worker` | `git@github.com:copypasteltd/agent-workshop-run-worker.git` | 队列消费、工作区物化与运行调度 |
 | `agent-workshop-sdk` | `app/container-bridge` | `git@github.com:copypasteltd/agent-workshop-sdk.git` | Codex CLI Bridge、MCP、文件与控制面 |
@@ -38,13 +39,13 @@ These URLs point to the HZ01 acceptance environment. Production scale-out still 
 
 | 目录 | 内容 |
 | --- | --- |
-| `app/` | API、Run Worker、Runtime Bridge、Dashboard、Mobile |
+| `app/` | API、Run Worker、Runtime Bridge、Dashboard、Mobile、独立 Admin |
 | `packages/` | contracts、db、session-pack、api-sdk、realtime、ui-tokens 等共享包 |
 | `docs/` | 产品、前端、后端、治理、测试与上线文档 |
 | `example/` | 三套单文件 H5/Dashboard 原型；方案 C 为定稿参照 |
 | `infra/` | 部署配置、systemd、Nginx、发布与运维脚本 |
 | `tests/` | Playwright E2E、静态服务与执行证据 |
-| `standalone/` | 五个独立交付工作区的自动导出结果 |
+| `standalone/` | 六个独立交付工作区的自动导出结果 |
 | `release/` | 发布包快照与部署物料 |
 
 ## 系统架构 / Architecture
@@ -53,9 +54,10 @@ These URLs point to the HZ01 acceptance environment. Production scale-out still 
 | --- | --- | --- |
 | Mobile | `app/mobile` | 工坊发现、任务对话、文件、审批与账户工作区 |
 | Dashboard | `app/dashboard` | 重度任务管理、Creator 治理、Provider 与平台管理 |
+| Platform Admin | `app/admin` | 独立总管理入口、Provider、用户、工作区、运行与系统设置 |
 | API | `app/api` | 鉴权、业务域、Realtime、文件、治理与内部回调 |
 | Run Worker | `app/run-worker` | Preflight、Runtime 物化、队列、恢复、资源与清理 |
-| Runtime Bridge | `app/container-bridge` | Codex PTY、MCP、凭证、文件、Artifact 与诊断 |
+| Runtime Bridge | `app/container-bridge` | Codex App Server、MCP、凭证、文件、Artifact 与诊断 |
 | Contracts | `packages/contracts` | API DTO、Zod Schema、事件与治理协议 |
 | Persistence | `packages/db`, `packages/files` | Repository、PostgreSQL、文件与对象存储抽象 |
 | Session Assets | `packages/session-pack` | Session 打包、脱敏、签名、继承与归档 |

@@ -34,6 +34,22 @@ The generated release bundle keeps backend and worker as standalone workspaces, 
 - Public Admin Console is served by Nginx on `:38140`
 - Worker launch mode defaults to `local-process`
 - Codex host binary is expected at `CODEX_BIN=/home/lingban/.local/bin/codex`
+- Codex structured runtime uses `CODEX_RUNTIME_PROTOCOL=app-server`
+
+## Session Control production baseline
+
+The API production environment must explicitly enable the four rollout gates:
+
+- `SESSION_CAPTURE_V2_ENABLED=true`
+- `SESSION_PACK_V2_WRITE_ENABLED=true`
+- `SESSION_VERSION_IMMUTABILITY_ENFORCED=true`
+- `CREATOR_EXPLICIT_SESSION_BINDING_ENABLED=true`
+
+Production sealing also requires a stable signing key ID and secret. Keep
+`LINGBAN_SESSION_PACK_SIGNATURE_HMAC_SECRET` outside Git, restrict the environment
+file to mode `0600`, and preserve historical verification keys during rotation.
+The installer applies database migrations before switching `/srv/lingban/current`
+and restarts both systemd services after the switch.
 
 ## Optional frontend build fallback
 
