@@ -12,6 +12,14 @@ TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 RELEASE_TARGET="${DEPLOY_ROOT}/releases/${TIMESTAMP}"
 CURRENT_LINK="${DEPLOY_ROOT}/current"
 
+if [[ -f /etc/lingban/api.env ]]; then
+  if grep -q '^LINGBAN_RELEASE=' /etc/lingban/api.env; then
+    sed -i "s/^LINGBAN_RELEASE=.*/LINGBAN_RELEASE=${TIMESTAMP}/" /etc/lingban/api.env
+  else
+    printf 'LINGBAN_RELEASE=%s\n' "${TIMESTAMP}" >> /etc/lingban/api.env
+  fi
+fi
+
 mkdir -p "${DEPLOY_ROOT}/releases"
 mkdir -p "${DEPLOY_ROOT}/shared"
 rsync -a --delete "${RELEASE_SOURCE}/" "${RELEASE_TARGET}/"
