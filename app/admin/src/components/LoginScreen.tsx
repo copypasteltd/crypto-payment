@@ -4,6 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Eye, EyeOff, LoaderCircle, LockKeyhole, ShieldCheck } from "lucide-react";
 import { adminApi } from "../lib/api";
 import type { AdminBootstrap } from "../lib/types";
+import { toast } from "../lib/toast";
 import { ErrorState, IconButton } from "./ui";
 
 export function LoginScreen({ onAuthenticated }: { onAuthenticated: (session: AdminBootstrap) => void }) {
@@ -11,9 +12,12 @@ export function LoginScreen({ onAuthenticated }: { onAuthenticated: (session: Ad
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [attempted, setAttempted] = useState(false);
   const login = useMutation({
     mutationFn: () => adminApi.login(email.trim(), password),
     onSuccess: (session) => {
+      toast.success(t("toast.loginSucceeded"));
+      setAttempted(false);
       setPassword("");
       onAuthenticated(session);
     },
@@ -39,9 +43,18 @@ export function LoginScreen({ onAuthenticated }: { onAuthenticated: (session: Ad
       <section className="login-form-zone">
         <form
           className="login-form"
+          noValidate
           onSubmit={(event) => {
             event.preventDefault();
-            if (email.trim() && password) login.mutate();
+            setAttempted(true);
+            const emailValue = email.trim();
+            const issues = [!emailValue ? `${t("auth.email")}：${t("validation.required")}` : "", !password ? `${t("auth.password")}：${t("validation.required")}` : ""].filter(Boolean);
+            if (emailValue && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) issues.push(`${t("auth.email")}：${t("validation.invalidEmail")}`);
+            if (issues.length) {
+              toast.warning(t("toast.formInvalid"), { description: issues.join("；") });
+              return;
+            }
+            login.mutate();
           }}
         >
           <div className="login-form-heading">
@@ -50,19 +63,19 @@ export function LoginScreen({ onAuthenticated }: { onAuthenticated: (session: Ad
           </div>
           <label className="field">
             <span>{t("auth.email")}</span>
-            <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="username" required autoFocus />
+             <input type="email" value={email} aria-invalid={attempted && (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()))} onChange={(event) => setEmail(event.target.value)} autoComplete="username" autoFocus />
           </label>
           <label className="field">
             <span>{t("auth.password")}</span>
             <div className="password-field">
-              <input type={showPassword ? "text" : "password"} value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required />
+              <input type={showPassword ? "text" : "password"} value={password} aria-invalid={attempted && !password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" />
               <IconButton label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")} onClick={() => setShowPassword((value) => !value)}>
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </IconButton>
             </div>
           </label>
           {login.error ? <ErrorState error={login.error} /> : null}
-          <button className="button primary login-submit" type="submit" disabled={login.isPending || !email.trim() || !password}>
+          <button className="button primary login-submit" type="submit" disabled={login.isPending}>
             {login.isPending ? <LoaderCircle className="spin" size={18} /> : <ShieldCheck size={18} />}
             {t("auth.submit")}
           </button>

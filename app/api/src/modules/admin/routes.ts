@@ -45,11 +45,64 @@ const settingBodySchema = z.object({
   reason: z.string().trim().min(8).max(2000),
 });
 const reasonSchema = z.string().trim().min(8).max(2000);
-const createProviderBodySchema = z.object({ input: createProviderInputSchema, reason: reasonSchema });
-const updateProviderBodySchema = z.object({ input: updateProviderInputSchema, reason: reasonSchema });
+const providerCredentialSetupSchema = z.object({
+  workspaceId: z.string().trim().min(1).max(160).optional(),
+  displayName: z.string().trim().min(1).max(120).optional(),
+  apiKey: z.string().min(1).max(65_536),
+  makeDefaultBinding: z.boolean().default(false),
+});
+const providerAuthenticationSchema = z.discriminatedUnion("mode", [
+  z.object({
+    mode: z.literal("none"),
+  }),
+  providerCredentialSetupSchema.extend({
+    mode: z.literal("bearer"),
+  }),
+]);
+const createProviderBodySchema = z.object({
+  input: createProviderInputSchema,
+  authentication: providerAuthenticationSchema.default({ mode: "none" }),
+  reason: reasonSchema,
+});
+const updateProviderBodySchema = z.object({
+  input: updateProviderInputSchema,
+  authentication: providerCredentialSetupSchema.optional(),
+  reason: reasonSchema,
+});
+const createProviderCredentialBodySchema = z.object({
+  input: providerCredentialSetupSchema,
+  reason: reasonSchema,
+});
+const diagnoseProviderBodySchema = z.object({
+  input: z.object({ credentialId: z.string().trim().min(1).max(160).optional() }).default({}),
+  reason: reasonSchema.default("Manual Admin Provider health check"),
+});
 const syncProviderModelsBodySchema = z.object({
   input: z.object({ credentialId: z.string().trim().min(1).max(160).optional() }).default({}),
   reason: reasonSchema.default("Manual Admin Provider model synchronization"),
+});
+const fetchProviderModelsFromConfigurationBodySchema = z.object({
+  input: z.object({
+    baseUrl: z.string().url(),
+    healthcheckPath: z.string().trim().min(1).max(240).default("/models"),
+    apiKey: z.string().min(1).max(65_536).optional(),
+  }),
+  reason: reasonSchema.default("Preview upstream Provider models before saving"),
+});
+const testProviderBodySchema = z.object({
+  input: z.object({
+    model: z.string().trim().min(1).max(160).optional(),
+    endpointType: z.enum(["auto", "openai", "openai-response"]).default("auto"),
+    stream: z.boolean().default(false),
+  }).default({ endpointType: "auto", stream: false }),
+  reason: reasonSchema.default("Test Provider model connectivity"),
+});
+const applyProviderModelsBodySchema = z.object({
+  input: z.object({
+    modelIds: z.array(z.string().trim().min(1).max(160)).min(1).max(500),
+    defaultModel: z.string().trim().min(1).max(160),
+  }),
+  reason: reasonSchema,
 });
 const createMcpBodySchema = z.object({
   workspaceId: z.string().trim().min(1).max(160).optional(),
@@ -120,6 +173,165 @@ function requestMetadata(request: FastifyRequest) {
     userAgent: readHeader(request, "user-agent") ?? null,
     clientRelease: readHeader(request, "x-client-release") ?? null,
   };
+}
+
+type ProviderCredentialSetup = z.infer<typeof providerCredentialSetupSchema>;
+
+function toProviderWorkspaceActor(
+  auth: NonNullable<ReturnType<typeof requirePlatformAdmin>>,
+  workspaceId: string
+) {
+  return {
+    workspaceId,
+    userId: auth.user.userId,
+    role: "owner" as const,
+    isPlatformAdmin: true,
+  };
+}
+
+function diagnosticFailure(error: unknown) {
+  return {
+    status: "failed" as const,
+    error: {
+      code: error instanceof AppError ? error.code : "INTERNAL_ERROR",
+      message: error instanceof Error ? error.message : "Provider diagnostic failed",
+    },
+  };
+}
+
+async function openProviderApiKey(
+  auth: NonNullable<ReturnType<typeof requirePlatformAdmin>>,
+  providerId: string,
+  reason: string,
+  request: FastifyRequest,
+  credentialId?: string
+) {
+  const current = adminService.getProvider(providerId);
+  const resolvedCredentialId = credentialId ?? current.bindings.find(
+    (item) => item.enabled && item.workspaceId === auth.currentWorkspace.workspaceId
+  )?.credentialId;
+  if (!resolvedCredentialId) return null;
+  return await credentialsService.openCredentialForAdminProbe({
+    credentialId: resolvedCredentialId,
+    actorUserId: auth.user.userId,
+    isPlatformAdmin: true,
+    reason,
+    traceId: requestMetadata(request).traceId,
+  });
+}
+
+async function createAndBindProviderCredential(params: {
+  auth: NonNullable<ReturnType<typeof requirePlatformAdmin>>;
+  provider: { providerId: string; displayName: string; authEnvName: string };
+  input: ProviderCredentialSetup;
+  reason: string;
+  request: FastifyRequest;
+}) {
+  const workspaceId = params.input.workspaceId ?? params.auth.currentWorkspace.workspaceId;
+  const credentialActor = toWorkspaceOwnerActor(params.auth, workspaceId);
+  const current = adminService.getProvider(params.provider.providerId);
+  const existingBinding = current.bindings.find((item) => item.workspaceId === workspaceId);
+  const previousCredential = existingBinding
+    ? adminService.getCredential(existingBinding.credentialId).credential
+    : null;
+  let credential = existingBinding
+    ? await credentialsService.rotateCredential(
+        existingBinding.credentialId,
+        credentialActor,
+        {
+          secretValue: params.input.apiKey,
+          secretRef: null,
+          note: params.reason,
+        }
+      )
+    : await credentialsService.createCredential(credentialActor, {
+        scope: "workspace",
+        displayName: params.input.displayName ?? `${params.provider.displayName} API Key`,
+        provider: params.provider.providerId,
+        secretKind: "api-key",
+        mountMode: "env",
+        secretValue: params.input.apiKey,
+        secretRef: null,
+        envName: params.provider.authEnvName,
+        expiresAt: null,
+        rotationDueAt: null,
+        notes: `Provider authentication for ${params.provider.providerId}`,
+      });
+  if (existingBinding && params.input.displayName && params.input.displayName !== credential.displayName) {
+    credential = await credentialsService.updateCredential(
+      credential.credentialId,
+      credentialActor,
+      { displayName: params.input.displayName }
+    );
+  }
+  await adminService.recordMutation(
+    toActor(params.auth),
+    {
+      action: existingBinding ? "rotate" : "create",
+      resourceType: "credential",
+      resourceId: credential.credentialId,
+      workspaceId,
+      reason: params.reason,
+      before: previousCredential,
+      after: credential,
+    },
+    requestMetadata(params.request)
+  );
+
+  const providerActor = toProviderWorkspaceActor(params.auth, workspaceId);
+  let binding;
+  try {
+    binding = existingBinding
+      ? !existingBinding.enabled || (params.input.makeDefaultBinding && !existingBinding.isDefault)
+        ? await providersService.updateWorkspaceBinding(
+            providerActor,
+            existingBinding.bindingId,
+            {
+              enabled: true,
+              isDefault: params.input.makeDefaultBinding || existingBinding.isDefault,
+            }
+          )
+        : existingBinding
+      : await providersService.createWorkspaceBinding(
+          providerActor,
+          {
+            providerId: params.provider.providerId,
+            credentialId: credential.credentialId,
+            enabled: true,
+            isDefault: params.input.makeDefaultBinding,
+            priority: 100,
+            allowUserOverride: true,
+            notes: "Created by the Admin Provider authentication workflow",
+          }
+        );
+  } catch (error) {
+    if (!existingBinding) {
+      await credentialsService.setCredentialLifecycleStatus(
+        credential.credentialId,
+        credentialActor,
+        {
+          status: "disabled",
+          note: "Provider credential binding failed during Admin onboarding",
+        }
+      );
+    }
+    throw error;
+  }
+  await adminService.recordMutation(
+    toActor(params.auth),
+    {
+      action: existingBinding ? "rotate-bound-credential" : "create-credential-binding",
+      resourceType: "provider",
+      resourceId: params.provider.providerId,
+      workspaceId,
+      reason: params.reason,
+      before: existingBinding ?? null,
+      after: binding,
+    },
+    requestMetadata(params.request)
+  );
+
+  return { credential, binding };
 }
 
 async function buildBootstrap(
@@ -292,25 +504,89 @@ export async function registerAdminRoutes(server: FastifyInstance) {
     return adminService.listProviders(adminListQuerySchema.parse(request.query ?? {}));
   });
   server.get("/providers/:id", async (request) => {
-    requireAdmin(request);
-    return adminService.getProvider(idParamsSchema.parse(request.params).id);
+    const auth = requireAdmin(request);
+    const result = adminService.getProvider(idParamsSchema.parse(request.params).id);
+    return {
+      ...result,
+      managementCredentialConfigured: result.bindings.some(
+        (item) => item.enabled && item.workspaceId === auth.currentWorkspace.workspaceId
+      ),
+    };
+  });
+  server.post("/providers/fetch-models", async (request) => {
+    const auth = requireAdmin(request, true);
+    const body = fetchProviderModelsFromConfigurationBodySchema.parse(request.body ?? {});
+    const result = await providersService.fetchProviderModelsFromConfiguration(
+      toProviderActor(auth),
+      body.input
+    );
+    return {
+      ...result,
+      addedModelIds: result.fetchedModelIds,
+      existingModelIds: [],
+      removedModelIds: [],
+    };
   });
   server.post("/providers", async (request) => {
     const auth = requireAdmin(request, true);
     const body = createProviderBodySchema.parse(request.body);
-    const result = await providersService.createProvider(toProviderActor(auth), body.input);
+    const createdProvider = await providersService.createProvider(toProviderActor(auth), body.input);
     await adminService.recordMutation(
       toActor(auth),
       {
         action: "create",
         resourceType: "provider",
-        resourceId: result.providerId,
+        resourceId: createdProvider.providerId,
         reason: body.reason,
-        after: result,
+        after: createdProvider,
       },
       requestMetadata(request)
     );
-    return result;
+
+    let credentialSetup: Awaited<ReturnType<typeof createAndBindProviderCredential>> | null = null;
+    if (body.authentication.mode === "bearer") {
+      try {
+        credentialSetup = await createAndBindProviderCredential({
+          auth,
+          provider: createdProvider,
+          input: body.authentication,
+          reason: body.reason,
+          request,
+        });
+      } catch (error) {
+        const disabledProvider = await providersService.updateProvider(
+          toProviderActor(auth),
+          createdProvider.providerId,
+          { enabled: false }
+        );
+        await adminService.recordMutation(
+          toActor(auth),
+          {
+            action: "authentication-setup-failed",
+            resourceType: "provider",
+            resourceId: createdProvider.providerId,
+            reason: body.reason,
+            before: createdProvider,
+            after: {
+              provider: disabledProvider,
+              authentication: diagnosticFailure(error),
+            },
+          },
+          requestMetadata(request)
+        );
+        throw error;
+      }
+    }
+    return {
+      ...providersService.getProvider(createdProvider.providerId),
+      authentication: {
+        status: body.authentication.mode === "bearer" ? "configured" : "not_configured",
+        mode: body.authentication.mode,
+        credentialId: credentialSetup?.credential.credentialId ?? null,
+        bindingId: credentialSetup?.binding.bindingId ?? null,
+        workspaceId: credentialSetup?.binding.workspaceId ?? null,
+      },
+    };
   });
   server.patch("/providers/:id", async (request) => {
     const auth = requireAdmin(request, true);
@@ -318,6 +594,15 @@ export async function registerAdminRoutes(server: FastifyInstance) {
     const body = updateProviderBodySchema.parse(request.body);
     const before = providersService.getProvider(providerId);
     const result = await providersService.updateProvider(toProviderActor(auth), providerId, body.input);
+    const credentialSetup = body.authentication
+      ? await createAndBindProviderCredential({
+          auth,
+          provider: result,
+          input: body.authentication,
+          reason: body.reason,
+          request,
+        })
+      : null;
     await adminService.recordMutation(
       toActor(auth),
       {
@@ -330,13 +615,111 @@ export async function registerAdminRoutes(server: FastifyInstance) {
       },
       requestMetadata(request)
     );
+    return {
+      ...result,
+      authentication: credentialSetup
+        ? {
+            status: "configured",
+            credentialId: credentialSetup.credential.credentialId,
+            bindingId: credentialSetup.binding.bindingId,
+            workspaceId: credentialSetup.binding.workspaceId,
+          }
+        : undefined,
+    };
+  });
+  server.post("/providers/:id/credentials", async (request) => {
+    const auth = requireAdmin(request, true);
+    const providerId = idParamsSchema.parse(request.params).id;
+    const body = createProviderCredentialBodySchema.parse(request.body);
+    const provider = providersService.getProvider(providerId);
+    return await createAndBindProviderCredential({
+      auth,
+      provider,
+      input: body.input,
+      reason: body.reason,
+      request,
+    });
+  });
+  server.post("/providers/:id/fetch-models", async (request) => {
+    const auth = requireAdmin(request, true);
+    const providerId = idParamsSchema.parse(request.params).id;
+    const body = syncProviderModelsBodySchema.parse(request.body ?? {});
+    const apiKey = await openProviderApiKey(
+      auth,
+      providerId,
+      body.reason,
+      request,
+      body.input.credentialId
+    );
+    return await providersService.fetchProviderModels(
+      toProviderActor(auth),
+      providerId,
+      { apiKey }
+    );
+  });
+  server.put("/providers/:id/models", async (request) => {
+    const auth = requireAdmin(request, true);
+    const providerId = idParamsSchema.parse(request.params).id;
+    const body = applyProviderModelsBodySchema.parse(request.body ?? {});
+    const before = providersService.getProvider(providerId);
+    const result = await providersService.applyProviderModels(
+      toProviderActor(auth),
+      providerId,
+      body.input
+    );
+    await adminService.recordMutation(
+      toActor(auth),
+      {
+        action: "apply-model-catalog",
+        resourceType: "provider",
+        resourceId: providerId,
+        reason: body.reason,
+        before,
+        after: result,
+      },
+      requestMetadata(request)
+    );
+    return result;
+  });
+  server.post("/providers/:id/test", async (request) => {
+    const auth = requireAdmin(request, true);
+    const providerId = idParamsSchema.parse(request.params).id;
+    const body = testProviderBodySchema.parse(request.body ?? {});
+    const apiKey = await openProviderApiKey(auth, providerId, body.reason, request);
+    const result = await providersService.testProvider(
+      toProviderActor(auth),
+      providerId,
+      { ...body.input, apiKey }
+    );
+    await adminService.recordMutation(
+      toActor(auth),
+      {
+        action: "test-model",
+        resourceType: "provider",
+        resourceId: providerId,
+        reason: body.reason,
+        after: result,
+      },
+      requestMetadata(request)
+    );
     return result;
   });
   server.post("/providers/:id/health-check", async (request) => {
     const auth = requireAdmin(request, true);
     const providerId = idParamsSchema.parse(request.params).id;
-    const body = z.object({ reason: reasonSchema.default("Manual Admin Provider health check") }).parse(request.body ?? {});
-    const result = await providersService.checkProviderHealth(toProviderActor(auth), providerId);
+    const body = diagnoseProviderBodySchema.parse(request.body ?? {});
+    const apiKey = await openProviderApiKey(
+      auth,
+      providerId,
+      body.reason,
+      request,
+      body.input.credentialId
+    );
+    const result = await providersService.checkProviderHealth(
+      toProviderActor(auth),
+      providerId,
+      { apiKey }
+    );
     await adminService.recordMutation(
       toActor(auth),
       {
@@ -354,35 +737,19 @@ export async function registerAdminRoutes(server: FastifyInstance) {
     const auth = requireAdmin(request, true);
     const providerId = idParamsSchema.parse(request.params).id;
     const body = syncProviderModelsBodySchema.parse(request.body ?? {});
-    const current = adminService.getProvider(providerId);
-    const credentialId = body.input.credentialId ?? current.bindings.find((item) => item.enabled)?.credentialId;
-    const apiKey = credentialId
-      ? await credentialsService.openCredentialForAdminProbe({
-          credentialId,
-          actorUserId: auth.user.userId,
-          isPlatformAdmin: true,
-          reason: body.reason,
-          traceId: requestMetadata(request).traceId,
-        })
-      : null;
-    const result = await providersService.syncProviderModels(
+    const apiKey = await openProviderApiKey(
+      auth,
+      providerId,
+      body.reason,
+      request,
+      body.input.credentialId
+    );
+    const result = await providersService.fetchProviderModels(
       toProviderActor(auth),
       providerId,
       { apiKey }
     );
-    await adminService.recordMutation(
-      toActor(auth),
-      {
-        action: "model-sync",
-        resourceType: "provider",
-        resourceId: providerId,
-        reason: body.reason,
-        before: current.provider,
-        after: result.provider,
-      },
-      requestMetadata(request)
-    );
-    return result;
+    return { ...result, applied: false };
   });
   server.get("/mcps", async (request) => {
     requireAdmin(request);

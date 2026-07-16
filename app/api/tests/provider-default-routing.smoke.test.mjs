@@ -92,6 +92,7 @@ test("provider default routing smoke: non-default launch resolves the lowest-pri
     "LINGBAN_AUTH_MODE",
     "LINGBAN_PLATFORM_ADMIN_EMAILS",
     "CODEX_BIN",
+    "CODEX_RUNTIME_PROTOCOL",
     "LINGBAN_BRIDGE_ARGS",
   ];
 
@@ -126,6 +127,7 @@ test("provider default routing smoke: non-default launch resolves the lowest-pri
     process.env.LINGBAN_AUTH_MODE = "required";
     process.env.LINGBAN_PLATFORM_ADMIN_EMAILS = "provider-default-route@example.com";
     process.env.CODEX_BIN = process.execPath;
+    process.env.CODEX_RUNTIME_PROTOCOL = "legacy-pty";
     process.env.LINGBAN_BRIDGE_ARGS = JSON.stringify([fakeCodexScriptPath]);
 
     const { startApiServer } = await import("../dist/index.js");

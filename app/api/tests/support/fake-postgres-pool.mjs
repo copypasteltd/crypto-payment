@@ -61,6 +61,10 @@ export function createFakePostgresPool() {
     lingban_batch_run_jobs: [],
     lingban_batch_run_items: [],
     lingban_session_archives: [],
+    lingban_session_capture_jobs: [],
+    lingban_session_capture_access_audit: [],
+    lingban_session_versions: [],
+    lingban_service_session_bindings: [],
     lingban_runs: [],
     lingban_run_events: [],
     lingban_run_files: [],
@@ -91,6 +95,36 @@ export function createFakePostgresPool() {
         rows: [{ ready: 1 }],
         rowCount: 1,
       };
+    }
+
+    if (normalized === "select record_json from lingban_session_versions order by sealed_at desc") {
+      const rows = [...tables.lingban_session_versions]
+        .sort((left, right) => compareValues(right.sealed_at, left.sealed_at))
+        .map((row) => ({ record_json: clone(row.record_json) }));
+      return { rows, rowCount: rows.length };
+    }
+
+    if (
+      normalized ===
+      "select record_json from lingban_session_capture_jobs where status in ('requested', 'retry_wait') and (next_retry_at is null or next_retry_at <= now()) and (lease_expires_at is null or lease_expires_at <= now()) and ($1::text is null or run_id = $1) order by requested_at asc"
+    ) {
+      const now = Date.now();
+      const runId = params[0] ?? null;
+      const rows = tables.lingban_session_capture_jobs
+        .filter((row) => ["REQUESTED", "RETRY_WAIT"].includes(row.status))
+        .filter((row) => !runId || row.run_id === runId)
+        .filter((row) => !row.next_retry_at || Date.parse(row.next_retry_at) <= now)
+        .filter((row) => !row.lease_expires_at || Date.parse(row.lease_expires_at) <= now)
+        .sort((left, right) => compareValues(left.requested_at, right.requested_at))
+        .map((row) => ({ record_json: clone(row.record_json) }));
+      return { rows, rowCount: rows.length };
+    }
+
+    if (normalized === "select record_json from lingban_service_session_bindings order by updated_at desc") {
+      const rows = [...tables.lingban_service_session_bindings]
+        .sort((left, right) => compareValues(right.updated_at, left.updated_at))
+        .map((row) => ({ record_json: clone(row.record_json) }));
+      return { rows, rowCount: rows.length };
     }
 
     if (normalized === "select version from lingban_schema_migrations where version = $1") {
@@ -1934,6 +1968,18 @@ export function createFakePostgresPool() {
         "alter table lingban_mcp_bindings alter column workspace_id drop not null" ||
       normalized ===
         "alter table lingban_credentials alter column owner_user_id drop not null"
+    ) {
+      return { rows: [], rowCount: 0 };
+    }
+
+    if (
+      normalized.startsWith("alter table lingban_session_") ||
+      normalized.startsWith("create or replace function lingban_reject_sealed_session_version_content_update") ||
+      normalized.startsWith("create or replace function lingban_reject_session_capture_content_update") ||
+      normalized.startsWith("drop trigger if exists trg_lingban_session_version_immutable") ||
+      normalized.startsWith("create trigger trg_lingban_session_version_immutable") ||
+      normalized.startsWith("drop trigger if exists trg_lingban_session_capture_") ||
+      normalized.startsWith("create trigger trg_lingban_session_capture_")
     ) {
       return { rows: [], rowCount: 0 };
     }

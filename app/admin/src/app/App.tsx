@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { adminApi, clearAdminCsrfToken, setAdminCsrfToken } from "../lib/api";
+import { toast } from "../lib/toast";
 import { AppShell } from "../components/AppShell";
 import { LoginScreen } from "../components/LoginScreen";
 import { ErrorState, LoadingState } from "../components/ui";
@@ -46,6 +47,7 @@ export function App() {
   });
   const logout = useMutation({
     mutationFn: adminApi.logout,
+    onSuccess: () => toast.success(t("toast.logoutSucceeded")),
     onSettled: () => {
       clearAdminCsrfToken();
       queryClient.clear();
@@ -55,6 +57,7 @@ export function App() {
 
   useEffect(() => {
     const listener = () => {
+      toast.warning(t("toast.sessionExpired"));
       clearAdminCsrfToken();
       void queryClient.cancelQueries({ queryKey: ["admin-session"] });
       queryClient.removeQueries({ queryKey: ["admin-session"] });
@@ -62,7 +65,7 @@ export function App() {
     };
     window.addEventListener("lingban-admin-auth-expired", listener);
     return () => window.removeEventListener("lingban-admin-auth-expired", listener);
-  }, [queryClient]);
+  }, [queryClient, t]);
 
   if (session.isLoading) return <div className="app-loading"><img src="/assets/logo.svg" alt="" /><LoadingState label={t("validatingSession")} /></div>;
   if (authExpired || !session.data) {

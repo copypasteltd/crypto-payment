@@ -19,6 +19,7 @@ import { registerDownloadTicketRoutes, registerRunUploadRoutes } from "../module
 import { initializeUploadInfrastructure } from "../modules/uploads/service.js";
 import { uploadRetentionManager } from "../modules/uploads/retention.js";
 import { registerCreatorRoutes } from "../modules/creator/routes.js";
+import { sessionCaptureService } from "../modules/session-captures/service.js";
 import { initializeCreatorInfrastructure } from "../modules/creator/service.js";
 import { credentialLifecycleManager } from "../modules/credentials/lifecycle-manager.js";
 import { credentialLifecycleCallbackManager } from "../modules/credentials/callback-manager.js";
@@ -42,11 +43,17 @@ import { registerSessionRoutes } from "../modules/sessions/routes.js";
 import { initializeSessionInfrastructure } from "../modules/sessions/service.js";
 import { registerServiceCatalogRoutes, registerWorkshopRoutes } from "../modules/workshops/routes.js";
 import { initializeWorkshopInfrastructure } from "../modules/workshops/service.js";
+import { registerSessionCaptureRoutes } from "../modules/session-captures/routes.js";
+import { registerSessionCaptureInternalRoutes } from "../modules/session-captures/internal-routes.js";
+import { registerSessionDraftRoutes } from "../modules/session-drafts/routes.js";
+import { initializeSealedSessionVersionRegistry } from "../modules/session-drafts/version-registry.js";
+import { initializeServiceSessionBindingRegistry } from "../modules/session-drafts/service-binding-registry.js";
+import { registerSessionMigrationRoutes } from "../modules/session-migrations/routes.js";
 
 const defaultCorsAllowMethods = "GET,POST,PATCH,PUT,DELETE,OPTIONS";
 const defaultCorsAllowHeaders =
   "Authorization,Content-Type,Accept,Origin,X-Admin-CSRF,X-Request-Id,X-Trace-Id,X-Client-Release";
-const defaultCorsExposeHeaders = "Content-Disposition,Content-Length,Content-Type";
+const defaultCorsExposeHeaders = "Content-Disposition,Content-Length,Content-Type,X-Session-Capture-Audit-Id";
 
 function normalizeConfiguredOrigins(rawValue: string | undefined) {
   return (rawValue ?? "")
@@ -89,6 +96,8 @@ export async function createServer() {
   await initializeSessionInfrastructure();
   await initializeCreatorInfrastructure();
   await initializeQuotaInfrastructure();
+  await initializeSealedSessionVersionRegistry();
+  await initializeServiceSessionBindingRegistry();
 
   const server = Fastify({
     logger: false,
@@ -143,6 +152,7 @@ export async function createServer() {
   });
 
   server.addHook("onClose", async () => {
+    sessionCaptureService.stopRetrySweeper();
     await credentialLifecycleCallbackManager.stopSweeper().catch(() => undefined);
     await credentialLifecycleManager.stopSweeper().catch(() => undefined);
     await runFileLifecycleManager.stopSweeper().catch(() => undefined);
@@ -151,6 +161,8 @@ export async function createServer() {
     await bridgeRegistry.flushPersistence().catch(() => undefined);
     await shutdownRunsRuntime().catch(() => undefined);
   });
+
+  sessionCaptureService.startRetrySweeper();
 
   server.get("/health", async () => ({
     status: "ok",
@@ -235,6 +247,18 @@ export async function createServer() {
     prefix: "/v1/runs",
   });
 
+  server.register(registerSessionCaptureRoutes, {
+    prefix: "/v1",
+  });
+
+  server.register(registerSessionDraftRoutes, {
+    prefix: "/v1",
+  });
+
+  server.register(registerSessionMigrationRoutes, {
+    prefix: "/v1",
+  });
+
   server.register(registerDownloadTicketRoutes, {
     prefix: "/v1/downloads",
   });
@@ -244,6 +268,10 @@ export async function createServer() {
   });
 
   server.register(registerBridgeInternalRoutes, {
+    prefix: "/internal",
+  });
+
+  server.register(registerSessionCaptureInternalRoutes, {
     prefix: "/internal",
   });
 

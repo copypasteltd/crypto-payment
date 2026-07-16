@@ -42,12 +42,12 @@ This component depends on internal `workspace:*` packages. The standalone backen
 | `/ws/runs` | Run WebSocket 订阅与控制消息 |
 | `/v1/sessions` | Session 版本、继承、发布、回滚、脱敏与归档 |
 | `/v1/packages`, `/v1/releases` | Creator Package、Release、Gate、Activation 与 Replay |
-| `/v1/providers`, `/v1/provider-bindings` | 多 Provider 配置、健康检查与工作区路由 |
+| `/v1/providers`, `/v1/provider-bindings` | 多 Provider 配置、API Key 加密创建、Credential Binding、运行时模型白名单与工作区路由 |
 | `/v1/credentials` | 凭证元数据、Broker、生命周期和审计 |
 | `/v1/mcps`, `/v1/mcp-*` | MCP 注册、绑定、探测、网络策略与调用审计 |
 | `/v1/quotas`, `/v1/billing` | 配额策略、计数、超额审批、用量与成本账本 |
 | `/v1/batch-runs` | 批量导入、估算、执行与重试 |
-| `/admin/v1` | 独立 Admin 登录、平台总览、资源治理、Provider 模型同步、MCP 工具同步、Credential 生命周期、配额、账本、审计和系统设置 |
+| `/admin/v1` | 独立 Admin 登录、平台总览、资源治理、Provider 真实模型测试、模型差异拉取与确认写入、MCP 工具同步、Credential 生命周期、配额、账本、审计和系统设置 |
 | `/internal` | Bridge 注册、事件/状态/产物回调、Runtime 诊断与运维动作 |
 
 ## 模块结构 / Module Map
@@ -61,7 +61,7 @@ This component depends on internal `workspace:*` packages. The standalone backen
 | `src/modules/runs/` | Run 聚合、消息、审批、文件、状态与编排 |
 | `src/modules/uploads/` | 上传、对象存储、文件安全、保留与下载票据 |
 | `src/modules/bridge/` | Runtime 注册、命令队列、回调账本和诊断 |
-| `src/modules/providers/` | Provider 配置、密钥引用、健康检查和默认路由 |
+| `src/modules/providers/` | Provider 配置、密钥引用、真实模型测试、只读模型拉取、确认写入和默认路由 |
 | `src/modules/credentials/` | 凭证 Broker、回调、轮换、吊销和审计 |
 | `src/modules/mcp/` | MCP 注册、绑定、探测、网络策略和调用审计 |
 | `src/modules/sessions/` | Session 版本线、脱敏审查、继承、发布与归档 |
@@ -144,11 +144,38 @@ Local verification uses native Node.js and pnpm. Runtime-isolation integration t
 - Admin Access 与 Refresh Token 仅存于 `HttpOnly`、`SameSite=Strict` Cookie，写请求执行签名双提交 CSRF 校验。
 - 高影响治理操作执行影响预检、确认词、原因、资源版本和审计校验；Credential 明文只写入 Broker，不进入读模型。
 
+## Session Control / Session Control
+
+- `src/modules/agent-runtime` stores canonical Codex App Server thread and raw-event evidence.
+- `src/modules/session-captures` owns Capture jobs, leases, barriers, retries, immutable objects, cleanup gates, and audited raw-object access.
+- `src/modules/session-drafts` owns Draft revisions, redaction, review, Replay Gate, sealing, and explicit Package/Service bindings.
+- `src/modules/session-migrations` imports signed v2 packs and migrates v1 archives with dry-run reports.
+- Migration `0030_session_control.sql` creates the complete Session Control persistence model and immutability triggers.
+
+Key rollout settings:
+
+```text
+SESSION_CAPTURE_V2_ENABLED=true
+SESSION_PACK_V2_WRITE_ENABLED=true
+SESSION_VERSION_IMMUTABILITY_ENFORCED=true
+CREATOR_EXPLICIT_SESSION_BINDING_ENABLED=true
+LINGBAN_SESSION_PACK_SIGNATURE_ENABLED=true
+```
+
+Legacy migration:
+
+```bash
+pnpm migrate:legacy-sessions -- --api http://127.0.0.1:38100 --token "$LINGBAN_ACCESS_TOKEN"
+pnpm migrate:legacy-sessions -- --apply --ids sev_a,sev_b --api http://127.0.0.1:38100 --token "$LINGBAN_ACCESS_TOKEN"
+```
+
+Session Control verification: Session Pack `24/24`, DB `27/27`, Session Control E2E `2/2`, complete API smoke `62/62`.
+
 ## 当前状态 / Current Status
 
-截至 2026-07-15，核心控制面、独立 Admin API、Provider 多路由、认证、文件链、Session 资产、治理域、Realtime 与 Runtime 回调均已实现；原生构建通过，Backend smoke 62/62 与 Admin 控制面烟测通过。当前验收 API 地址为 `http://192.168.31.20:38130`，Admin 同源入口为 `http://192.168.31.20:38140/admin/v1`，线上版本为 `20260715T075447Z`。
+截至 2026-07-17，核心控制面、独立 Admin API、Provider 多路由、API Key 加密绑定、模型测试、认证、文件链、结构化 Agent 事件、Capture、Draft、Replay、签名密封、显式绑定、Legacy 迁移、治理域、Realtime 与 Runtime 回调均已实现。当前 Admin 同源入口为 `http://192.168.31.20:38140/admin/v1`，线上版本由 `/admin/v1/system` 返回。
 
-As of 2026-07-15, the core control plane, independent Admin API, multi-provider routing, authentication, file chain, session assets, governance domains, realtime transport, and runtime callbacks are implemented. Native builds pass, and both the 62-test backend smoke suite and Admin control-plane smoke test pass.
+As of 2026-07-17, the API includes the core control plane, independent Admin APIs, provider routing, encrypted credentials, authentication, file handling, structured agent events, Capture, Draft, Replay, signed immutable versions, explicit bindings, legacy migration, governance, realtime transport, and runtime callbacks.
 
 生产扩展仍需要外部 PostgreSQL、Redis、对象存储、集中 Secret Manager、备份策略、告警通道和多节点容量验证。
 

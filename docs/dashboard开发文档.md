@@ -694,3 +694,84 @@ packages/domain-models/
 | 国际化 | 中英文切换完整可用 |
 | 主题 | 明暗主题完整可用 |
 | 参照一致性 | 与 `style-c-operator-dashboard.html` 关键结构一致 |
+
+## 17. Session Control 前端实现（2026-07-17）
+
+### 17.1 实例固化入口
+
+实现组件：`app/dashboard/src/pages/instances/SessionCaptureDrawer.tsx`。
+
+| 区块 | 控件 | 规则 |
+|---|---|---|
+| 来源 | Terminal / Checkpoint Segmented Control | Terminal 默认；Checkpoint 要求已完成 Turn |
+| 文件 | Target Path、Include、Exclude、Max Files、Max Bytes | 默认排除 `.git`、`node_modules`、`.env*`、Secrets、Codex Home 和 Cache |
+| 目标 | Existing Session / New Session | 只绑定目标，不要求用户初始化业务参数 |
+| 确认 | 边界、文件范围、Draft 开关 | 生成稳定 Idempotency Key |
+| 状态 | Stage、尝试次数、文件数、字节数和失败原因 | 2 秒轮询运行态，15 秒轮询终态 |
+| 恢复 | Retry | 只在 FAILED/RETRY_WAIT 显示 |
+
+Drawer 入口位于实例完整对话页面。用户在固化过程中仍可查看会话、审批、运行详情和文件；固化不会替代实例对话主模式。
+
+### 17.2 Creator Session Asset Workbench
+
+实现组件：`app/dashboard/src/pages/creator/SessionAssetWorkbench.tsx`。
+
+桌面结构：
+
+```text
+Capture Queue
+| Draft / Revision
+| Review / Replay / Seal / Binding
+```
+
+窄屏结构：
+
+```text
+>= 1200px  三列
+768–1199px 两列，第三列换行
+< 768px    单列
+```
+
+| 阶段 | 用户操作 | 主要反馈 |
+|---|---|---|
+| Capture | 选择 Capture、检查安全状态、创建 Draft | Status、File Count、Event Count |
+| Revision | 选择 Target Kind、Selector、Strategy、Replacement | Revision ID、Revision Number |
+| Review | Approve / Changes Requested | Findings、Pack Issues、Review Note |
+| Replay | Run Restore Validation | Check 列表、File/Event Count、Failure Code |
+| Seal | 选择 Signing Policy 并密封 | Version ID、Algorithm、Key ID |
+| Binding | Candidate / Active | 当前 Binding Version |
+| Package | 创建 Package 并关联 Workshop/Service | 创建后写 Candidate Binding |
+
+### 17.3 原始证据访问
+
+选中 `CAPTURED` 记录后显示原始证据区：
+
+1. 用户填写至少 8 个字符的访问原因。
+2. UI 按 `raw_events`、`thread`、`workspace`、`inventory`、`manifest` 展示对象。
+3. 下载按钮显示类型和近似大小，Hover Tooltip 显示 SHA-256。
+4. S3 返回 JSON 后通过短期 URL 下载。
+5. Filesystem Store 返回二进制流后使用 Blob 下载。
+6. 最近三条访问审计显示对象类型、时间和访问模式。
+7. Audit Query Key 为 `dashboard/creator/session-capture-audit/:captureId`。
+
+### 17.4 状态与缓存键
+
+| Query Key | 数据 |
+|---|---|
+| `dashboard/creator/session-captures` | Capture Queue |
+| `dashboard/creator/session-drafts` | Draft 列表 |
+| `dashboard/creator/session-draft/:draftId` | Draft 完整详情 |
+| `dashboard/creator/session-bindings/:packageId` | Package Binding |
+| `dashboard/creator/session-capture-audit/:captureId` | Raw Access Audit |
+
+Revision、Review、Replay、Seal、Binding 和 Package Create 成功后统一失效相关 Query，避免局部 UI 保留旧 Version。
+
+### 17.5 视觉验收结果
+
+| Viewport | 结果 |
+|---|---|
+| 1440×1000 | 抽屉侧栏展开，Workbench 三列，无横向溢出 |
+| 1024×768 | 仅图标 Rail，Workbench 两列，无横向溢出 |
+| 390×844 | 单列内容，顶部操作换行，无横向溢出 |
+
+生产构建、Oxlint 和 E2E 均通过；浏览器 Console 无 Error/Warning。

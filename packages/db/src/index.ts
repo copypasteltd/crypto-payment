@@ -1,6 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import { Pool, type PoolClient, type PoolConfig } from "pg";
 export * from "./runs.js";
+export * from "./agent-runtime-repository.js";
 export * from "./postgres-types.js";
 export * from "./bridge-repository.js";
 export * from "./billing-repository.js";
@@ -20,6 +21,8 @@ export * from "./me-favorites-repository.js";
 export * from "./notifications-repository.js";
 export * from "./search-repository.js";
 export * from "./session-archives-repository.js";
+export * from "./session-capture-repository.js";
+export * from "./session-asset-repository.js";
 export * from "./uploads-repository.js";
 export * from "./cli.js";
 
@@ -67,10 +70,108 @@ export type PostgresTransactionClient = Pick<PoolClient, "query">;
 export const DEFAULT_SCHEMA_MIGRATIONS_TABLE = "lingban_schema_migrations";
 
 export function splitSqlStatements(contents: string) {
-  return contents
-    .split(/;\s*(?:\r?\n|$)/g)
-    .map((statement) => statement.trim())
-    .filter(Boolean);
+  const statements: string[] = [];
+  let current = "";
+  let quote: "single" | "double" | "line-comment" | "block-comment" | null = null;
+  let dollarTag: string | null = null;
+
+  for (let index = 0; index < contents.length; index += 1) {
+    const character = contents[index]!;
+    const nextCharacter = contents[index + 1] ?? "";
+
+    if (quote === "line-comment") {
+      current += character;
+      if (character === "\n") quote = null;
+      continue;
+    }
+
+    if (quote === "block-comment") {
+      current += character;
+      if (character === "*" && nextCharacter === "/") {
+        current += nextCharacter;
+        index += 1;
+        quote = null;
+      }
+      continue;
+    }
+
+    if (dollarTag) {
+      if (contents.startsWith(dollarTag, index)) {
+        current += dollarTag;
+        index += dollarTag.length - 1;
+        dollarTag = null;
+      } else {
+        current += character;
+      }
+      continue;
+    }
+
+    if (quote === "single") {
+      current += character;
+      if (character === "'" && nextCharacter === "'") {
+        current += nextCharacter;
+        index += 1;
+      } else if (character === "'") {
+        quote = null;
+      }
+      continue;
+    }
+
+    if (quote === "double") {
+      current += character;
+      if (character === '"' && nextCharacter === '"') {
+        current += nextCharacter;
+        index += 1;
+      } else if (character === '"') {
+        quote = null;
+      }
+      continue;
+    }
+
+    if (character === "-" && nextCharacter === "-") {
+      current += character + nextCharacter;
+      index += 1;
+      quote = "line-comment";
+      continue;
+    }
+    if (character === "/" && nextCharacter === "*") {
+      current += character + nextCharacter;
+      index += 1;
+      quote = "block-comment";
+      continue;
+    }
+    if (character === "'") {
+      current += character;
+      quote = "single";
+      continue;
+    }
+    if (character === '"') {
+      current += character;
+      quote = "double";
+      continue;
+    }
+    if (character === "$") {
+      const match = contents.slice(index).match(/^\$[A-Za-z_][A-Za-z0-9_]*\$|^\$\$/);
+      if (match) {
+        dollarTag = match[0];
+        current += dollarTag;
+        index += dollarTag.length - 1;
+        continue;
+      }
+    }
+    if (character === ";") {
+      const statement = current.trim();
+      if (statement) statements.push(statement);
+      current = "";
+      continue;
+    }
+
+    current += character;
+  }
+
+  const trailing = current.trim();
+  if (trailing) statements.push(trailing);
+  return statements;
 }
 
 export function compareMigrationVersions(left: string, right: string) {

@@ -39,11 +39,13 @@ export function StatusBadge({ status }: { status: unknown }) {
   const text = String(status ?? "unknown");
   const normalized = text.toLowerCase();
   const statusKey = normalized.replace(/[\s-]+/g, "_");
-  const tone = /active|ready|healthy|success|completed|online|approved/.test(normalized)
-    ? "success"
+  const tone = normalized === "not_configured" || normalized === "skipped"
+    ? "neutral"
+    : /active|ready|healthy|success|succeeded|completed|online|approved|configured/.test(normalized)
+      ? "success"
     : /failed|error|revoked|critical|unhealthy|terminated|blocked/.test(normalized)
       ? "danger"
-      : /warn|pending|degraded|rotation|waiting|draining|suspended|quarantined/.test(normalized)
+      : /warn|pending|degraded|rotation|waiting|draining|suspended|quarantined|auth_required/.test(normalized)
         ? "warning"
         : /running|starting|created|info/.test(normalized)
           ? "info"
