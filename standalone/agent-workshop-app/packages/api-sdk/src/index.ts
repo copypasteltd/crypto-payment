@@ -20,6 +20,7 @@ import {
   changeCredentialLifecycleInputSchema,
   credentialAuditEventSchema,
   createCreatorAuditExportInputSchema,
+  createCreatorPackageInputSchema,
   createCredentialInputSchema,
   createCreatorReleaseInputSchema,
   createCreatorReplayInputSchema,
@@ -135,6 +136,31 @@ import {
   clientRealtimeMessageSchema,
   createRunInputSchema,
   createRunResponseSchema,
+  createSessionCaptureInputSchema,
+  createSessionCaptureResponseSchema,
+  listSessionCapturesResponseSchema,
+  listSessionCaptureObjectAccessAuditResponseSchema,
+  requestSessionCaptureObjectDownloadSchema,
+  sessionCaptureRecordSchema,
+  createSessionDraftInputSchema,
+  createSessionDraftResponseSchema,
+  createSessionDraftReplayInputSchema,
+  createSessionDraftReplayResponseSchema,
+  createSessionDraftRevisionInputSchema,
+  createSessionDraftRevisionResponseSchema,
+  listSessionDraftsResponseSchema,
+  sessionDraftDetailSchema,
+  submitSessionRedactionReviewInputSchema,
+  submitSessionRedactionReviewResponseSchema,
+  sealSessionDraftInputSchema,
+  sealSessionDraftResponseSchema,
+  putCreatorPackageSessionBindingInputSchema,
+  creatorPackageSessionBindingSchema,
+  creatorPackageSessionBindingsSchema,
+  listSealedSessionVersionsResponseSchema,
+  sealedSessionVersionRecordSchema,
+  migrateLegacySessionArchivesInputSchema,
+  migrateLegacySessionArchivesResponseSchema,
   workshopDetailSchema,
   workshopCatalogEntrySchema,
   workspaceProfileSummarySchema,
@@ -175,6 +201,7 @@ import {
   type BillingLedgerSummaryQuery,
   type ChangeCredentialLifecycleInput,
   type CreateCreatorAuditExportInput,
+  type CreateCreatorPackageInput,
   type CredentialDetail,
   type CredentialAuditEvent,
   type CredentialLifecycleChangeResult,
@@ -284,6 +311,31 @@ import {
   type BridgeEvent,
   type CreateRunInput,
   type CreateRunResponse,
+  type CreateSessionCaptureInput,
+  type CreateSessionCaptureResponse,
+  type ListSessionCapturesResponse,
+  type ListSessionCaptureObjectAccessAuditResponse,
+  type RequestSessionCaptureObjectDownload,
+  type SessionCaptureRecord,
+  type CreateSessionDraftInput,
+  type CreateSessionDraftResponse,
+  type CreateSessionDraftReplayInput,
+  type CreateSessionDraftReplayResponse,
+  type CreateSessionDraftRevisionInput,
+  type CreateSessionDraftRevisionResponse,
+  type ListSessionDraftsResponse,
+  type SessionDraftDetail,
+  type SubmitSessionRedactionReviewInput,
+  type SubmitSessionRedactionReviewResponse,
+  type SealSessionDraftInput,
+  type SealSessionDraftResponse,
+  type PutCreatorPackageSessionBindingInput,
+  type CreatorPackageSessionBinding,
+  type CreatorPackageSessionBindings,
+  type ListSealedSessionVersionsResponse,
+  type SealedSessionVersionRecord,
+  type MigrateLegacySessionArchivesInput,
+  type MigrateLegacySessionArchivesResponse,
   type RunFileEntry,
   type ListRunFileIndexResponse,
   type ListRunsQuery,
@@ -1009,6 +1061,181 @@ export function createRunsApiClient(config: ClientConfig) {
 }
 
 export type RunsApiClient = ReturnType<typeof createRunsApiClient>;
+
+export function createSessionCapturesApiClient(config: ClientConfig) {
+  const fetcher = config.fetcher ?? fetch;
+  return {
+    async listWorkspace(): Promise<ListSessionCapturesResponse> {
+      const response = await fetcher(`${config.baseUrl}/v1/session-captures`, {
+        headers: buildAuthHeaders(config.getAccessToken),
+      });
+      return parseJson(response, listSessionCapturesResponseSchema);
+    },
+    async create(runId: string, input: CreateSessionCaptureInput): Promise<CreateSessionCaptureResponse> {
+      const response = await fetcher(`${config.baseUrl}/v1/runs/${encodeURIComponent(runId)}/session-captures`, {
+        method: "POST",
+        headers: { "content-type": "application/json", ...buildAuthHeaders(config.getAccessToken) },
+        body: JSON.stringify(createSessionCaptureInputSchema.parse(input)),
+      });
+      return parseJson(response, createSessionCaptureResponseSchema);
+    },
+    async list(runId: string): Promise<ListSessionCapturesResponse> {
+      const response = await fetcher(`${config.baseUrl}/v1/runs/${encodeURIComponent(runId)}/session-captures`, {
+        headers: buildAuthHeaders(config.getAccessToken),
+      });
+      return parseJson(response, listSessionCapturesResponseSchema);
+    },
+    async get(captureId: string): Promise<SessionCaptureRecord> {
+      const response = await fetcher(`${config.baseUrl}/v1/session-captures/${encodeURIComponent(captureId)}`, {
+        headers: buildAuthHeaders(config.getAccessToken),
+      });
+      return parseJson(response, sessionCaptureRecordSchema);
+    },
+    async retry(captureId: string): Promise<SessionCaptureRecord> {
+      const response = await fetcher(`${config.baseUrl}/v1/session-captures/${encodeURIComponent(captureId)}/retry`, {
+        method: "POST",
+        headers: buildAuthHeaders(config.getAccessToken),
+      });
+      return parseJson(response, sessionCaptureRecordSchema);
+    },
+    async listAccessAudit(captureId: string): Promise<ListSessionCaptureObjectAccessAuditResponse> {
+      const response = await fetcher(`${config.baseUrl}/v1/session-captures/${encodeURIComponent(captureId)}/access-audit`, {
+        headers: buildAuthHeaders(config.getAccessToken),
+      });
+      return parseJson(response, listSessionCaptureObjectAccessAuditResponseSchema);
+    },
+    async downloadObject(captureId: string, objectType: string, input: RequestSessionCaptureObjectDownload): Promise<Response> {
+      return fetcher(`${config.baseUrl}/v1/session-captures/${encodeURIComponent(captureId)}/objects/${encodeURIComponent(objectType)}/download`, {
+        method: "POST",
+        headers: { "content-type": "application/json", ...buildAuthHeaders(config.getAccessToken) },
+        body: JSON.stringify(requestSessionCaptureObjectDownloadSchema.parse(input)),
+      });
+    },
+  };
+}
+
+export type SessionCapturesApiClient = ReturnType<typeof createSessionCapturesApiClient>;
+
+export function createSessionDraftsApiClient(config: ClientConfig) {
+  const fetcher = config.fetcher ?? fetch;
+  return {
+    async list(): Promise<ListSessionDraftsResponse> {
+      const response = await fetcher(`${config.baseUrl}/v1/session-drafts`, {
+        headers: buildAuthHeaders(config.getAccessToken),
+      });
+      return parseJson(response, listSessionDraftsResponseSchema);
+    },
+    async createFromCapture(captureId: string, input: CreateSessionDraftInput): Promise<CreateSessionDraftResponse> {
+      const response = await fetcher(`${config.baseUrl}/v1/session-captures/${encodeURIComponent(captureId)}/drafts`, {
+        method: "POST",
+        headers: { "content-type": "application/json", ...buildAuthHeaders(config.getAccessToken) },
+        body: JSON.stringify(createSessionDraftInputSchema.parse(input)),
+      });
+      return parseJson(response, createSessionDraftResponseSchema);
+    },
+    async get(draftId: string): Promise<SessionDraftDetail> {
+      const response = await fetcher(`${config.baseUrl}/v1/session-drafts/${encodeURIComponent(draftId)}`, {
+        headers: buildAuthHeaders(config.getAccessToken),
+      });
+      return parseJson(response, sessionDraftDetailSchema);
+    },
+    async createRevision(draftId: string, input: CreateSessionDraftRevisionInput): Promise<CreateSessionDraftRevisionResponse> {
+      const response = await fetcher(`${config.baseUrl}/v1/session-drafts/${encodeURIComponent(draftId)}/revisions`, {
+        method: "POST",
+        headers: { "content-type": "application/json", ...buildAuthHeaders(config.getAccessToken) },
+        body: JSON.stringify(createSessionDraftRevisionInputSchema.parse(input)),
+      });
+      return parseJson(response, createSessionDraftRevisionResponseSchema);
+    },
+    async review(draftId: string, input: SubmitSessionRedactionReviewInput): Promise<SubmitSessionRedactionReviewResponse> {
+      const response = await fetcher(`${config.baseUrl}/v1/session-drafts/${encodeURIComponent(draftId)}/redaction-review`, {
+        method: "POST",
+        headers: { "content-type": "application/json", ...buildAuthHeaders(config.getAccessToken) },
+        body: JSON.stringify(submitSessionRedactionReviewInputSchema.parse(input)),
+      });
+      return parseJson(response, submitSessionRedactionReviewResponseSchema);
+    },
+    async replay(draftId: string, input: CreateSessionDraftReplayInput): Promise<CreateSessionDraftReplayResponse> {
+      const response = await fetcher(`${config.baseUrl}/v1/session-drafts/${encodeURIComponent(draftId)}/replay`, {
+        method: "POST",
+        headers: { "content-type": "application/json", ...buildAuthHeaders(config.getAccessToken) },
+        body: JSON.stringify(createSessionDraftReplayInputSchema.parse(input)),
+      });
+      return parseJson(response, createSessionDraftReplayResponseSchema);
+    },
+    async seal(draftId: string, input: SealSessionDraftInput): Promise<SealSessionDraftResponse> {
+      const response = await fetcher(`${config.baseUrl}/v1/session-drafts/${encodeURIComponent(draftId)}/seal`, {
+        method: "POST",
+        headers: { "content-type": "application/json", ...buildAuthHeaders(config.getAccessToken) },
+        body: JSON.stringify(sealSessionDraftInputSchema.parse(input)),
+      });
+      return parseJson(response, sealSessionDraftResponseSchema);
+    },
+  };
+}
+
+export type SessionDraftsApiClient = ReturnType<typeof createSessionDraftsApiClient>;
+
+export function createSessionMigrationsApiClient(config: ClientConfig) {
+  const fetcher = config.fetcher ?? fetch;
+  return {
+    async migrateLegacyArchives(input: MigrateLegacySessionArchivesInput): Promise<MigrateLegacySessionArchivesResponse> {
+      const response = await fetcher(`${config.baseUrl}/v1/session-migrations/legacy-archives`, {
+        method: "POST",
+        headers: { "content-type": "application/json", ...buildAuthHeaders(config.getAccessToken) },
+        body: JSON.stringify(migrateLegacySessionArchivesInputSchema.parse(input)),
+      });
+      return parseJson(response, migrateLegacySessionArchivesResponseSchema);
+    },
+    async importV2Archive(content: Uint8Array): Promise<SealedSessionVersionRecord> {
+      const response = await fetcher(`${config.baseUrl}/v1/session-versions/import`, {
+        method: "POST",
+        headers: { "content-type": "application/octet-stream", ...buildAuthHeaders(config.getAccessToken) },
+        body: content,
+      });
+      return parseJson(response, sealedSessionVersionRecordSchema);
+    },
+  };
+}
+
+export type SessionMigrationsApiClient = ReturnType<typeof createSessionMigrationsApiClient>;
+
+export function createSessionVersionsApiClient(config: ClientConfig) {
+  const fetcher = config.fetcher ?? fetch;
+  return {
+    async list(sessionId: string): Promise<ListSealedSessionVersionsResponse> {
+      const response = await fetcher(`${config.baseUrl}/v1/sessions/${encodeURIComponent(sessionId)}/versions`, {
+        headers: buildAuthHeaders(config.getAccessToken),
+      });
+      return parseJson(response, listSealedSessionVersionsResponseSchema);
+    },
+    async get(sessionVersionId: string): Promise<SealedSessionVersionRecord> {
+      const response = await fetcher(`${config.baseUrl}/v1/session-versions/${encodeURIComponent(sessionVersionId)}`, {
+        headers: buildAuthHeaders(config.getAccessToken),
+      });
+      return parseJson(response, sealedSessionVersionRecordSchema);
+    },
+    async getPackageBindings(packageId: string): Promise<CreatorPackageSessionBindings> {
+      const response = await fetcher(`${config.baseUrl}/v1/packages/${encodeURIComponent(packageId)}/session-binding`, {
+        headers: buildAuthHeaders(config.getAccessToken),
+      });
+      return parseJson(response, creatorPackageSessionBindingsSchema);
+    },
+    async bindPackage(
+      packageId: string,
+      input: PutCreatorPackageSessionBindingInput
+    ): Promise<CreatorPackageSessionBinding> {
+      const response = await fetcher(`${config.baseUrl}/v1/packages/${encodeURIComponent(packageId)}/session-binding`, {
+        method: "PUT",
+        headers: { "content-type": "application/json", ...buildAuthHeaders(config.getAccessToken) },
+        body: JSON.stringify(putCreatorPackageSessionBindingInputSchema.parse(input)),
+      });
+      return parseJson(response, creatorPackageSessionBindingSchema);
+    },
+  };
+}
+
+export type SessionVersionsApiClient = ReturnType<typeof createSessionVersionsApiClient>;
 
 export function createBatchRunsApiClient(config: ClientConfig) {
   const fetcher = config.fetcher ?? fetch;
@@ -1880,6 +2107,18 @@ export function createCreatorApiClient(config: ClientConfig) {
   const fetcher = config.fetcher ?? fetch;
 
   return {
+    async createPackage(input: CreateCreatorPackageInput): Promise<CreatorPackageDetail> {
+      const response = await fetcher(`${config.baseUrl}/v1/packages`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...buildAuthHeaders(config.getAccessToken),
+        },
+        body: JSON.stringify(createCreatorPackageInputSchema.parse(input)),
+      });
+      return parseJson(response, creatorPackageDetailSchema);
+    },
+
     async listPackages(query: ListCreatorPackagesQuery = {}): Promise<CreatorPackageSummary[]> {
       const parsed = listCreatorPackagesQuerySchema.parse(query);
       const response = await fetcher(

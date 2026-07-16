@@ -26,6 +26,21 @@ function readBearerToken(request: FastifyRequest) {
     return authorization.slice("Bearer ".length).trim();
   }
 
+  const cookies = request.headers.cookie
+    ?.split(";")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const adminAccessCookie = cookies
+    ?.find((item) => item.startsWith("lingban_admin_access="))
+    ?.slice("lingban_admin_access=".length);
+  if (adminAccessCookie) {
+    try {
+      return decodeURIComponent(adminAccessCookie);
+    } catch {
+      return adminAccessCookie;
+    }
+  }
+
   const query = request.query as Record<string, unknown> | undefined;
   const queryToken = query?.accessToken;
   return typeof queryToken === "string" && queryToken.trim().length > 0

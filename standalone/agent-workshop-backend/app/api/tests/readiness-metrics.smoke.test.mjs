@@ -210,6 +210,13 @@ test("readyz and internal metrics expose readiness state and runtime gauges", as
       true
     );
     assert.equal(metrics.body.includes("lingban_api_ready 1"), true);
+    assert.equal(metrics.body.includes("session_capture_requested_total 0"), true);
+    assert.equal(metrics.body.includes("session_capture_duration_seconds_bucket"), true);
+    assert.equal(metrics.body.includes("session_pack_restore_seconds_bucket"), true);
+    assert.equal(metrics.body.includes("session_version_sealed_total 0"), true);
+    assert.equal(metrics.body.includes('session_control_feature_enabled{feature="capture_v2"} 1'), true);
+    assert.equal(metrics.body.includes("session_capture_raw_access_total"), true);
+    assert.equal(metrics.body.includes("session_legacy_migration_total"), true);
     assert.equal(
       metrics.body.includes('lingban_api_dependency_enabled{dependency="database"} 0'),
       true

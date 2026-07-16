@@ -676,6 +676,7 @@ function buildHealthSnapshotRecord(input: {
   httpStatus?: number | null;
   latencyMs?: number | null;
   toolCount?: number | null;
+  toolNames?: string[];
   policyEnforced: boolean;
 }) {
   const now = nowIso();
@@ -696,6 +697,7 @@ function buildHealthSnapshotRecord(input: {
     httpStatus: input.httpStatus ?? null,
     latencyMs: input.latencyMs ?? null,
     toolCount: input.toolCount ?? null,
+    toolNames: input.toolNames ?? [],
     policyEnforced: input.policyEnforced,
     probedAt: now,
     recordedAt: now,
@@ -1146,6 +1148,7 @@ export class McpService {
       httpStatus: probe.httpStatus,
       latencyMs: probe.latencyMs,
       toolCount: probe.toolCount,
+      toolNames: probe.toolNames ?? [],
       policyEnforced: supportsRuntimeNetworkPolicy(entry),
     });
 

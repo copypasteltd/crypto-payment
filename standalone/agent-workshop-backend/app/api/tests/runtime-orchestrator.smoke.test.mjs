@@ -17,6 +17,7 @@ function createSnapshots(statusByRunId) {
         runId,
         status,
       },
+      sessionCaptures: [],
     });
   }
   return snapshots;
@@ -257,8 +258,7 @@ test("EmbeddedRunOrchestrator recovers queued runs, fails orphaned sessions, and
     true
   );
 
-  await nextTick();
-  assert.equal(worker.cleanupCalls.includes("run_terminal"), true);
+  await waitFor(() => worker.cleanupCalls.includes("run_terminal"), 2_500);
 });
 
 test("EmbeddedRunOrchestrator keeps orphaned runs alive when bridge re-registers before grace timeout", async () => {

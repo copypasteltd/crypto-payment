@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import {
   activateCreatorReleaseInputSchema,
   createCreatorAuditExportInputSchema,
+  createCreatorPackageInputSchema,
   creatorGovernanceSectionSummaryQuerySchema,
   createCreatorReleaseInputSchema,
   createCreatorReplayInputSchema,
@@ -10,6 +11,8 @@ import {
   listCreatorPackagesQuerySchema,
   updateCreatorReleaseInputSchema,
   updateCreatorReplayInputSchema,
+  putCreatorPackageSessionBindingInputSchema,
+  creatorPackageSessionBindingsSchema,
   type WorkspaceRole,
 } from "@lingban/contracts";
 import {
@@ -26,6 +29,7 @@ import {
   creatorReplayIdParamsSchema,
 } from "./storage-schema.js";
 import { creatorService } from "./service.js";
+import { sessionDraftService } from "../session-drafts/service.js";
 
 const creatorAccessRoles: WorkspaceRole[] = ["owner", "admin", "creator"];
 const creatorGovernanceRoles: WorkspaceRole[] = ["owner", "admin"];
@@ -54,12 +58,38 @@ export async function registerCreatorRoutes(server: FastifyInstance) {
     return creatorService.listPackages(query, authContext ? toCreatorActor(authContext) : undefined);
   });
 
+  server.post("/packages", async (request) => {
+    const authContext = requireCurrentWorkspaceAccess(request, creatorAccessRoles);
+    if (!authContext) return null;
+    return creatorService.createPackage(
+      createCreatorPackageInputSchema.parse(request.body),
+      toCreatorActor(authContext)
+    );
+  });
+
   server.get("/packages/:packageId", async (request) => {
     const authContext = requireCurrentWorkspaceAccess(request, creatorAccessRoles);
     const params = creatorPackageIdParamsSchema.parse(request.params);
     return creatorService.getPackage(
       params.packageId,
       authContext ? toCreatorActor(authContext) : undefined
+    );
+  });
+
+  server.put("/packages/:packageId/session-binding", async (request) => {
+    const authContext = requireCurrentWorkspaceAccess(request, creatorAccessRoles);
+    if (!authContext) return null;
+    const params = creatorPackageIdParamsSchema.parse(request.params);
+    const body = putCreatorPackageSessionBindingInputSchema.parse(request.body);
+    return sessionDraftService.bindPackage(params.packageId, body);
+  });
+
+  server.get("/packages/:packageId/session-binding", async (request) => {
+    const authContext = requireCurrentWorkspaceAccess(request, creatorAccessRoles);
+    if (!authContext) return creatorPackageSessionBindingsSchema.parse({ active: null, candidate: null });
+    const params = creatorPackageIdParamsSchema.parse(request.params);
+    return creatorPackageSessionBindingsSchema.parse(
+      await sessionDraftService.getPackageBindings(params.packageId)
     );
   });
 

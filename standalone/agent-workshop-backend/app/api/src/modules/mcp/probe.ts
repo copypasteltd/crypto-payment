@@ -10,6 +10,7 @@ export type McpProbeResult = {
   httpStatus: number | null;
   latencyMs: number | null;
   toolCount: number | null;
+  toolNames?: string[];
 };
 
 function latencySince(startedAt: number) {
@@ -50,10 +51,10 @@ function summarizeFetchError(error: unknown) {
   };
 }
 
-async function maybeExtractToolCount(response: Response) {
+async function maybeExtractTools(response: Response) {
   const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
   if (!contentType.includes("application/json")) {
-    return null;
+    return { toolCount: null, toolNames: [] as string[] };
   }
 
   try {
@@ -63,13 +64,21 @@ async function maybeExtractToolCount(response: Response) {
       typeof payload === "object" &&
       Array.isArray((payload as { tools?: unknown[] }).tools)
     ) {
-      return (payload as { tools: unknown[] }).tools.length;
+      const tools = (payload as { tools: unknown[] }).tools;
+      const toolNames = [...new Set(tools.map((tool) => {
+        if (typeof tool === "string") return tool.trim();
+        if (!tool || typeof tool !== "object") return "";
+        const record = tool as { name?: unknown; id?: unknown };
+        const value = record.name ?? record.id;
+        return typeof value === "string" ? value.trim() : "";
+      }).filter(Boolean))].slice(0, 500);
+      return { toolCount: tools.length, toolNames };
     }
   } catch {
-    return null;
+    return { toolCount: null, toolNames: [] as string[] };
   }
 
-  return null;
+  return { toolCount: null, toolNames: [] as string[] };
 }
 
 async function probeHttpLikeTarget(input: {
@@ -90,7 +99,7 @@ async function probeHttpLikeTarget(input: {
     });
 
     const latencyMs = latencySince(startedAt);
-    const toolCount = await maybeExtractToolCount(response);
+    const { toolCount, toolNames } = await maybeExtractTools(response);
     const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
 
     if (response.status >= 200 && response.status < 300) {
@@ -105,6 +114,7 @@ async function probeHttpLikeTarget(input: {
           httpStatus: response.status,
           latencyMs,
           toolCount,
+          toolNames,
         } satisfies McpProbeResult;
       }
 
@@ -115,6 +125,7 @@ async function probeHttpLikeTarget(input: {
         httpStatus: response.status,
         latencyMs,
         toolCount,
+        toolNames,
       } satisfies McpProbeResult;
     }
 
@@ -126,6 +137,7 @@ async function probeHttpLikeTarget(input: {
         httpStatus: response.status,
         latencyMs,
         toolCount,
+        toolNames,
       } satisfies McpProbeResult;
     }
 
@@ -137,6 +149,7 @@ async function probeHttpLikeTarget(input: {
         httpStatus: response.status,
         latencyMs,
         toolCount,
+        toolNames,
       } satisfies McpProbeResult;
     }
 
@@ -147,6 +160,7 @@ async function probeHttpLikeTarget(input: {
       httpStatus: response.status,
       latencyMs,
       toolCount,
+      toolNames,
     } satisfies McpProbeResult;
   } catch (error) {
     const summary = summarizeFetchError(error);

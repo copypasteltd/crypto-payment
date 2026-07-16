@@ -305,6 +305,10 @@ export type ApiRuntimeConfig = {
   recentStore: "file" | "postgres";
   searchStore: "file" | "postgres";
   sessionArchivesStore: "file" | "postgres";
+  sessionCaptureV2Enabled: boolean;
+  sessionPackV2WriteEnabled: boolean;
+  sessionVersionImmutabilityEnforced: boolean;
+  creatorExplicitSessionBindingEnabled: boolean;
   sessionPackSignatureEnabled: boolean;
   sessionPackSignatureRequireForImports: boolean;
   sessionPackSignatureAlgorithm: "sha256" | "hmac-sha256" | "ed25519";
@@ -884,6 +888,18 @@ export function loadApiRuntimeConfig(env: EnvSource = process.env): ApiRuntimeCo
       readTrimmed(env, "LINGBAN_SESSION_ARCHIVES_STORE"),
       runsStore
     ),
+    sessionCaptureV2Enabled: readBoolean(env, "SESSION_CAPTURE_V2_ENABLED", true),
+    sessionPackV2WriteEnabled: readBoolean(env, "SESSION_PACK_V2_WRITE_ENABLED", true),
+    sessionVersionImmutabilityEnforced: readBoolean(
+      env,
+      "SESSION_VERSION_IMMUTABILITY_ENFORCED",
+      true
+    ),
+    creatorExplicitSessionBindingEnabled: readBoolean(
+      env,
+      "CREATOR_EXPLICIT_SESSION_BINDING_ENABLED",
+      true
+    ),
     sessionPackSignatureEnabled,
     sessionPackSignatureRequireForImports,
     sessionPackSignatureAlgorithm,
@@ -1336,6 +1352,8 @@ export type BridgeCliRuntimeConfig = {
   internalAuthToken?: string;
   codexBin?: string;
   codexArgs?: string[];
+  codexRuntimeProtocol: "legacy-pty" | "app-server";
+  codexAppServerRequestTimeoutMs: number;
   mcpStdioAllowedPathPrefixes: string[];
 };
 
@@ -1383,6 +1401,14 @@ export function loadBridgeCliRuntimeConfig(
     internalAuthToken: readTrimmed(env, "LINGBAN_INTERNAL_AUTH_TOKEN"),
     codexBin: readTrimmed(env, "CODEX_BIN"),
     codexArgs: readCommandArgs(env, "CODEX_ARGS_JSON"),
+    codexRuntimeProtocol: z.enum(["legacy-pty", "app-server"]).parse(
+      readTrimmed(env, "CODEX_RUNTIME_PROTOCOL") ?? "app-server"
+    ),
+    codexAppServerRequestTimeoutMs: readPositiveInteger(
+      env,
+      "CODEX_APP_SERVER_REQUEST_TIMEOUT_MS",
+      30_000
+    ),
     mcpStdioAllowedPathPrefixes: readStringList(
       env,
       "LINGBAN_MCP_STDIO_ALLOWED_PATH_PREFIXES",

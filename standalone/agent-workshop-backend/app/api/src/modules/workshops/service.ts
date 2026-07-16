@@ -12,6 +12,8 @@ import {
 import { matchesSearchQuery } from "@lingban/domain-models";
 import { AppError } from "../../app/errors.js";
 import { creatorService } from "../creator/service.js";
+import { getSealedSessionVersion } from "../session-drafts/version-registry.js";
+import { getActiveServiceSessionBinding } from "../session-drafts/service-binding-registry.js";
 import { sessionCatalogService } from "../sessions/service.js";
 import { workshopCatalogRepository } from "./repository.js";
 
@@ -230,12 +232,17 @@ export class WorkshopCatalogService {
       serviceId,
       context.contextKey
     );
+    const formalBinding = getActiveServiceSessionBinding(
+      serviceId,
+      context.contextKey,
+      parsed.entrySurface
+    );
 
     const template =
       workshopCatalogRepository.findLaunchTemplate(serviceId, context.contextKey, parsed.entrySurface) ??
       workshopCatalogRepository.findLaunchTemplate(serviceId, context.contextKey, "dashboard");
 
-    if (!template && !creatorResolution) {
+    if (!template && !creatorResolution && !formalBinding) {
       throw new AppError(
         404,
         "SERVICE_LAUNCH_TEMPLATE_NOT_FOUND",
@@ -243,8 +250,8 @@ export class WorkshopCatalogService {
       );
     }
 
-    const resolvedTaskVersionId = creatorResolution?.taskVersionId ?? template?.taskVersionId;
-    const resolvedSessionVersionId = creatorResolution?.sessionVersionId ?? template?.sessionVersionId;
+    const resolvedTaskVersionId = formalBinding?.taskVersionId ?? creatorResolution?.taskVersionId ?? template?.taskVersionId;
+    const resolvedSessionVersionId = formalBinding?.sessionVersionId ?? creatorResolution?.sessionVersionId ?? template?.sessionVersionId;
     const resolvedTitle = template?.title ?? service.displayName;
     const resolvedTargetRoot = template?.targetRoot ?? deriveTargetRoot(context.root, service.serviceId);
     const resolvedBindings = template?.bindings ?? service.requiredBindings;
@@ -256,10 +263,14 @@ export class WorkshopCatalogService {
         `Launch template versions are not available for service ${serviceId} in context ${context.contextKey}`
       );
     }
-    sessionCatalogService.requireSessionPack(resolvedSessionVersionId, {
-      workspaceContextKey: context.contextKey,
-      serviceId: service.serviceId,
-    });
+    try {
+      sessionCatalogService.requireSessionPack(resolvedSessionVersionId, {
+        workspaceContextKey: context.contextKey,
+        serviceId: service.serviceId,
+      });
+    } catch (error) {
+      if (!getSealedSessionVersion(resolvedSessionVersionId)) throw error;
+    }
 
     const targetRoot = ensureTrailingSlash(resolvedTargetRoot);
     const targetPath = `${targetRoot.slice(0, -1)}-${buildRunSuffix()}/`;

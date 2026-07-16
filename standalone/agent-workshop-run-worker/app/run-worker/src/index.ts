@@ -6,8 +6,10 @@ import {
 import { startManagedBridgeRuntime } from "./services/bridge-runner.js";
 import { buildContainerLaunchPlan, materializeRunRuntime } from "./services/container-runtime.js";
 import { cleanupRunWorkspace, prepareRunWorkspace } from "./services/workspace-preparer.js";
+import { processSessionCapture } from "./services/session-capture/capture-orchestrator.js";
 export { BullmqRunWorkerDaemon } from "./daemon.js";
 export { WorkerOpsHttpServer } from "./ops-http.js";
+export { processSessionCapture, type ProcessSessionCaptureInput } from "./services/session-capture/capture-orchestrator.js";
 export {
   buildRunWorkerMetricsText,
   redactRedisUrl,
@@ -57,5 +59,6 @@ export function buildRunWorker() {
     buildContainerLaunchPlan,
     materializeRunRuntime,
     startManagedBridgeRuntime,
+    processSessionCapture,
   };
 }

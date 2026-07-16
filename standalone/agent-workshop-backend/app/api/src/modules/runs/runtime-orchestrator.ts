@@ -18,6 +18,7 @@ import {
   type RunStartQueueLike,
 } from "@lingban/run-worker";
 import { nowIso, toErrorMessage } from "@lingban/shared";
+import { ApiConnector } from "@lingban/container-bridge";
 import { getApiRuntimeConfig } from "../../app/runtime.js";
 import { bridgeRegistry } from "../bridge/registry.js";
 
@@ -35,6 +36,7 @@ type RuntimeHooks = {
 
 type RunWorkerLike = ReturnType<typeof buildRunWorker>;
 type ActiveRuntimeHandle = Awaited<ReturnType<RunWorkerLike["startManagedBridgeRuntime"]>>;
+type ActiveRuntimeJob = Awaited<ReturnType<RunWorkerLike["startRunJob"]>>;
 
 type EmbeddedRunOrchestratorOptions = {
   runWorker?: RunWorkerLike;
@@ -67,6 +69,7 @@ export class EmbeddedRunOrchestrator {
   #orphanRecoveryGraceMs: number;
   #terminalWorkspaceTtlMs: number;
   #active = new Map<string, ActiveRuntimeHandle>();
+  #activeJobs = new Map<string, ActiveRuntimeJob>();
   #launching = new Map<string, Promise<void>>();
   #scheduled = new Map<
     string,
@@ -185,6 +188,21 @@ export class EmbeddedRunOrchestrator {
     if (this.#runtimeDispatchMode === "bullmq") {
       const queuedJob = await this.#runStartQueue?.getJob(runId);
       await Promise.resolve(queuedJob?.remove()).catch(() => undefined);
+      const config = getApiRuntimeConfig();
+      if (config.workerOpsBaseUrl) {
+        await fetch(`${config.workerOpsBaseUrl.replace(/\/$/, "")}/runs/stop`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            ...(config.workerOpsToken ? { "x-lingban-worker-ops-token": config.workerOpsToken } : {}),
+          },
+          body: JSON.stringify({ runId }),
+        }).then(async (response) => {
+          if (!response.ok && response.status !== 404) {
+            throw new Error(`Worker runtime stop failed (${response.status}): ${await response.text()}`);
+          }
+        });
+      }
       return;
     }
 
@@ -194,6 +212,53 @@ export class EmbeddedRunOrchestrator {
     }
 
     await this.#cleanup(runId, handle);
+  }
+
+  async requestSessionCapture(runId: string, captureId: string) {
+    if (this.#runtimeDispatchMode === "bullmq") {
+      const config = getApiRuntimeConfig();
+      if (!config.workerOpsBaseUrl) {
+        throw new Error("Worker ops base URL is required for BullMQ capture dispatch");
+      }
+      const response = await fetch(`${config.workerOpsBaseUrl.replace(/\/$/, "")}/captures/process`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(config.workerOpsToken ? { "x-lingban-worker-ops-token": config.workerOpsToken } : {}),
+        },
+        body: JSON.stringify({ runId, captureId }),
+      });
+      if (!response.ok) {
+        throw new Error(`Worker capture dispatch failed (${response.status}): ${await response.text()}`);
+      }
+      return;
+    }
+
+    const deadline = Date.now() + 15_000;
+    while (Date.now() < deadline) {
+      const handle = this.#active.get(runId);
+      const job = this.#activeJobs.get(runId);
+      if (handle && job) {
+        const config = getApiRuntimeConfig();
+        const apiConnector = new ApiConnector({
+          baseUrl: this.#resolveInternalApiBaseUrl(),
+          authToken: config.internalAuthToken,
+          requestTimeoutMs: 60_000,
+        });
+        await this.#runWorker.processSessionCapture({
+          runId,
+          captureId,
+          workerId: `embedded-worker:${process.pid}`,
+          targetPath: job.preparedWorkspace.hostPaths.targetPath,
+          runtimePath: job.preparedWorkspace.hostPaths.runtimePath,
+          handle,
+          apiConnector,
+        });
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    throw new Error(`Active runtime is unavailable for capture ${captureId}`);
   }
 
   async recover() {
@@ -368,6 +433,7 @@ export class EmbeddedRunOrchestrator {
       });
 
       this.#active.set(runId, handle);
+      this.#activeJobs.set(runId, accepted);
       await Promise.resolve(
         this.#hooks.syncRunRuntime(runId, {
           launchMode: handle.launchMode,
@@ -402,6 +468,7 @@ export class EmbeddedRunOrchestrator {
     } catch (error) {
       if (handle) {
         this.#active.delete(runId);
+        this.#activeJobs.delete(runId);
         bridgeRegistry.unregister(runId);
         await handle.stop().catch(() => undefined);
       }
@@ -488,6 +555,7 @@ export class EmbeddedRunOrchestrator {
     }
 
     this.#active.delete(runId);
+    this.#activeJobs.delete(runId);
     this.#clearOrphanRecovery(runId);
     let completion: Awaited<ActiveRuntimeHandle["completion"]> | null = null;
 
@@ -570,12 +638,21 @@ export class EmbeddedRunOrchestrator {
     this.#clearWorkspaceCleanup(runId);
     const timer = setTimeout(() => {
       this.#cleanupTimers.delete(runId);
+      const blockingCaptures = this.#hooks
+        .getRunSnapshot(runId)
+        .sessionCaptures.filter(
+          (capture) => !["CAPTURED", "FAILED", "CANCELLED"].includes(capture.status)
+        );
+      if (blockingCaptures.length > 0) {
+        this.#scheduleWorkspaceCleanup(runId);
+        return;
+      }
       void Promise.resolve(this.#runWorker.cleanupRunWorkspace({ runId })).catch((error) => {
         console.error(
           `[lingban-runtime-orchestrator] failed to cleanup workspace for ${runId}: ${toErrorMessage(error)}`
         );
       });
-    }, this.#terminalWorkspaceTtlMs);
+    }, Math.max(1_000, this.#terminalWorkspaceTtlMs));
     timer.unref?.();
 
     this.#cleanupTimers.set(runId, timer);

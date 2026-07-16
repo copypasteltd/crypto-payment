@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { workspaceRoleSchema } from "./auth.js";
 import { localizedTextSchema, serviceIdSchema, workshopIdSchema, workspaceContextKeySchema } from "./catalog.js";
-import { isoDatetimeSchema, userIdSchema } from "./common.js";
+import { isoDatetimeSchema, sessionVersionIdSchema, taskVersionIdSchema, userIdSchema } from "./common.js";
 
 export const creatorPackageStateSchema = z.enum(["audited", "pending_release", "ready"]);
 export const creatorPackageToneSchema = z.enum(["success", "warn", "active"]);
@@ -68,6 +68,19 @@ export const creatorPackageDetailSchema = creatorPackageSummarySchema.extend({
   release: creatorPackageSectionSchema,
   versionLine: z.array(z.string().min(1)).default([]),
   dependencies: z.array(localizedTextSchema).default([]),
+  currentSessionVersionId: sessionVersionIdSchema.nullable().default(null),
+  candidateSessionVersionId: sessionVersionIdSchema.nullable().default(null),
+  currentTaskVersionId: taskVersionIdSchema.nullable().default(null),
+});
+
+export const createCreatorPackageInputSchema = z.object({
+  packageId: creatorPackageIdSchema.regex(/^[a-z0-9][a-z0-9-]{1,118}[a-z0-9]$/),
+  title: localizedTextSchema,
+  description: localizedTextSchema,
+  workspaceContextKey: workspaceContextKeySchema,
+  linkedWorkshopIds: z.array(workshopIdSchema).default([]),
+  linkedServiceIds: z.array(serviceIdSchema).default([]),
+  currentTaskVersionId: taskVersionIdSchema.nullable().default(null),
 });
 
 export const creatorReleaseSummarySchema = z.object({
@@ -267,6 +280,7 @@ export type CreatorAuditExportStatus = z.infer<typeof creatorAuditExportStatusSc
 export type CreatorPackageSection = z.infer<typeof creatorPackageSectionSchema>;
 export type CreatorPackageSummary = z.infer<typeof creatorPackageSummarySchema>;
 export type CreatorPackageDetail = z.infer<typeof creatorPackageDetailSchema>;
+export type CreateCreatorPackageInput = z.infer<typeof createCreatorPackageInputSchema>;
 export type CreatorReleaseSummary = z.infer<typeof creatorReleaseSummarySchema>;
 export type CreatorReplaySummary = z.infer<typeof creatorReplaySummarySchema>;
 export type CreatorReleaseGateChecklistItem = z.infer<typeof creatorReleaseGateChecklistItemSchema>;

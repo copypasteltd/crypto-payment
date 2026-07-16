@@ -1,6 +1,7 @@
 import {
   activateCreatorReleaseInputSchema,
   createCreatorAuditExportInputSchema,
+  createCreatorPackageInputSchema,
   createCreatorReleaseInputSchema,
   createCreatorReplayInputSchema,
   creatorAuditExportRecordSchema,
@@ -24,6 +25,7 @@ import {
   type ActivateCreatorReleaseInput,
   type BillingMetricSummary,
   type CreateCreatorAuditExportInput,
+  type CreateCreatorPackageInput,
   type CreateCreatorReleaseInput,
   type CreateCreatorReplayInput,
   type CreatorAuditExportResponse,
@@ -64,6 +66,8 @@ import { quotaService } from "../quotas/service.js";
 import { runsRepository } from "../runs/repository.js";
 import { findVersionLineRef, requireVersionLineRef } from "../sessions/version-line.js";
 import { sessionCatalogService } from "../sessions/service.js";
+import { activateServiceSessionBinding } from "../session-drafts/service-binding-registry.js";
+import { getSealedSessionVersion } from "../session-drafts/version-registry.js";
 import { objectStore } from "../uploads/object-store.js";
 import { workshopCatalogRepository } from "../workshops/repository.js";
 import { creatorRepository } from "./repository.js";
@@ -174,6 +178,54 @@ export class CreatorService {
           ])
       )
       .map((item) => creatorPackageSummarySchema.parse(item));
+  }
+
+  async createPackage(input: CreateCreatorPackageInput, actor: CreatorActor) {
+    const parsed = createCreatorPackageInputSchema.parse(input);
+    this.assertActorWorkspaceContext(actor, parsed.workspaceContextKey);
+    if (creatorRepository.getPackageById(parsed.packageId)) {
+      throw new AppError(409, "CREATOR_PACKAGE_ALREADY_EXISTS", `Creator package already exists: ${parsed.packageId}`);
+    }
+    const at = nowIso();
+    const pkg = creatorPackageDetailSchema.parse({
+      packageId: parsed.packageId,
+      title: parsed.title,
+      source: l("Session 工坊", "Session Workshop"),
+      state: "pending_release",
+      statusLabel: l("待绑定版本", "Version binding pending"),
+      tone: "active",
+      ownerLabel: l(actor.userId, actor.userId),
+      updatedAt: at,
+      releaseChannel: l("私有", "Private"),
+      workspaceContextKeys: [parsed.workspaceContextKey],
+      linkedWorkshopIds: parsed.linkedWorkshopIds,
+      linkedServiceIds: parsed.linkedServiceIds,
+      session: {
+        summary: parsed.description,
+        items: [l("等待绑定已密封 Session Version", "Awaiting a sealed Session Version binding")],
+      },
+      runtime: {
+        summary: parsed.currentTaskVersionId
+          ? l(`任务版本 ${parsed.currentTaskVersionId}`, `Task version ${parsed.currentTaskVersionId}`)
+          : l("等待指定任务版本", "Task version pending"),
+        items: [],
+      },
+      connectors: {
+        summary: l("运行时按工作区解析 MCP 与 Credential", "MCP and credentials resolve from the target workspace at runtime"),
+        items: [],
+      },
+      release: {
+        summary: l("完成版本绑定与发布 Gate 后可激活", "Activation is available after version binding and release gates"),
+        items: [],
+      },
+      versionLine: parsed.currentTaskVersionId ? [parsed.currentTaskVersionId] : [],
+      dependencies: [],
+      currentSessionVersionId: null,
+      candidateSessionVersionId: null,
+      currentTaskVersionId: parsed.currentTaskVersionId,
+    });
+    await creatorRepository.savePackage(pkg);
+    return pkg;
   }
 
   getPackage(packageId: string, actor?: CreatorScopeActor) {
@@ -313,8 +365,8 @@ export class CreatorService {
       workspaceContextKey: parsed.workspaceContextKey,
       requestedByUserId: actor.userId,
       serviceId: pkg.linkedServiceIds[0] ?? null,
-      taskVersionId: findVersionLineRef(payload.package.versionLine, "task"),
-      sessionVersionId: findVersionLineRef(payload.package.versionLine, "session"),
+      taskVersionId: pkg.currentTaskVersionId,
+      sessionVersionId: pkg.currentSessionVersionId ?? pkg.candidateSessionVersionId,
       entrySurface: null,
       packageIds: [packageId],
       metric: "audit_exports",
@@ -326,8 +378,8 @@ export class CreatorService {
       workspaceContextKey: parsed.workspaceContextKey,
       requestedByUserId: actor.userId,
       serviceId: pkg.linkedServiceIds[0] ?? null,
-      taskVersionId: findVersionLineRef(payload.package.versionLine, "task"),
-      sessionVersionId: findVersionLineRef(payload.package.versionLine, "session"),
+      taskVersionId: pkg.currentTaskVersionId,
+      sessionVersionId: pkg.currentSessionVersionId ?? pkg.candidateSessionVersionId,
       entrySurface: null,
       packageIds: [packageId],
       metric: "audit_exports",
@@ -430,12 +482,7 @@ export class CreatorService {
       );
     }
 
-    const { taskVersionId, sessionVersionId } = extractLaunchTemplateVersionsFromPackage(pkg.packageId, pkg.versionLine);
-    sessionCatalogService.requireSessionPack(sessionVersionId, {
-      workspaceContextKey,
-      serviceId,
-    });
-
+    const { taskVersionId, sessionVersionId } = extractLaunchTemplateVersionsFromPackage(pkg);
     return {
       source: "creator-activation",
       packageId: pkg.packageId,
@@ -600,6 +647,28 @@ export class CreatorService {
     }
 
     const existingActivations = creatorRepository.listReleaseActivations();
+    const { taskVersionId, sessionVersionId } = extractLaunchTemplateVersionsFromPackage(pkg);
+    const targetContext = workshopCatalogRepository.getContextByKey(release.targetWorkspaceContextKey);
+    if (!targetContext) {
+      throw new AppError(
+        409,
+        "CREATOR_ACTIVATION_CONTEXT_MISSING",
+        `Workspace context is unavailable: ${release.targetWorkspaceContextKey}`
+      );
+    }
+    if (getSealedSessionVersion(sessionVersionId)) {
+      for (const serviceId of pkg.linkedServiceIds) {
+        for (const entrySurface of targetContext.allowedEntrySurfaces) {
+          await activateServiceSessionBinding({
+            serviceId,
+            workspaceContextKey: release.targetWorkspaceContextKey,
+            entrySurface,
+            taskVersionId,
+            sessionVersionId,
+          });
+        }
+      }
+    }
     const existingActive = existingActivations.find(
       (item) =>
         item.releaseId === release.releaseId &&
@@ -2167,10 +2236,7 @@ function buildCreatorMemberRow(
 }
 
 function listPackageRuns(pkg: CreatorPackageDetail, workspaceContextKey: string): RunSnapshot[] {
-  const { taskVersionId, sessionVersionId } = extractLaunchTemplateVersionsFromPackage(
-    pkg.packageId,
-    pkg.versionLine
-  );
+  const { taskVersionId, sessionVersionId } = extractLaunchTemplateVersionsFromPackage(pkg);
 
   return runsRepository
     .list()
@@ -2200,7 +2266,7 @@ function resolveCreatorPackageGovernanceRuntimeState(
   const contextLabel = resolveWorkspaceContextLabel(workspaceContextKey);
   const services = resolveLinkedServiceRecords(pkg);
   const packageRuns = listPackageRuns(pkg, workspaceContextKey);
-  const { sessionVersionId } = extractLaunchTemplateVersionsFromPackage(pkg.packageId, pkg.versionLine);
+  const { sessionVersionId } = extractLaunchTemplateVersionsFromPackage(pkg);
   const visibleCredentials = credentialsService.listVisibleCredentials(actor, {});
   const visibleMcps = mcpService.listMcps({ workspaceId: actor.workspaceId }, {});
   const visibleBindings = mcpService.listBindings(actor, {});
@@ -2918,9 +2984,17 @@ function activationSummaryNote(release: CreatorReleaseSummary): LocalizedText {
   );
 }
 
-function extractLaunchTemplateVersionsFromPackage(packageId: string, versionLine: string[]) {
-  const taskVersionId = requireVersionLineRef(versionLine, "task", { packageId });
-  const sessionVersionId = requireVersionLineRef(versionLine, "session", { packageId });
+function extractLaunchTemplateVersionsFromPackage(pkg: CreatorPackageDetail) {
+  const taskVersionId = pkg.currentTaskVersionId;
+  const sessionVersionId = pkg.currentSessionVersionId ?? pkg.candidateSessionVersionId;
+
+  if (!taskVersionId || !sessionVersionId) {
+    throw new AppError(
+      409,
+      "CREATOR_PACKAGE_SESSION_BINDING_REQUIRED",
+      `Creator package ${pkg.packageId} requires formal task and session bindings`
+    );
+  }
 
   return {
     taskVersionId,

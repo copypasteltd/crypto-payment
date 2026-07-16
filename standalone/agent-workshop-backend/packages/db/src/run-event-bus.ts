@@ -16,6 +16,8 @@ export function inferRunIdFromBridgeEvent(event: BridgeEvent) {
     case "file.changed":
     case "heartbeat":
     case "run.failed":
+    case "agent.runtime.event":
+    case "agent.thread.state":
       return event.runId;
     case "conversation.message":
       return event.message.runId;
@@ -36,6 +38,8 @@ export function inferOccurredAtFromBridgeEvent(event: BridgeEvent) {
     case "file.changed":
     case "heartbeat":
     case "run.failed":
+    case "agent.runtime.event":
+    case "agent.thread.state":
       return event.occurredAt;
     case "conversation.message":
       return event.message.createdAt;

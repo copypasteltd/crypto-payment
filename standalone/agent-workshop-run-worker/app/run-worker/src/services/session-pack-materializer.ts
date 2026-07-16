@@ -5,6 +5,8 @@ import {
   deserializeSessionPackBundle,
   restoreWorkspaceBaseArchiveFileToDirectory,
   writeSessionPackBundleToDirectory,
+  unpackSessionVersionV2,
+  unpackTarZstdEntries,
 } from "@lingban/session-pack";
 import type { PreparedRunWorkspace } from "./specs.js";
 
@@ -50,6 +52,14 @@ export async function materializeRunSessionPack(input: {
   apiConnector: Pick<ApiConnector, "downloadRunSessionPackArchive">;
 }) {
   const downloaded = await input.apiConnector.downloadRunSessionPackArchive(input.runId);
+  const isV2 =
+    downloaded.content[0] === 0x28 &&
+    downloaded.content[1] === 0xb5 &&
+    downloaded.content[2] === 0x2f &&
+    downloaded.content[3] === 0xfd;
+  if (isV2) {
+    return materializeRunSessionPackV2(input, downloaded);
+  }
   const bundle = deserializeSessionPackBundle(downloaded.content);
   const hostPaths = buildRunSessionPackHostPaths(input.preparedWorkspace);
   const containerPaths = buildRunSessionPackContainerPaths(input.preparedWorkspace);
@@ -81,6 +91,67 @@ export async function materializeRunSessionPack(input: {
     workspaceBaseRestore,
   };
 
+  await fs.writeFile(hostPaths.metadataPath, JSON.stringify(metadata, null, 2), "utf8");
+  return metadata;
+}
+
+async function materializeRunSessionPackV2(
+  input: {
+    runId: string;
+    preparedWorkspace: PreparedRunWorkspace;
+  },
+  downloaded: {
+    content: Uint8Array;
+    fileName: string | null;
+    source: string | null;
+    contentType: string | null;
+  }
+) {
+  const unpacked = await unpackSessionVersionV2(downloaded.content);
+  const hostPaths = buildRunSessionPackHostPaths(input.preparedWorkspace);
+  const containerPaths = buildRunSessionPackContainerPaths(input.preparedWorkspace);
+  await fs.mkdir(hostPaths.rootPath, { recursive: true });
+  await fs.rm(hostPaths.unpackedPath, { recursive: true, force: true });
+  await fs.mkdir(hostPaths.unpackedPath, { recursive: true });
+  await fs.writeFile(hostPaths.archivePath, downloaded.content);
+  for (const [entryPath, content] of unpacked.files) {
+    const absolutePath = path.resolve(hostPaths.unpackedPath, entryPath);
+    const relative = path.relative(hostPaths.unpackedPath, absolutePath);
+    if (relative.startsWith("..") || path.isAbsolute(relative)) {
+      throw new Error(`Session Pack v2 entry escapes materialization root: ${entryPath}`);
+    }
+    await fs.mkdir(path.dirname(absolutePath), { recursive: true });
+    await fs.writeFile(absolutePath, content);
+  }
+  const workspaceContent = unpacked.files.get("workspace-base.tar.zst");
+  let restoredFiles = 0;
+  if (workspaceContent) {
+    const workspaceEntries = await unpackTarZstdEntries(workspaceContent);
+    for (const [entryPath, content] of workspaceEntries) {
+      const logicalPath = entryPath.replace(/^workspace\//, "");
+      const absolutePath = path.resolve(input.preparedWorkspace.hostPaths.targetPath, logicalPath);
+      const relative = path.relative(input.preparedWorkspace.hostPaths.targetPath, absolutePath);
+      if (relative.startsWith("..") || path.isAbsolute(relative)) {
+        throw new Error(`Session Pack v2 workspace entry escapes target root: ${entryPath}`);
+      }
+      await fs.mkdir(path.dirname(absolutePath), { recursive: true });
+      await fs.writeFile(absolutePath, content);
+      restoredFiles += 1;
+    }
+  }
+  const metadata = {
+    runId: input.runId,
+    sessionId: unpacked.manifest.sessionId,
+    sessionVersionId: unpacked.manifest.sessionVersionId,
+    archiveFileName: downloaded.fileName ?? `${unpacked.manifest.sessionVersionId}.session-pack.tar.zst`,
+    source: downloaded.source ?? "sealed-v2",
+    contentType: downloaded.contentType ?? "application/zstd",
+    materializedAt: new Date().toISOString(),
+    hostPaths,
+    containerPaths,
+    entries: [...unpacked.files.keys()].sort(),
+    workspaceBaseRestore: { restored: true, restoredFiles },
+  };
   await fs.writeFile(hostPaths.metadataPath, JSON.stringify(metadata, null, 2), "utf8");
   return metadata;
 }

@@ -1,6 +1,7 @@
 import { pathToFileURL } from "node:url";
 import { runPostgresDatabaseCli } from "@lingban/db";
 import {
+  closeApiDatabaseConnection,
   getApiDatabaseMigrationStatus,
   resetApiDatabaseSchema,
   runApiDatabaseMigrations,
@@ -13,23 +14,30 @@ function isDirectExecution() {
 }
 
 async function main() {
-  await runPostgresDatabaseCli(
-    {
-      programName: "node dist/migrate.js",
-      manager: {
-        getMigrationStatus: getApiDatabaseMigrationStatus,
-        runMigrations: runApiDatabaseMigrations,
+  try {
+    await runPostgresDatabaseCli(
+      {
+        programName: "node dist/migrate.js",
+        manager: {
+          getMigrationStatus: getApiDatabaseMigrationStatus,
+          runMigrations: runApiDatabaseMigrations,
+        },
+        reset: () => resetApiDatabaseSchema(),
+        seed: () => seedApiReferenceData(),
       },
-      reset: () => resetApiDatabaseSchema(),
-      seed: () => seedApiReferenceData(),
-    },
-    process.argv.slice(2)
-  );
+      process.argv.slice(2)
+    );
+  } finally {
+    await closeApiDatabaseConnection();
+  }
 }
 
 if (isDirectExecution()) {
-  void main().catch((error) => {
-    console.error("[lingban-api] migration command failed", error);
-    process.exitCode = 1;
-  });
+  void main().then(
+    () => process.exit(0),
+    (error) => {
+      console.error("[lingban-api] migration command failed", error);
+      process.exit(1);
+    }
+  );
 }

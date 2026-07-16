@@ -32,6 +32,8 @@ export type RunAggregate = {
   files: RunFileEntry[];
   artifacts: RunArtifact[];
   approvals: RunApproval[];
+  agentThread?: RunSnapshot["agentThread"];
+  sessionCaptures?: RunSnapshot["sessionCaptures"];
 };
 
 export function projectRunSnapshot(aggregate: {
@@ -43,6 +45,8 @@ export function projectRunSnapshot(aggregate: {
   files: RunFileEntry[];
   artifacts: RunArtifact[];
   approvals: RunApproval[];
+  agentThread?: RunSnapshot["agentThread"];
+  sessionCaptures?: RunSnapshot["sessionCaptures"];
 }) {
   return runSnapshotSchema.parse(aggregate);
 }

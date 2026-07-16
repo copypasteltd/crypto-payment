@@ -58,6 +58,7 @@ import type {
 import { workshopCatalogRepository } from "../workshops/repository.js";
 import { creatorRepository } from "../creator/repository.js";
 import { runsRepository } from "../runs/repository.js";
+import { adminRepository } from "../admin/repository.js";
 
 type AuthContext = {
   user: AuthUser;
@@ -460,8 +461,16 @@ export class AuthService {
       throw new AppError(401, "AUTH_INVALID_CREDENTIALS", "Invalid email or password");
     }
 
+    if (adminRepository.isSuspended("user", user.userId)) {
+      throw new AppError(403, "AUTH_USER_SUSPENDED", "This user account is suspended");
+    }
+
     const memberships = authRepository.listMembershipsByUser(user.userId);
-    const primary = memberships.find((item) => item.membership.status === "active");
+    const primary = memberships.find(
+      (item) =>
+        item.membership.status === "active" &&
+        !adminRepository.isSuspended("workspace", item.workspace.workspaceId)
+    );
 
     if (!primary) {
       throw new AppError(403, "WORKSPACE_ACCESS_DENIED", `No active workspace for user ${user.userId}`);
@@ -516,6 +525,14 @@ export class AuthService {
 
     if (!record || record.revokedAt || isExpired(record.accessTokenExpiresAt)) {
       throw new AppError(401, "AUTH_ACCESS_INVALID", "Access token is invalid or expired");
+    }
+
+    if (adminRepository.isSuspended("user", record.userId)) {
+      throw new AppError(403, "AUTH_USER_SUSPENDED", "This user account is suspended");
+    }
+
+    if (adminRepository.isSuspended("workspace", record.currentWorkspaceId)) {
+      throw new AppError(403, "AUTH_WORKSPACE_SUSPENDED", "The current workspace is suspended");
     }
 
     return this.#buildSessionEnvelopeFromRecord(record);
@@ -870,6 +887,10 @@ export class AuthService {
     );
     void membership;
 
+    if (adminRepository.isSuspended("workspace", parsed.workspaceId)) {
+      throw new AppError(403, "AUTH_WORKSPACE_SUSPENDED", "The selected workspace is suspended");
+    }
+
     const user = authRepository.getUserById(record.userId);
     if (!user) {
       throw new AppError(401, "AUTH_SESSION_INVALID", `Session user not found: ${record.userId}`);
@@ -907,7 +928,11 @@ export class AuthService {
       session: record,
       currentWorkspace: buildWorkspaceSummary(currentWorkspace, currentMembership),
       workspaces: memberships
-        .filter((item) => item.membership.status === "active")
+        .filter(
+          (item) =>
+            item.membership.status === "active" &&
+            !adminRepository.isSuspended("workspace", item.workspace.workspaceId)
+        )
         .map((item) => buildWorkspaceSummary(item.workspace, item.membership)),
       platformAccess: resolvePlatformAccess(user.email),
     };
