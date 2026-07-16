@@ -2560,6 +2560,11 @@ textarea:focus {
   pointer-events: none;
 }
 
+body:has(.drawer-backdrop) .toast-viewport {
+  right: calc(min(720px, 80vw) + 20px);
+  width: min(430px, calc(100vw - min(720px, 80vw) - 40px));
+}
+
 .admin-toast {
   position: relative;
   display: grid;
