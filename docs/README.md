@@ -14,6 +14,7 @@ The `docs/` directory is the canonical location for product, architecture, devel
 | `小程序开发文档.md` | Taro H5 首发与微信/支付宝特化方案 |
 | `后端设计文档.md` | 后端组件、Run 隔离、MCP、Credential、文件与事件流 |
 | `后端开发文档.md` | TypeScript/Fastify/BullMQ/Bridge 的实现要求 |
+| `20260717session控制修改方案.md` | App Server、Capture、Draft、Replay、签名、迁移、前端与上线验收的完整基线 |
 | `系统实现差距审计-2026-07-12.md` | 实现覆盖、交付差距与风险审计 |
 | `联调与验收清单.md` | 分层联调、证据和上线验收项 |
 
@@ -23,7 +24,8 @@ The `docs/` directory is the canonical location for product, architecture, devel
 2. 前端需求与后端设计
 3. Dashboard、小程序与后端开发文档
 4. 接口、治理、数据、Runtime 与部署总表
-5. 差距审计和联调验收清单
+5. Session Control 修改方案
+6. 差距审计和联调验收清单
 
 ## 文档规则 / Documentation Rules
 

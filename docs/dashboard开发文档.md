@@ -6,18 +6,18 @@
 |---|---|
 | 文档名称 | 灵办词元 Dashboard 开发文档 |
 | 文档类型 | Frontend Engineering Spec |
-| 当前版本 | v1.0 |
-| 编写日期 | 2026-07-08 |
+| 当前版本 | v1.1 |
+| 编写日期 | 2026-07-15 |
 | 适用端 | Web Dashboard |
 | 设计定稿 | `方案 C / Operator Dashboard` |
 | 主参照原型 | `example/style-c-operator-dashboard.html` |
 | 辅助参照 | `example/style-a-infra-dashboard.html`、`example/style-b-protocol-dashboard.html` |
 | 工程路径 | `app/dashboard` |
-| 关联文档 | `docs/产品需求草案.md`、`docs/前端需求.md`、`docs/前端布局草图说明.md`、`docs/后端设计文档.md` |
+| 关联文档 | `docs/产品需求草案.md`、`docs/前端需求.md`、`docs/前端布局草图说明.md`、`docs/后端设计文档.md`、`docs/20260715admin重构细则.md` |
 
 ## 2. 开发定位
 
-Dashboard 是重度用户、Creator、管理员共用的主工作台。它承担三类职责：
+Dashboard 是重度用户、Creator 与工作区管理员共用的用户侧工作台。平台总管理能力归属独立 `app/admin`。Dashboard 承担三类职责：
 
 | 职责 | 说明 |
 |---|---|
@@ -25,19 +25,25 @@ Dashboard 是重度用户、Creator、管理员共用的主工作台。它承担
 | 实例协作 | 查看多实例、进入完整对话、消费文件、查看运行与审计 |
 | Creator 生产与治理 | 管理包、服务、Session、版本、调试回放、凭证与权限 |
 
+| 独立边界 | 工程与访问入口 |
+|---|---|
+| 用户 Dashboard | `app/dashboard`，工坊、实例、Creator 与工作区治理 |
+| Platform Admin | `app/admin`，8 个平台管理模块、独立会话与独立端口 `38140` |
+
 当前 Dashboard 不采用“概览首页 + 多孤立后台”的模式，固定围绕 `工坊 / 实例 / Creator` 三个一级工作区组织。
 
 ### 2.1 React + Vite 冻结结论
 
 | 维度 | 固定要求 | 工程意义 |
 |---|---|---|
-| 唯一正式工程 | `app/dashboard` | 承接全部重度用户、Creator、治理与多语言后台页面 |
+| 用户端正式工程 | `app/dashboard` | 承接重度用户、Creator、工作区治理与多语言页面 |
 | 固定主栈 | `React 18.3.x + Vite 5.x + TypeScript 5.x` | 保持纯浏览器 SPA 架构，避免宿主混杂 |
 | 业务路由 | `React Router 6+` | 工坊、实例、Creator 深链统一走一套路由机制 |
 | 构建链 | `pnpm dev / build / lint / preview` | 本地开发、构建验收、代码检查、预览口径统一 |
 | 包管理与运行时 | `pnpm workspace + Node.js 22 LTS` | 与仓库共享包、根级脚本和 CI 环境保持一致 |
 | 组件模型 | `React 函数组件 + Hooks` | 新增页面与组件固定采用函数式实现 |
 | H5 边界 | 不承接移动端 H5 页面 | 防止 Dashboard 与 H5 双轨演化 |
+| Admin 边界 | 不承载 Admin Shell、Admin 页面、Admin 会话和 `/admin/v1` 调用 | 平台控制面固定归属 `app/admin` |
 | 平台能力接入 | 统一经 `src/lib` 或 `src/services` | 页面层不直连浏览器底层对象与分散 SDK |
 | 共享层边界 | 仅消费 `packages/*` | 不从 `app/mobile` 导入页面、组件、hooks、stores |
 | 禁止项 | `Next.js`、`Umi`、`Remix`、`@tarojs/*` 页面运行时 | 保持 Web 主栈单一、边界明确 |
@@ -46,7 +52,7 @@ Dashboard 是重度用户、Creator、管理员共用的主工作台。它承担
 
 | 项目 | 冻结要求 | 说明 |
 |---|---|---|
-| 正式工程 | `app/dashboard` | Dashboard 是唯一正式 Web 前端工程 |
+| 正式工程 | `app/dashboard` | Dashboard 是正式用户 Web 前端工程 |
 | 主框架 | `React 18.3.x` | 页面、组件、工作台交互全部基于 React |
 | 构建器 | `Vite 5.x` | 开发、构建、预览统一走 Vite |
 | 路由 | `React Router 6+` | 深链、工作区切换、详情直达统一使用 React Router |
@@ -62,7 +68,7 @@ Dashboard 是重度用户、Creator、管理员共用的主工作台。它承担
 | 检查维度 | 固定要求 | 交付约束 |
 |---|---|---|
 | 唯一宿主 | `React 18.3.x + Vite 5.x + TypeScript 5.x` | Dashboard 必须完整运行在浏览器侧 `React SPA` 模型中 |
-| 工程目录 | `app/dashboard` | 不拆分第二套后台 Web 工程，不承接移动端 H5 壳 |
+| 工程目录 | `app/dashboard` | 不承接平台 Admin 工程与移动端 H5 壳 |
 | 启动链 | `src/main.tsx` -> `src/app/*` -> `React Router` | 新增 provider、主题、语言、路由守卫都必须挂在应用层 |
 | 必选依赖 | `react`、`react-dom`、`vite`、`@vitejs/plugin-react`、`react-router-dom`、`@tanstack/react-query`、`zustand`、`i18next`、`react-i18next` | 缺失任一主依赖视为主栈漂移 |
 | 正式脚本 | `dev / build / lint / preview` | `package.json` 必须直接表达 `React + Vite` 工程身份 |
@@ -70,7 +76,7 @@ Dashboard 是重度用户、Creator、管理员共用的主工作台。它承担
 | 状态主栈 | `TanStack Query 5 + Zustand 5` | 服务端状态与本地交互状态固定双栈，不引入额外全局状态库 |
 | 样式主栈 | `@lingban/ui-tokens + CSS Variables + Scoped CSS` | 不引入第二套 UI 主框架，不并行维护第二套主题系统 |
 | 国际化 | `zh-CN`、`en-US` 首发必做，统一由 `i18next + react-i18next` 承担 | 页面文案不得硬编码双语切换逻辑 |
-| 环境变量 | `VITE_API_BASE_URL` | API 基址统一走 Vite 环境注入，不允许页面硬编码 |
+| 环境变量 | `VITE_API_BASE_URL`、`VITE_ADMIN_CONSOLE_URL` | 用户 API 与独立 Admin 外链分别配置，不允许页面硬编码 |
 | 构建产物 | `dist/` | 产物只包含 Dashboard 静态资源，不包含服务端逻辑 |
 | CI 门禁 | `pnpm lint && pnpm build` | 任一环节失败都不得视为 Dashboard 可交付 |
 
@@ -78,7 +84,7 @@ Dashboard 是重度用户、Creator、管理员共用的主工作台。它承担
 
 | 维度 | 当前固定结论 | 仓库映射 | 约束说明 |
 |---|---|---|---|
-| 工程身份 | `React + Vite` Web SPA | `app/dashboard` | Dashboard 是唯一正式 Web 后台工程 |
+| 工程身份 | `React + Vite` Web SPA | `app/dashboard` | Dashboard 是用户与 Creator 工作台 |
 | 应用入口 | `index.html` -> `src/main.tsx` -> `src/app/App.tsx` | `app/dashboard/index.html`、`app/dashboard/src/main.tsx`、`app/dashboard/src/app/App.tsx` | 全局 Provider、主题、语言、Router 必须从入口统一装配 |
 | 路由入口 | `React Router 6+` | `app/dashboard/src/app/router/AppRouter.tsx` | 工坊、实例、Creator 深链只允许一套路由主栈 |
 | 关键目录 | `src/app`、`src/pages`、`src/lib`、`src/stores`、`src/styles` | 当前仓库目录已落地 | 页面、业务适配、状态、样式边界固定 |
@@ -89,15 +95,15 @@ Dashboard 是重度用户、Creator、管理员共用的主工作台。它承担
 | 国际化主栈 | `i18next@26.3.4` + `react-i18next@17.0.8` | `app/dashboard/package.json`、`src/lib/i18n.ts` | `zh-CN / en-US` 首发由 Dashboard 正式承载 |
 | 构建主链 | `vite@5.4.19` + `@vitejs/plugin-react@5.0.2` + `typescript@~5.8.3` | `app/dashboard/package.json`、`app/dashboard/vite.config.ts` | 不新增平行打包链或第二类型系统 |
 | 质量门禁 | `oxlint@1.71.0` + `pnpm lint && pnpm build` | `app/dashboard/package.json` | 任何变更都必须走当前主链路验收 |
-| 环境变量 | `VITE_API_BASE_URL` | `src/lib/api.ts` + Vite env | 页面层禁止硬编码 API 基址 |
+| 环境变量 | `VITE_API_BASE_URL`、`VITE_ADMIN_CONSOLE_URL` | `src/lib/api.ts`、`src/lib/routes.ts` + Vite env | 页面层禁止硬编码 API 与 Admin 地址 |
 | 共享包 | `@lingban/api-sdk`、`@lingban/contracts`、`@lingban/domain-models`、`@lingban/ui-tokens` | Workspace 依赖 | 共用能力只从 `packages/*` 注入 |
-| 禁止事项 | `Next.js`、`Umi`、`Remix`、`@tarojs/*` 页面运行时、第二套 Web Dashboard 工程 | 架构评审门禁 | 保持 Dashboard 主栈单一、目录边界稳定 |
+| 禁止事项 | `Next.js`、`Umi`、`Remix`、`@tarojs/*` 页面运行时、Admin 内部页面 | 架构评审门禁 | 保持 Dashboard 主栈和产品边界稳定 |
 
 ### 2.5 Dashboard 交付门禁
 
 | 检查项 | 必须满足 | 不通过示例 |
 |---|---|---|
-| 工程身份 | `app/dashboard` 仍是唯一正式 Web 工程 | 新增第二个 Web 前端根目录 |
+| 工程身份 | `app/dashboard` 持续作为用户 Web 工程 | 将 Platform Admin 页面并回 Dashboard |
 | 入口链 | `index.html`、`src/main.tsx`、`src/app/App.tsx` 仍为正式入口链 | 在页面层旁路挂起独立启动壳 |
 | 构建链 | `vite.config.ts` 仍为唯一应用构建配置 | 引入额外 SSR/MPA 框架配置并进入正式链路 |
 | 路由链 | 业务页面仍只走 `React Router` | 在页面内并行维护第二套路由系统 |
@@ -115,6 +121,7 @@ Dashboard 是重度用户、Creator、管理员共用的主工作台。它承担
 | 多语言 | `i18next` 中英文骨架已接入 | 全量词条与治理域词条仍待补齐 |
 | 数据源现状 | 已混合真实 runs API、真实 catalog API、Creator package/release/replay/gate/activation/governance API 与预览态静态参考数据；DashboardShell、Workshops、Instances 在认证工作区内已停止静态工坊/服务/实例回退，Creator release review 已接入正式 checklist / evidence / recommended actions 审核对象，`members` 分段已直接消费 workspace members / invitations 正式接口并支持创建邀请、撤销邀请与成员角色状态调整；Creator `cost/quota` 已接入正式读写主链，残余静态层主要收敛在未登录预览模式与少量参考文案 | 工坊目录、服务详情与 launch template 主链已切到真实后端，剩余工作集中在多语言全量词条、实时断线恢复和预览态样例治理 |
 | 当前最大缺口 | 多语言全量词条、实时断线恢复 / fallback 策略、前端 E2E 扩面、预览态样例数据治理 | 已进入正式工程壳持续收口阶段 |
+| Admin 拆离 | 已完成 | `AdminShell`、Admin 页面和认证屏已删除；`/admin/*` 通过 `VITE_ADMIN_CONSOLE_URL` 跳转独立站点 |
 
 ## 3. 定稿基线与参照优先级
 
@@ -178,6 +185,7 @@ Dashboard 是重度用户、Creator、管理员共用的主工作台。它承担
 | `/dashboard/services/:serviceId` | 服务详情 / 启动台 | 启动单实例或批量实例 |
 | `/dashboard/instances` | 实例列表 | 多实例筛选与搜索 |
 | `/dashboard/instances/:taskId` | 实例详情 | 完整对话页 |
+| `/admin/*` | 外部跳转 | 保留原路径上下文并进入独立 Admin Console |
 | `/dashboard/instances/:taskId/files` | 文件页 | 文件树、路径切换、下载 |
 | `/dashboard/instances/:taskId/runtime` | 运行页 | 状态、阶段、容器摘要 |
 | `/dashboard/instances/:taskId/audit` | 审计页 | 授权、确认、异常记录 |
@@ -458,7 +466,7 @@ Dashboard 必须支持多语言。
 
 | 维度 | 固定要求 | 落地说明 |
 |---|---|---|
-| 前端主栈 | `React + Vite` | Dashboard 是唯一正式 Web 工程，固定运行在浏览器侧 SPA 模式 |
+| 前端主栈 | `React + Vite` | Dashboard 是正式用户 Web 工程，固定运行在浏览器侧 SPA 模式 |
 | 启动入口 | `src/main.tsx` | 应用挂载、全局 provider、路由容器统一从该入口启动 |
 | App Shell | `src/app/*` | 主题、语言、Query Client、路由守卫、Shell 状态集中在应用层 |
 | 工程身份判定 | `package.json` + `vite.config.*` + `src/main.tsx` | 通过正式脚本、Vite 配置、入口文件即可判定 Dashboard 主栈身份 |
@@ -478,12 +486,12 @@ Dashboard 必须支持多语言。
 
 | 检查项 | 固定要求 | 说明 |
 |---|---|---|
-| 工程身份 | `app/dashboard` 是唯一直接使用 `Vite` 作为应用构建器的前端工程 | 移动端虽然依赖 `@tarojs/vite-runner`，但不属于独立 Vite 应用 |
+| 工程身份 | `app/dashboard` 与 `app/admin` 分别使用独立 Vite 构建 | 两端拥有独立入口、路由、会话和部署产物 |
 | `package.json` 脚本 | `dev` 固定为 `vite`，`build` 固定为 `tsc -b && vite build`，`preview` 固定为 `vite preview` | 脚本定义必须清楚表达 React + Vite 工程身份 |
 | 必选依赖 | `react`、`react-dom`、`vite`、`@vitejs/plugin-react`、`react-router-dom`、`@tanstack/react-query`、`zustand` | 缺失任一主依赖视为主栈漂移 |
 | 组件实现 | 新增页面、组件、布局与工作面固定采用 `React 函数组件 + Hooks` | 不接受 class component 或第二套页面抽象模型 |
 | H5 边界 | Dashboard 不承载移动端 H5 页面，也不创建第二套移动 Web 壳 | H5 固定归属 `app/mobile` 的 `Taro H5 target` |
-| 页面归属 | 工坊后台、实例治理、Creator、审计、多语言工作台页面全部归属 Dashboard | 不承接轻量移动端壳或小程序专属页面 |
+| 页面归属 | 工坊、实例、Creator 与工作区治理归属 Dashboard | 平台总管理、全局审计和运行时控制归属 `app/admin` |
 | 路由归属 | 所有业务深链统一走 `React Router` | 不引入 Taro 页面配置或小程序式页面注册 |
 | 平台边界 | 仅接入浏览器 Web 能力，统一经 `src/lib` 或 `src/services` 封装 | 不直接承接小程序平台 API |
 | 架构审批 | 新增 SSR 框架、第二状态主栈、第二样式主栈需架构评审 | 默认保持当前 `React + Vite` 单主栈 |
@@ -492,7 +500,7 @@ Dashboard 必须支持多语言。
 
 | 检查项 | 必须满足 |
 |---|---|
-| 工程身份 | `app/dashboard` 仍是唯一正式 Web Dashboard 工程 |
+| 工程身份 | `app/dashboard` 保持独立用户 Web Dashboard 工程，不包含 Admin 内部页面 |
 | 构建脚本 | `dev` 为 `vite`，`build` 为 `tsc -b && vite build`，`preview` 为 `vite preview` |
 | 代码检查 | `pnpm lint` 必须通过，且 `build` 内置 `tsc -b` 必须通过 |
 | 主依赖形态 | 保留 `react`、`react-dom`、`vite`、`@vitejs/plugin-react`、`react-router-dom`、`@tanstack/react-query`、`zustand` |
@@ -686,3 +694,84 @@ packages/domain-models/
 | 国际化 | 中英文切换完整可用 |
 | 主题 | 明暗主题完整可用 |
 | 参照一致性 | 与 `style-c-operator-dashboard.html` 关键结构一致 |
+
+## 17. Session Control 前端实现（2026-07-17）
+
+### 17.1 实例固化入口
+
+实现组件：`app/dashboard/src/pages/instances/SessionCaptureDrawer.tsx`。
+
+| 区块 | 控件 | 规则 |
+|---|---|---|
+| 来源 | Terminal / Checkpoint Segmented Control | Terminal 默认；Checkpoint 要求已完成 Turn |
+| 文件 | Target Path、Include、Exclude、Max Files、Max Bytes | 默认排除 `.git`、`node_modules`、`.env*`、Secrets、Codex Home 和 Cache |
+| 目标 | Existing Session / New Session | 只绑定目标，不要求用户初始化业务参数 |
+| 确认 | 边界、文件范围、Draft 开关 | 生成稳定 Idempotency Key |
+| 状态 | Stage、尝试次数、文件数、字节数和失败原因 | 2 秒轮询运行态，15 秒轮询终态 |
+| 恢复 | Retry | 只在 FAILED/RETRY_WAIT 显示 |
+
+Drawer 入口位于实例完整对话页面。用户在固化过程中仍可查看会话、审批、运行详情和文件；固化不会替代实例对话主模式。
+
+### 17.2 Creator Session Asset Workbench
+
+实现组件：`app/dashboard/src/pages/creator/SessionAssetWorkbench.tsx`。
+
+桌面结构：
+
+```text
+Capture Queue
+| Draft / Revision
+| Review / Replay / Seal / Binding
+```
+
+窄屏结构：
+
+```text
+>= 1200px  三列
+768–1199px 两列，第三列换行
+< 768px    单列
+```
+
+| 阶段 | 用户操作 | 主要反馈 |
+|---|---|---|
+| Capture | 选择 Capture、检查安全状态、创建 Draft | Status、File Count、Event Count |
+| Revision | 选择 Target Kind、Selector、Strategy、Replacement | Revision ID、Revision Number |
+| Review | Approve / Changes Requested | Findings、Pack Issues、Review Note |
+| Replay | Run Restore Validation | Check 列表、File/Event Count、Failure Code |
+| Seal | 选择 Signing Policy 并密封 | Version ID、Algorithm、Key ID |
+| Binding | Candidate / Active | 当前 Binding Version |
+| Package | 创建 Package 并关联 Workshop/Service | 创建后写 Candidate Binding |
+
+### 17.3 原始证据访问
+
+选中 `CAPTURED` 记录后显示原始证据区：
+
+1. 用户填写至少 8 个字符的访问原因。
+2. UI 按 `raw_events`、`thread`、`workspace`、`inventory`、`manifest` 展示对象。
+3. 下载按钮显示类型和近似大小，Hover Tooltip 显示 SHA-256。
+4. S3 返回 JSON 后通过短期 URL 下载。
+5. Filesystem Store 返回二进制流后使用 Blob 下载。
+6. 最近三条访问审计显示对象类型、时间和访问模式。
+7. Audit Query Key 为 `dashboard/creator/session-capture-audit/:captureId`。
+
+### 17.4 状态与缓存键
+
+| Query Key | 数据 |
+|---|---|
+| `dashboard/creator/session-captures` | Capture Queue |
+| `dashboard/creator/session-drafts` | Draft 列表 |
+| `dashboard/creator/session-draft/:draftId` | Draft 完整详情 |
+| `dashboard/creator/session-bindings/:packageId` | Package Binding |
+| `dashboard/creator/session-capture-audit/:captureId` | Raw Access Audit |
+
+Revision、Review、Replay、Seal、Binding 和 Package Create 成功后统一失效相关 Query，避免局部 UI 保留旧 Version。
+
+### 17.5 视觉验收结果
+
+| Viewport | 结果 |
+|---|---|
+| 1440×1000 | 抽屉侧栏展开，Workbench 三列，无横向溢出 |
+| 1024×768 | 仅图标 Rail，Workbench 两列，无横向溢出 |
+| 390×844 | 单列内容，顶部操作换行，无横向溢出 |
+
+生产构建、Oxlint 和 E2E 均通过；浏览器 Console 无 Error/Warning。
