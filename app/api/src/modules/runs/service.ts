@@ -36,8 +36,12 @@ import {
   type RunStatus,
   type SendRunMessageInput,
   type StartRunJobPayload,
+  type SessionCaptureSummary,
+  agentRuntimeEventRecordSchema,
+  agentThreadRecordSchema,
 } from "@lingban/contracts";
-import type { RunQueryRepository } from "@lingban/db";
+import { inferRunIdFromBridgeEvent, type AgentRuntimeRepository, type RunQueryRepository } from "@lingban/db";
+import { randomUUID } from "node:crypto";
 import {
   applyUserMessageToInformationCollection,
   canTransitionRunStatus,
@@ -69,6 +73,12 @@ import { buildRunQuotaUsageContext } from "./quota-usage.js";
 import { runQueryRepository } from "./query-repository.js";
 import { runsRepository } from "./repository.js";
 import { EmbeddedRunOrchestrator } from "./runtime-orchestrator.js";
+import { agentRuntimeRepository } from "../agent-runtime/repository.js";
+import {
+  ensureSealedSessionVersionVerified,
+  getSealedSessionVersion,
+  tryResolveSealedInformationCollectionTemplate,
+} from "../session-drafts/version-registry.js";
 
 let runSequence = 1;
 let messageSequence = 1;
@@ -87,6 +97,10 @@ type RunsRepositoryLike = Pick<
 >;
 
 type RunEventBusLike = Pick<typeof runEventBus, "init" | "append" | "appendMany">;
+type AgentRuntimeRepositoryLike = Pick<
+  AgentRuntimeRepository,
+  "getThreadByRunId" | "upsertThread" | "appendEvent" | "listEvents"
+>;
 
 type RunFileIndexServiceLike = Pick<
   typeof runFileIndexService,
@@ -104,7 +118,7 @@ type BridgeRegistryLike = Pick<typeof bridgeRegistry, "get" | "dispatch" | "getD
 
 type RunRuntimeControl = Pick<
   EmbeddedRunOrchestrator,
-  "startRun" | "requestStop" | "getDiagnostics" | "recover" | "shutdown"
+  "startRun" | "requestStop" | "requestSessionCapture" | "getDiagnostics" | "recover" | "shutdown"
 >;
 
 export type RunsServiceDependencies = {
@@ -115,6 +129,7 @@ export type RunsServiceDependencies = {
   runQueryRepository?: RunQueryRepositoryLike | null;
   bridgeRegistry: BridgeRegistryLike;
   runtimeControl: RunRuntimeControl;
+  agentRuntimeRepository?: AgentRuntimeRepositoryLike;
 };
 
 function dispatchBridgeCommandDetached(
@@ -336,19 +351,21 @@ async function buildInitialInformationCollection(
   run: RunRecord,
   prompt: string
 ): Promise<RunInformationCollection> {
-  const template = await sessionCatalogService.tryResolveInformationCollectionTemplate(
-    run.sessionVersionId,
-    {
-      workspaceContextKey: run.catalogMetadata?.workspaceContextKey ?? null,
-      userId: run.requestedByUserId ?? null,
-    }
-  );
+  const sealedTemplate = await tryResolveSealedInformationCollectionTemplate(run.sessionVersionId);
+  const legacyTemplate = sealedTemplate ? null : await sessionCatalogService.tryResolveInformationCollectionTemplate(
+      run.sessionVersionId,
+      {
+        workspaceContextKey: run.catalogMetadata?.workspaceContextKey ?? null,
+        userId: run.requestedByUserId ?? null,
+      }
+    );
+  const templateSlots = sealedTemplate?.slots ?? legacyTemplate?.slots ?? [];
 
   return createRunInformationCollection({
     prompt,
-    slotSchemaVersion: template?.slotSchemaVersion ?? null,
+    slotSchemaVersion: sealedTemplate?.version ?? legacyTemplate?.slotSchemaVersion ?? null,
     slots:
-      template?.slots.map((slot) => ({
+      templateSlots.map((slot) => ({
         key: slot.key,
         title: slot.title,
         type: slot.type,
@@ -363,7 +380,7 @@ async function buildInitialInformationCollection(
           label: choice.label ?? null,
         })),
         accepts: slot.accepts ?? [],
-      })) ?? [],
+      })),
   });
 }
 
@@ -478,6 +495,7 @@ export class RunsService {
   #runQueryRepository: RunQueryRepositoryLike | null;
   #bridgeRegistry: BridgeRegistryLike;
   #runtimeControl: RunRuntimeControl;
+  #agentRuntimeRepository: AgentRuntimeRepositoryLike;
 
   constructor(dependencies: RunsServiceDependencies) {
     this.#runsRepository = dependencies.runsRepository;
@@ -487,6 +505,7 @@ export class RunsService {
     this.#runQueryRepository = dependencies.runQueryRepository ?? null;
     this.#bridgeRegistry = dependencies.bridgeRegistry;
     this.#runtimeControl = dependencies.runtimeControl;
+    this.#agentRuntimeRepository = dependencies.agentRuntimeRepository ?? agentRuntimeRepository;
   }
 
   #requireAggregate(runId: string) {
@@ -637,14 +656,21 @@ export class RunsService {
   async createRun(input: CreateRunInput) {
     const parsed = createRunInputSchema.parse(input);
     const runId = nextRunId();
+    let usesSealedV2Session = false;
     if (parsed.catalogMetadata?.workspaceContextKey || parsed.catalogMetadata?.serviceId) {
-      sessionCatalogService.requireSessionPack(parsed.sessionVersionId, {
-        workspaceContextKey: parsed.catalogMetadata?.workspaceContextKey ?? null,
-        serviceId: parsed.catalogMetadata?.serviceId ?? null,
-      });
+      try {
+        sessionCatalogService.requireSessionPack(parsed.sessionVersionId, {
+          workspaceContextKey: parsed.catalogMetadata?.workspaceContextKey ?? null,
+          serviceId: parsed.catalogMetadata?.serviceId ?? null,
+        });
+      } catch (error) {
+        if (!getSealedSessionVersion(parsed.sessionVersionId)) throw error;
+        await ensureSealedSessionVersionVerified(parsed.sessionVersionId);
+        usesSealedV2Session = true;
+      }
     }
     let effectiveInput = parsed;
-    if (parsed.catalogMetadata?.workspaceContextKey && parsed.catalogMetadata?.serviceId) {
+    if (!usesSealedV2Session && parsed.catalogMetadata?.workspaceContextKey && parsed.catalogMetadata?.serviceId) {
       const consumerSessionPack = await sessionCatalogService.ensureConsumerSessionPackForRun(
         parsed.sessionVersionId,
         {
@@ -1532,6 +1558,53 @@ export class RunsService {
     return this.#buildSnapshot(updated);
   }
 
+  async finalizeAfterSessionCapture(runId: string, captureId: string): Promise<RunSnapshot> {
+    const currentSnapshot = this.getRun(runId);
+    if (TERMINAL_STATUSES.has(currentSnapshot.run.status)) return currentSnapshot;
+    const at = nowIso();
+    const updated = await this.#runsRepository.update(runId, (current) => {
+      if (current.run.status !== "RUNNING" && current.run.status !== "WAITING_APPROVAL") {
+        throw new AppError(409, "RUN_FINALIZE_NOT_ALLOWED", `Run cannot be finalized from ${current.run.status}`);
+      }
+      const message = createMessage(
+        runId,
+        "system",
+        "status",
+        `Run finalized after verified terminal session capture ${captureId}.`
+      );
+      return {
+        ...current,
+        run: this.#applyRunStatus(
+          current.run,
+          "SUCCEEDED",
+          at,
+          `Verified terminal session capture: ${captureId}`
+        ),
+        messages: [...current.messages, message],
+      };
+    });
+    if (!updated) throw new AppError(404, "RUN_NOT_FOUND", `Run not found: ${runId}`);
+    await this.#upsertQuerySnapshot(updated);
+    await this.#emitEvents([
+      {
+        type: "run.status.changed",
+        runId,
+        status: updated.run.status,
+        occurredAt: at,
+        reason: updated.run.statusReason,
+      },
+      {
+        type: "conversation.message",
+        message: updated.messages.at(-1)!,
+      },
+    ]);
+    await billingService.recordRunRuntimeEstimate(updated).catch(() => undefined);
+    await this.#runtimeControl.requestStop(runId).catch((error) => {
+      console.error(`[lingban-runs-service] failed to stop finalized runtime ${runId}: ${toErrorMessage(error)}`);
+    });
+    return this.#buildSnapshot(updated);
+  }
+
   async syncRunStatus(runId: string, status: RunStatus, reason?: string | null, occurredAt?: string) {
     const at = occurredAt ?? nowIso();
     const updated = await this.#runsRepository.update(runId, (current) => ({
@@ -1603,8 +1676,27 @@ export class RunsService {
     return this.#buildSnapshot(updated);
   }
 
+  async syncSessionCaptures(runId: string, captures: SessionCaptureSummary[]) {
+    const updated = await this.#runsRepository.update(runId, (current) => ({
+      ...current,
+      sessionCaptures: captures,
+    }));
+    if (!updated) throw new AppError(404, "RUN_NOT_FOUND", `Run not found: ${runId}`);
+    await this.#upsertQuerySnapshot(updated);
+    return this.#buildSnapshot(updated);
+  }
+
+  async requestSessionCaptureExecution(runId: string, captureId: string) {
+    return this.#runtimeControl.requestSessionCapture(runId, captureId);
+  }
+
   async ingestBridgeEvents(runId: string, events: BridgeEvent[]) {
     const parsedEvents = events.map((event) => bridgeEventSchema.parse(event));
+    for (const event of parsedEvents) {
+      if (inferRunIdFromBridgeEvent(event) !== runId) {
+        throw new AppError(409, "RUN_EVENT_SCOPE_MISMATCH", `Bridge event does not belong to run ${runId}`);
+      }
+    }
     const updated = await this.#runsRepository.update(runId, (current) => {
       let next = {
         ...current,
@@ -1663,6 +1755,14 @@ export class RunsService {
               run: this.#applyRunStatus(next.run, "FAILED", event.occurredAt, event.error),
             };
             break;
+          case "agent.thread.state":
+            next = {
+              ...next,
+              agentThread: event.thread,
+            };
+            break;
+          case "agent.runtime.event":
+            break;
           case "heartbeat":
             break;
         }
@@ -1676,6 +1776,33 @@ export class RunsService {
     }
 
     await this.#upsertQuerySnapshot(updated);
+
+    for (const event of parsedEvents) {
+      if (event.type === "agent.runtime.event") {
+        await this.#agentRuntimeRepository.appendEvent(agentRuntimeEventRecordSchema.parse({
+          ...event,
+          eventId: `aev_${randomUUID()}`,
+          receivedAt: nowIso(),
+        }));
+      }
+      if (event.type === "agent.thread.state") {
+        const existing = await this.#agentRuntimeRepository.getThreadByRunId(runId);
+        await this.#agentRuntimeRepository.upsertThread(agentThreadRecordSchema.parse({
+          ...event.thread,
+          runId,
+          providerId: updated.provider?.providerId ?? null,
+          providerBindingId: updated.provider?.bindingId ?? null,
+          model: updated.provider?.model ?? null,
+          runtimeConfigSha256: existing?.runtimeConfigSha256 ?? null,
+          startedAt: existing?.startedAt ?? event.occurredAt,
+          updatedAt: event.occurredAt,
+          stoppedAt:
+            event.thread.connectionState === "stopped" || event.thread.connectionState === "failed"
+              ? event.occurredAt
+              : null,
+        }));
+      }
+    }
 
     await this.#emitEvents(parsedEvents);
 
@@ -1777,10 +1904,13 @@ export function createRunsServiceDependencies(): RunsServiceDependencies {
     runtimeControl: {
       startRun: (runId) => getDefaultRunOrchestrator().startRun(runId),
       requestStop: (runId) => getDefaultRunOrchestrator().requestStop(runId),
+      requestSessionCapture: (runId, captureId) =>
+        getDefaultRunOrchestrator().requestSessionCapture(runId, captureId),
       getDiagnostics: () => getDefaultRunOrchestrator().getDiagnostics(),
       recover: () => getDefaultRunOrchestrator().recover(),
       shutdown: () => getDefaultRunOrchestrator().shutdown(),
     },
+    agentRuntimeRepository,
   };
 }
 

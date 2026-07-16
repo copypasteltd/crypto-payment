@@ -313,6 +313,9 @@ async function seedCreatorRbacState(storageRoot) {
           "img: lingban-runtime:2026.07",
         ],
         dependencies: [],
+        currentSessionVersionId: "sev_creator_drama_suite_20260709",
+        candidateSessionVersionId: null,
+        currentTaskVersionId: "tsv_drama_storyboard_20260709",
       },
     ],
     releases: [],
@@ -410,6 +413,38 @@ test("creator RBAC smoke: workspace role and context boundaries are enforced ser
       true
     );
 
+    const createdPackage = await requestJson(`${baseUrl}/v1/packages`, {
+      method: "POST",
+      headers: creatorHeaders,
+      body: JSON.stringify({
+        packageId: "creator-new-session",
+        title: { zh: "New Session Package", en: "New Session Package" },
+        description: { zh: "Created from a sealed session", en: "Created from a sealed session" },
+        workspaceContextKey: "brand-lab",
+        linkedWorkshopIds: ["drama-workshop"],
+        linkedServiceIds: ["drama-storyboard"],
+        currentTaskVersionId: "tsv_drama_storyboard_new",
+      }),
+    });
+    assert.equal(createdPackage.packageId, "creator-new-session");
+    assert.deepEqual(createdPackage.workspaceContextKeys, ["brand-lab"]);
+
+    const duplicatePackage = await requestFailure(`${baseUrl}/v1/packages`, {
+      method: "POST",
+      headers: creatorHeaders,
+      body: JSON.stringify({
+        packageId: "creator-new-session",
+        title: { zh: "Duplicate", en: "Duplicate" },
+        description: { zh: "Duplicate", en: "Duplicate" },
+        workspaceContextKey: "brand-lab",
+        linkedWorkshopIds: [],
+        linkedServiceIds: [],
+        currentTaskVersionId: null,
+      }),
+    });
+    assert.equal(duplicatePackage.status, 409);
+    assert.equal(duplicatePackage.body.error.code, "CREATOR_PACKAGE_ALREADY_EXISTS");
+
     const operatorPackages = await requestFailure(`${baseUrl}/v1/packages`, {
       headers: {
         authorization: `Bearer ${operatorLogin.tokens.accessToken}`,
@@ -417,6 +452,25 @@ test("creator RBAC smoke: workspace role and context boundaries are enforced ser
     });
     assert.equal(operatorPackages.status, 403);
     assert.equal(operatorPackages.body.error.code, "WORKSPACE_ROLE_FORBIDDEN");
+
+    const operatorCreatePackage = await requestFailure(`${baseUrl}/v1/packages`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${operatorLogin.tokens.accessToken}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        packageId: "operator-forbidden-package",
+        title: { zh: "Forbidden", en: "Forbidden" },
+        description: { zh: "Forbidden", en: "Forbidden" },
+        workspaceContextKey: "brand-lab",
+        linkedWorkshopIds: [],
+        linkedServiceIds: [],
+        currentTaskVersionId: null,
+      }),
+    });
+    assert.equal(operatorCreatePackage.status, 403);
+    assert.equal(operatorCreatePackage.body.error.code, "WORKSPACE_ROLE_FORBIDDEN");
 
     const viewerPackage = await requestFailure(
       `${baseUrl}/v1/packages/${encodeURIComponent("creator-drama-suite")}`,

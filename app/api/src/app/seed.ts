@@ -1,4 +1,5 @@
 import { initializeAuthInfrastructure } from "../modules/auth/service.js";
+import { initializeAdminInfrastructure } from "../modules/admin/service.js";
 import { initializeCredentialsInfrastructure } from "../modules/credentials/service.js";
 import { initializeCreatorInfrastructure } from "../modules/creator/service.js";
 import { initializeMcpInfrastructure } from "../modules/mcp/service.js";
@@ -7,6 +8,7 @@ import { initializeSessionInfrastructure } from "../modules/sessions/service.js"
 import { initializeWorkshopInfrastructure } from "../modules/workshops/service.js";
 
 export async function seedApiReferenceData() {
+  await initializeAdminInfrastructure();
   await initializeAuthInfrastructure();
   await initializeCredentialsInfrastructure();
   await initializeMcpInfrastructure();
@@ -17,6 +19,6 @@ export async function seedApiReferenceData() {
 
   return {
     seeded: true,
-    modules: ["auth", "credentials", "mcp", "workshops", "sessions", "creator", "quotas"],
+    modules: ["admin", "auth", "credentials", "mcp", "workshops", "sessions", "creator", "quotas"],
   };
 }

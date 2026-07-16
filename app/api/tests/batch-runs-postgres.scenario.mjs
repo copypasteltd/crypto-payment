@@ -197,6 +197,9 @@ async function seedBatchState(storageRoot) {
           "img: lingban-codex-runtime:2026.07",
         ],
         dependencies: [],
+        currentSessionVersionId: "sev_brand_poster_suite_20260711",
+        candidateSessionVersionId: null,
+        currentTaskVersionId: "tsv_poster_batch_20260711",
       },
     ],
     releases: [

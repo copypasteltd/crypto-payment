@@ -97,15 +97,32 @@ pnpm -C app/run-worker start:daemon
 
 Native Node.js tests cover launch plans, queues, workspaces, session packs, egress controls, operations HTTP, and recovery. Full isolated-runtime validation runs on the designated server.
 
+## Session Capture / Session Capture
+
+`src/services/session-capture` implements the Worker side of Session Capture:
+
+```text
+claim lease
+→ wait for App Server barrier
+→ export events and thread evidence
+→ inventory the selected target path
+→ build deterministic tar.zst workspace snapshot
+→ upload five content-addressed objects
+→ complete with boundary and counters
+→ release cleanup gate
+```
+
+Capture uploads use expected SHA-256 values and lease generations. Retryable failures preserve the workspace until API state allows cleanup.
+
 ## 当前状态 / Current Status
 
-截至 2026-07-14，Worker 已实现 BullMQ 常驻消费、Runtime 物料生成、Provider 环境注入、Bridge 启动、Egress 治理、诊断指标、恢复、DLQ 与清理主链。
+截至 2026-07-17，Worker 已实现 BullMQ 常驻消费、Runtime 物料生成、Provider 环境注入、Bridge 启动、Session Capture Barrier/Snapshot/Upload、Egress 治理、诊断指标、恢复、DLQ 与清理主链。
 
-As of 2026-07-14, the worker implements persistent BullMQ consumption, runtime materialization, provider environment injection, bridge startup, egress governance, diagnostics, recovery, dead-letter queues, and cleanup.
+As of 2026-07-17, the worker includes persistent queue consumption, runtime materialization, provider injection, bridge startup, Session Capture barriers and snapshots, egress governance, diagnostics, recovery, dead-letter queues, and cleanup.
 
-最新原生测试结果：27/27 通过。
+最新原生测试结果：28/28 通过。
 
-Latest native test result: 27/27 passed.
+Latest native test result: 28/28 passed.
 
 生产运行需要 Redis 高可用、Worker 多副本抢占验证、Runner 版本固定、容量上限、告警规则和资源回收演练。
 

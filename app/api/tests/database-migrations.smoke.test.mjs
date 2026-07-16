@@ -31,6 +31,8 @@ const expectedVersions = [
   "0026_session_archives",
   "0027_mcp_global_workspace_nullable",
   "0028_credentials_workspace_owner_nullable",
+  "0029_admin_control_plane",
+  "0030_session_control",
 ];
 
 test("database migrations are discoverable, dry-runnable, and idempotently applied", async () => {

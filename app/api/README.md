@@ -27,6 +27,7 @@ This component depends on internal `workspace:*` packages. The standalone backen
 - Provider、Credential、MCP、Quota、Billing 与审计治理。
 - Bridge 注册、命令派发、幂等回调、诊断、指标与产物回流。
 - Batch Run 导入、映射、校验、估算、启动、重试和取消。
+- 独立 Admin 控制面、平台级查询、Provider/MCP/Credential/Quota 治理、影响预检和不可变管理审计。
 
 ## API 域 / API Domains
 
@@ -41,11 +42,12 @@ This component depends on internal `workspace:*` packages. The standalone backen
 | `/ws/runs` | Run WebSocket 订阅与控制消息 |
 | `/v1/sessions` | Session 版本、继承、发布、回滚、脱敏与归档 |
 | `/v1/packages`, `/v1/releases` | Creator Package、Release、Gate、Activation 与 Replay |
-| `/v1/providers`, `/v1/provider-bindings` | 多 Provider 配置、健康检查与工作区路由 |
+| `/v1/providers`, `/v1/provider-bindings` | 多 Provider 配置、API Key 加密创建、Credential Binding、运行时模型白名单与工作区路由 |
 | `/v1/credentials` | 凭证元数据、Broker、生命周期和审计 |
 | `/v1/mcps`, `/v1/mcp-*` | MCP 注册、绑定、探测、网络策略与调用审计 |
 | `/v1/quotas`, `/v1/billing` | 配额策略、计数、超额审批、用量与成本账本 |
 | `/v1/batch-runs` | 批量导入、估算、执行与重试 |
+| `/admin/v1` | 独立 Admin 登录、平台总览、资源治理、Provider 真实模型测试、模型差异拉取与确认写入、MCP 工具同步、Credential 生命周期、配额、账本、审计和系统设置 |
 | `/internal` | Bridge 注册、事件/状态/产物回调、Runtime 诊断与运维动作 |
 
 ## 模块结构 / Module Map
@@ -59,7 +61,7 @@ This component depends on internal `workspace:*` packages. The standalone backen
 | `src/modules/runs/` | Run 聚合、消息、审批、文件、状态与编排 |
 | `src/modules/uploads/` | 上传、对象存储、文件安全、保留与下载票据 |
 | `src/modules/bridge/` | Runtime 注册、命令队列、回调账本和诊断 |
-| `src/modules/providers/` | Provider 配置、密钥引用、健康检查和默认路由 |
+| `src/modules/providers/` | Provider 配置、密钥引用、真实模型测试、只读模型拉取、确认写入和默认路由 |
 | `src/modules/credentials/` | 凭证 Broker、回调、轮换、吊销和审计 |
 | `src/modules/mcp/` | MCP 注册、绑定、探测、网络策略和调用审计 |
 | `src/modules/sessions/` | Session 版本线、脱敏审查、继承、发布与归档 |
@@ -68,6 +70,8 @@ This component depends on internal `workspace:*` packages. The standalone backen
 | `src/modules/billing/` | 用量事件、账本、聚合与成本读取 |
 | `src/modules/batch-runs/` | 批量文件解析、字段映射与执行控制 |
 | `src/modules/realtime/` | WebSocket/SSE 事件分发 |
+| `src/modules/admin/` | 独立 Admin 会话、平台读模型、治理状态、影响预检、操作执行、审计与系统设置 |
+| `migrations/0029_admin_control_plane.sql` | Admin 资源状态、审计事件、版本化设置和待执行操作持久化 |
 
 ## 数据与运行模式 / Data and Runtime Modes
 
@@ -100,7 +104,12 @@ DATABASE_URL=postgres://...
 LINGBAN_OBJECT_STORAGE_DRIVER=filesystem
 LINGBAN_RUNTIME_DISPATCH_MODE=embedded
 LINGBAN_REDIS_URL=redis://127.0.0.1:6379/0
+LINGBAN_ADMIN_CSRF_SECRET=<long-random-secret>
+LINGBAN_ADMIN_COOKIE_SECURE=true
+LINGBAN_RELEASE=<immutable-release-id>
 ```
+
+Admin 账号使用统一认证存储；账户需要具备 `platform_admin` 标记。账号与密码不通过进程环境变量旁路配置。
 
 Provider API Key、内部 Token 和对象存储密钥仅通过 Secret Manager、受控环境变量或凭证 Broker 注入，禁止写入仓库。
 
@@ -114,6 +123,7 @@ Provider API keys, internal tokens, and storage credentials must be injected thr
 pnpm install
 pnpm -C app/api typecheck
 pnpm -C app/api build
+pnpm -C app/api test:admin
 pnpm -C app/api test:smoke:compiled
 pnpm -C app/api migrate
 pnpm -C app/api start
@@ -131,12 +141,41 @@ Local verification uses native Node.js and pnpm. Runtime-isolation integration t
 - 文件链执行路径归一化、target path 边界、下载票据和安全扫描。
 - Provider 管理接口要求平台管理员角色，工作区仅访问自身绑定。
 - Credential 返回值仅包含元数据、引用和脱敏摘要。
+- Admin Access 与 Refresh Token 仅存于 `HttpOnly`、`SameSite=Strict` Cookie，写请求执行签名双提交 CSRF 校验。
+- 高影响治理操作执行影响预检、确认词、原因、资源版本和审计校验；Credential 明文只写入 Broker，不进入读模型。
+
+## Session Control / Session Control
+
+- `src/modules/agent-runtime` stores canonical Codex App Server thread and raw-event evidence.
+- `src/modules/session-captures` owns Capture jobs, leases, barriers, retries, immutable objects, cleanup gates, and audited raw-object access.
+- `src/modules/session-drafts` owns Draft revisions, redaction, review, Replay Gate, sealing, and explicit Package/Service bindings.
+- `src/modules/session-migrations` imports signed v2 packs and migrates v1 archives with dry-run reports.
+- Migration `0030_session_control.sql` creates the complete Session Control persistence model and immutability triggers.
+
+Key rollout settings:
+
+```text
+SESSION_CAPTURE_V2_ENABLED=true
+SESSION_PACK_V2_WRITE_ENABLED=true
+SESSION_VERSION_IMMUTABILITY_ENFORCED=true
+CREATOR_EXPLICIT_SESSION_BINDING_ENABLED=true
+LINGBAN_SESSION_PACK_SIGNATURE_ENABLED=true
+```
+
+Legacy migration:
+
+```bash
+pnpm migrate:legacy-sessions -- --api http://127.0.0.1:38100 --token "$LINGBAN_ACCESS_TOKEN"
+pnpm migrate:legacy-sessions -- --apply --ids sev_a,sev_b --api http://127.0.0.1:38100 --token "$LINGBAN_ACCESS_TOKEN"
+```
+
+Session Control verification: Session Pack `24/24`, DB `27/27`, Session Control E2E `2/2`, complete API smoke `62/62`.
 
 ## 当前状态 / Current Status
 
-截至 2026-07-14，核心控制面、Provider 多路由、认证、文件链、Session 资产、治理域、Realtime 与 Runtime 回调均已实现；原生构建通过，Backend smoke 62/62 通过。当前验收 API 地址为 `http://192.168.31.20:38130`。
+截至 2026-07-17，核心控制面、独立 Admin API、Provider 多路由、API Key 加密绑定、模型测试、认证、文件链、结构化 Agent 事件、Capture、Draft、Replay、签名密封、显式绑定、Legacy 迁移、治理域、Realtime 与 Runtime 回调均已实现。当前 Admin 同源入口为 `http://192.168.31.20:38140/admin/v1`，线上版本由 `/admin/v1/system` 返回。
 
-As of 2026-07-14, the core control plane, multi-provider routing, authentication, file chain, session assets, governance domains, realtime transport, and runtime callbacks are implemented. Native builds pass, and the backend smoke suite passes 62/62 tests.
+As of 2026-07-17, the API includes the core control plane, independent Admin APIs, provider routing, encrypted credentials, authentication, file handling, structured agent events, Capture, Draft, Replay, signed immutable versions, explicit bindings, legacy migration, governance, realtime transport, and runtime callbacks.
 
 生产扩展仍需要外部 PostgreSQL、Redis、对象存储、集中 Secret Manager、备份策略、告警通道和多节点容量验证。
 

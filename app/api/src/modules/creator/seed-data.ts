@@ -72,6 +72,9 @@ export const seedCreatorState: CreatorState = {
         l("浏览器自动化 / OTP 凭证 / 审批节点", "Browser automation / OTP credentials / approval nodes"),
         l("受控目标路径写入：receipts / output / archive", "Controlled target-path writes: receipts / output / archive"),
       ],
+      currentSessionVersionId: "sev_chrome_tax_runner",
+      candidateSessionVersionId: null,
+      currentTaskVersionId: "tsv_tax_filing",
     },
     {
       packageId: "creator-drama-suite",
@@ -114,6 +117,9 @@ export const seedCreatorState: CreatorState = {
         l("Seedance / 导演审稿回流 / 外部素材引用", "Seedance / director review callbacks / external asset references"),
         l("长对话上下文与版本回放", "Long-form conversation context and replay"),
       ],
+      currentSessionVersionId: null,
+      candidateSessionVersionId: "sev_creator_drama_suite",
+      currentTaskVersionId: "tsv_drama_storyboard",
     },
     {
       packageId: "brand-poster-suite",
@@ -153,6 +159,9 @@ export const seedCreatorState: CreatorState = {
         l("GPT Image 2 / 资产库引用 / 结果包回写", "GPT Image 2 / asset-library refs / bundle callback writes"),
         l("私有图像 key 只读挂载", "Readonly private image-key mounts"),
       ],
+      currentSessionVersionId: "sev_brand_poster_suite",
+      candidateSessionVersionId: null,
+      currentTaskVersionId: "tsv_poster_batch",
     },
   ],
   releases: [
