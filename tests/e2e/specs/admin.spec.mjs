@@ -31,10 +31,11 @@ function pageResult(items = []) {
   };
 }
 
-function json(route, body, status = 200) {
+function json(route, body, status = 200, headers = {}) {
   return route.fulfill({
     status,
     contentType: "application/json",
+    headers,
     body: JSON.stringify(body),
   });
 }
@@ -122,7 +123,24 @@ async function installAdminApiMock(page) {
     if (path === "/runtime") {
       return json(route, { readiness: { status: "ready" }, diagnostics: { status: "ready", activeRunsCount: 1 }, bridgeConnections: [], fileLifecycle: { sweeperActive: true } });
     }
-    if (path === "/providers" && method === "GET") return json(route, pageResult(state.providers));
+    if (path === "/providers" && method === "GET") {
+      if (page.url().includes("business-failure=1") && state.providers.length === 0) {
+        state.providers = [{
+          providerId: "prv_failure_e2e",
+          displayName: "Failure Provider",
+          baseUrl: "https://failure-provider.example.com/v1",
+          healthcheckPath: "/models",
+          defaultModel: "gpt-e2e-fail",
+          models: [{ model: "gpt-e2e-fail", label: null, enabled: true, isDefault: true, capabilities: {} }],
+          governanceStatus: "active",
+          lastHealthcheck: null,
+          bindingCount: 0,
+          createdAt: now,
+          updatedAt: now,
+        }];
+      }
+      return json(route, pageResult(state.providers));
+    }
     if (path === "/providers/fetch-models" && method === "POST") {
       return json(route, {
         modelListUrl: "https://e2e-provider.example.com/v1/models",
@@ -135,6 +153,15 @@ async function installAdminApiMock(page) {
     }
     if (path === "/providers" && method === "POST") {
       const payload = request.postDataJSON();
+      if (payload.input.displayName === "Rejected Provider") {
+        return json(route, {
+          error: {
+            code: "PROVIDER_CONFIGURATION_REJECTED",
+            message: "Provider authentication failed",
+            details: { issues: ["The remote endpoint rejected this API Key"] },
+          },
+        }, 422, { "x-request-id": "req_provider_rejected_e2e" });
+      }
       const provider = {
         providerId: "prv_created_e2e",
         ...payload.input,
@@ -173,6 +200,20 @@ async function installAdminApiMock(page) {
     }
     if (/^\/providers\/[^/]+\/test$/.test(path) && method === "POST") {
       const payload = request.postDataJSON();
+      if (payload.input.model === "gpt-e2e-fail") {
+        const provider = state.providers.find((item) => item.providerId === "prv_failure_e2e");
+        if (provider) provider.lastHealthcheck = { status: "failed", responseTimeMs: 89, message: "Upstream API Key was rejected", checkedAt: now };
+        return json(route, {
+          success: false,
+          model: payload.input.model,
+          endpointType: "openai",
+          stream: payload.input.stream,
+          responseTimeMs: 89,
+          httpStatus: 401,
+          message: "Upstream API Key was rejected",
+          testedAt: now,
+        });
+      }
       return json(route, {
         success: true,
         model: payload.input.model,
@@ -233,7 +274,7 @@ async function installAdminApiMock(page) {
         confirmationPhrase: "SUSPEND usr_target_e2e",
         requestedByUserId: "usr_admin_e2e",
         createdAt: now,
-        expiresAt: "2026-07-15T08:05:00.000Z",
+        expiresAt: "2099-07-15T08:05:00.000Z",
         consumedAt: null,
       });
     }
@@ -286,6 +327,7 @@ test.describe("independent admin console", () => {
     await page.getByLabel("Base URL").fill("https://e2e-provider.example.com/v1");
     await page.getByLabel("API Key", { exact: true }).fill("sk-e2e-provider-key");
     await page.getByRole("button", { name: "拉取模型" }).click();
+    await expect(page.getByTestId("admin-toast-success").filter({ hasText: "远端模型已拉取" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "拉取模型" })).toBeVisible();
     const newModelOption = page.locator(".provider-model-option").filter({ hasText: "gpt-e2e" }).first();
     await newModelOption.getByRole("checkbox").check();
@@ -294,6 +336,7 @@ test.describe("independent admin console", () => {
     await expect(page.getByLabel("已选模型", { exact: true })).toHaveValue("gpt-e2e");
     await page.getByLabel("变更原因").fill("Create provider from the independent Admin E2E flow");
     await page.getByRole("button", { name: "保存 Provider" }).click();
+    await expect(page.getByTestId("admin-toast-success").filter({ hasText: "操作已完成" })).toBeVisible();
     await expect(page.getByText("E2E Provider", { exact: true })).toBeVisible();
 
     await page.getByRole("button", { name: "拉取模型" }).first().click();
@@ -315,6 +358,73 @@ test.describe("independent admin console", () => {
     await page.getByLabel("确认词", { exact: false }).fill("SUSPEND usr_target_e2e");
     await page.getByRole("button", { name: "确认执行" }).click();
     await expect(page.getByText("操作已执行，审计记录已写入。")).toBeVisible();
+    await expect(page.getByTestId("admin-toast-success").filter({ hasText: "操作已完成" })).toBeVisible();
+  });
+
+  test("reports provider validation and structured API failures", async ({ page }) => {
+    await page.goto("/providers");
+    await page.getByRole("button", { name: "新建 Provider" }).click();
+    await page.getByRole("button", { name: "保存 Provider" }).click();
+
+    const validationToast = page.getByTestId("admin-toast-warning").filter({ hasText: "表单未提交" });
+    await expect(validationToast).toBeVisible();
+    await expect(validationToast).toContainText("显示名称");
+    await expect(validationToast).toContainText("Base URL");
+    await expect(validationToast).toContainText("API Key");
+    await expect(validationToast).toContainText("默认模型");
+    await expect(page.locator(".form-error-summary")).toBeVisible();
+
+    await page.getByLabel("显示名称").fill("Rejected Provider");
+    await page.getByLabel("Base URL").fill("https://rejected-provider.example.com/v1");
+    await page.getByLabel("API Key", { exact: true }).fill("sk-rejected");
+    await page.getByLabel("默认模型", { exact: true }).fill("gpt-rejected");
+    await page.getByLabel("已选模型", { exact: true }).fill("gpt-rejected");
+    await page.getByLabel("变更原因").fill("Verify structured Provider rejection toast");
+    await page.getByRole("button", { name: "保存 Provider" }).click();
+
+    const apiToast = page.getByTestId("admin-toast-error").filter({ hasText: "Provider authentication failed" });
+    await expect(apiToast).toBeVisible();
+    await expect(apiToast).toContainText("PROVIDER_CONFIGURATION_REJECTED");
+    await expect(apiToast).toContainText("HTTP 422");
+    await expect(apiToast).toContainText("POST /providers");
+    await expect(apiToast).toContainText("req_provider_rejected_e2e");
+    await expect(apiToast).toContainText("The remote endpoint rejected this API Key");
+  });
+
+  test("reports network failures with request metadata", async ({ page }) => {
+    await page.route("**/admin/v1/runtime", (route) => route.abort("connectionfailed"));
+    await page.goto("/runtime");
+
+    const networkToast = page.getByTestId("admin-toast-error").filter({ hasText: "请求失败" });
+    await expect(networkToast).toBeVisible();
+    await expect(networkToast).toContainText("ADMIN_NETWORK_ERROR");
+    await expect(networkToast).toContainText("GET /runtime");
+    await expect(networkToast.locator(".toast-meta button")).toBeVisible();
+  });
+
+  test("reports Provider business-level test failures returned with HTTP 200", async ({ page }) => {
+    await page.goto("/providers?business-failure=1");
+    await expect(page.getByText("Failure Provider", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "快速测试默认模型" }).click();
+
+    const failureToast = page.getByTestId("admin-toast-error").filter({ hasText: "测试失败" });
+    await expect(failureToast).toBeVisible();
+    await expect(failureToast).toContainText("Upstream API Key was rejected");
+    await expect(page.getByRole("table").getByText("失败", { exact: true })).toBeVisible();
+  });
+
+  test("explains governance and settings boundary conditions", async ({ page }) => {
+    await page.goto("/accounts/users");
+    await page.getByRole("button", { name: "暂停", exact: true }).click();
+    await page.getByRole("button", { name: "确认执行" }).click();
+    await expect(page.getByTestId("admin-toast-warning").filter({ hasText: "请填写操作原因" })).toBeVisible();
+
+    await page.goto("/settings");
+    await page.getByRole("button", { name: "策略与通知" }).click();
+    const editor = page.locator(".config-editor").first();
+    await editor.fill("{invalid json");
+    await page.getByRole("button", { name: "保存变更" }).first().click();
+    await expect(page.getByTestId("admin-toast-warning").filter({ hasText: "JSON 格式无效" })).toBeVisible();
   });
 
   test("blocks management controls below the supported viewport", async ({ page }) => {
