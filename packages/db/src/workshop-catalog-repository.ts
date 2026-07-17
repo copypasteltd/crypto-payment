@@ -66,6 +66,14 @@ export interface WorkshopCatalogRepository {
   listServices(): ServiceCatalogRecord[];
   getServiceById(serviceId: string): ServiceCatalogRecord | null;
   saveService(service: ServiceCatalogRecord): Promise<ServiceCatalogRecord>;
+  saveWorkshopService(input: {
+    workshop: WorkshopCatalogRecord;
+    service: ServiceCatalogRecord;
+  }): Promise<{ workshop: WorkshopCatalogRecord; service: ServiceCatalogRecord }>;
+  activateWorkshopService(workshopId: string, serviceId: string): Promise<{
+    workshop: WorkshopCatalogRecord;
+    service: ServiceCatalogRecord;
+  }>;
   listLaunchTemplates(): LaunchTemplateRecord[];
   findLaunchTemplate(
     serviceId: string,
@@ -154,6 +162,41 @@ export abstract class CachedWorkshopCatalogRepository implements WorkshopCatalog
       services: replaceByKey(state.services, parsed, (item) => item.serviceId),
     }));
     return parsed;
+  }
+
+  async saveWorkshopService(input: {
+    workshop: WorkshopCatalogRecord;
+    service: ServiceCatalogRecord;
+  }) {
+    await this.init();
+    const workshop = workshopCatalogRecordSchema.parse(input.workshop);
+    const service = serviceCatalogRecordSchema.parse(input.service);
+    if (service.workshopId !== workshop.workshopId) {
+      throw new Error(`Catalog Workshop/Service binding mismatch: ${workshop.workshopId}/${service.serviceId}`);
+    }
+    await this.updateState((state) => ({
+      ...state,
+      workshops: replaceByKey(state.workshops, workshop, (item) => item.workshopId),
+      services: replaceByKey(state.services, service, (item) => item.serviceId),
+    }));
+    return { workshop, service };
+  }
+
+  async activateWorkshopService(workshopId: string, serviceId: string) {
+    await this.init();
+    const workshop = this.getWorkshopById(workshopId);
+    const service = this.getServiceById(serviceId);
+    if (!workshop || !service || service.workshopId !== workshop.workshopId) {
+      throw new Error(`Catalog Workshop/Service binding not found: ${workshopId}/${serviceId}`);
+    }
+    const activeWorkshop = workshopCatalogRecordSchema.parse({ ...workshop, status: "active" });
+    const activeService = serviceCatalogRecordSchema.parse({ ...service, status: "active" });
+    await this.updateState((state) => ({
+      ...state,
+      workshops: replaceByKey(state.workshops, activeWorkshop, (item) => item.workshopId),
+      services: replaceByKey(state.services, activeService, (item) => item.serviceId),
+    }));
+    return { workshop: activeWorkshop, service: activeService };
   }
 
   listLaunchTemplates() {
