@@ -281,29 +281,15 @@ async function createAndBindProviderCredential(params: {
   const providerActor = toProviderWorkspaceActor(params.auth, workspaceId);
   let binding;
   try {
-    binding = existingBinding
-      ? !existingBinding.enabled || (params.input.makeDefaultBinding && !existingBinding.isDefault)
-        ? await providersService.updateWorkspaceBinding(
-            providerActor,
-            existingBinding.bindingId,
-            {
-              enabled: true,
-              isDefault: params.input.makeDefaultBinding || existingBinding.isDefault,
-            }
-          )
-        : existingBinding
-      : await providersService.createWorkspaceBinding(
-          providerActor,
-          {
-            providerId: params.provider.providerId,
-            credentialId: credential.credentialId,
-            enabled: true,
-            isDefault: params.input.makeDefaultBinding,
-            priority: 100,
-            allowUserOverride: true,
-            notes: "Created by the Admin Provider authentication workflow",
-          }
-        );
+    binding = await providersService.configurePlatformBinding(providerActor, {
+      providerId: params.provider.providerId,
+      credentialId: credential.credentialId,
+      enabled: true,
+      isDefault: params.input.makeDefaultBinding || existingBinding?.isDefault || false,
+      priority: existingBinding?.priority ?? 100,
+      allowUserOverride: existingBinding?.allowUserOverride ?? true,
+      notes: "Created by the Admin Provider authentication workflow",
+    });
   } catch (error) {
     if (!existingBinding) {
       await credentialsService.setCredentialLifecycleStatus(

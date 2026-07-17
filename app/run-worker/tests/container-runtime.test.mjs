@@ -85,6 +85,26 @@ test("materializeRunRuntime keeps internal auth token out of runtime artifacts a
       },
       credentialMounts: [],
       mcpBindings: [],
+      provider: {
+        providerId: "prv_runtime_materialize",
+        bindingId: "wpb_runtime_materialize",
+        bindingScope: "platform",
+        displayName: "Runtime Materialize Provider",
+        adapterMode: "openai-compatible",
+        apiStyle: "openai-compatible",
+        baseUrl: "https://provider-runtime.example.com/v1",
+        model: "gpt-runtime-materialize",
+        credentialId: "cred_runtime_materialize",
+        authEnvName: "OPENAI_API_KEY",
+        baseUrlEnvName: "OPENAI_BASE_URL",
+        modelEnvName: "OPENAI_MODEL",
+        runtimeEnv: {
+          OPENAI_BASE_URL: "https://provider-runtime.example.com/v1",
+          OPENAI_MODEL: "gpt-runtime-materialize",
+        },
+        allowedBaseUrls: ["https://provider-runtime.example.com/v1"],
+        resolvedAt: "2026-07-08T10:00:00.000Z",
+      },
     };
 
     const hostBridgeContext = {
@@ -133,6 +153,13 @@ test("materializeRunRuntime keeps internal auth token out of runtime artifacts a
     assert.equal(runtime.containerLaunchPlan.runtimeUser.gid, 21001);
     assert.equal(runtime.containerLaunchPlan.runtimeUser.appliesAtCreate, true);
     assert.equal(runtime.containerLaunchPlan.runtimeUser.dropRootInEntrypoint, false);
+    const codexConfig = await fs.readFile(runtime.runtimeConfig.files.codexConfigPath, "utf8");
+    assert.match(codexConfig, /model_provider = "lingban_runtime"/);
+    assert.match(codexConfig, /base_url = "https:\/\/provider-runtime\.example\.com\/v1"/);
+    assert.match(codexConfig, /env_key = "OPENAI_API_KEY"/);
+    assert.match(codexConfig, /wire_api = "responses"/);
+    assert.match(codexConfig, /supports_websockets = false/);
+    assert.equal(codexConfig.includes("internal-token-should-not-persist"), false);
   } finally {
     if (originalInternalToken == null) {
       delete process.env.LINGBAN_INTERNAL_AUTH_TOKEN;

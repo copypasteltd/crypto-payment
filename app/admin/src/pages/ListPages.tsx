@@ -4,6 +4,7 @@ import type { TFunction } from "i18next";
 import { NavLink, useNavigate } from "react-router-dom";
 import { Gauge, KeyRound, Pencil, Plus, PlugZap } from "lucide-react";
 import i18n from "../i18n";
+import { readableTitle } from "../lib/display";
 import type { JsonObject } from "../lib/types";
 import type { DataColumn } from "../components/DataTable";
 import { ResourceListPage } from "../components/ResourceListPage";
@@ -107,7 +108,7 @@ export function SessionsPage() {
 export function RunsPage() {
   const { t } = useTranslation(["runs", "common"]);
   const columns: DataColumn<JsonObject>[] = [
-    { key: "run", label: t("common:run"), render: (r) => { const run = nested(r, "run"); return <Primary title={text(run.title)} id={text(run.runId)} meta={text(run.workspaceId)} />; } },
+    { key: "run", label: t("common:run"), render: (r) => { const run = nested(r, "run"); const id = text(run.runId); return <Primary title={readableTitle(run.title, `${t("common:run")} ${id}`)} id={id} meta={text(run.workspaceId)} />; } },
     { key: "status", label: t("common:status"), width: 135, render: (r) => <StatusBadge status={nested(r, "run").status} /> },
     { key: "stage", label: t("runs:stage"), width: 130, render: (r) => text(nested(r, "run").stage ?? nested(r, "run").statusReason) },
     { key: "provider", label: t("common:providerModel"), width: 170, render: (r) => { const p = nested(r, "provider"); return <div className="stacked-cell"><span>{text(p.displayName ?? p.providerId)}</span><code>{text(p.model)}</code></div>; } },

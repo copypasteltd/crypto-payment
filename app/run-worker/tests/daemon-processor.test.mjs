@@ -715,7 +715,15 @@ test("handleRunStartJobFailure writes final start failures to DLQ and posts term
   assert.equal(dlqRecords[0].payload.maxAttempts, 3);
   assert.equal(dlqRecords[0].payload.error, "bridge bootstrap crashed");
   assert.equal(
-    dlqRecords[0].options.jobId.startsWith("run.start.dlq:run_final_start_failure:3:2026-07-09T02:05:00.000Z"),
+    dlqRecords[0].options.jobId,
+    "run.start.dlq-run_final_start_failure-3-2026-07-09T02-05-00.000Z"
+  );
+  assert.equal(
+    dlqRecords[0].options.jobId.includes(":"),
+    false
+  );
+  assert.equal(
+    /^[a-zA-Z0-9._-]+$/.test(dlqRecords[0].options.jobId),
     true
   );
   assert.deepEqual(runtimeUpdates, [
@@ -778,6 +786,10 @@ test("handleRunCleanupJobFailure writes exhausted cleanup jobs to cleanup DLQ", 
   assert.equal(dlqRecords[0].payload.attemptsMade, 2);
   assert.equal(dlqRecords[0].payload.maxAttempts, 2);
   assert.equal(dlqRecords[0].payload.error, "filesystem permission denied");
+  assert.equal(
+    dlqRecords[0].options.jobId,
+    "run.cleanup.dlq-run_cleanup_dlq-2-2026-07-09T02-10-00.000Z"
+  );
 });
 
 test("processBullmqRunCleanupPayload delegates to workspace cleanup", async () => {

@@ -5,6 +5,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Check, KeyRound, ListRestart, LoaderCircle, Play, RefreshCw, RotateCw, ShieldAlert } from "lucide-react";
 import { adminRequest } from "../lib/api";
 import i18n from "../i18n";
+import { readableTitle } from "../lib/display";
 import type { JsonObject, JsonValue } from "../lib/types";
 import { toast } from "../lib/toast";
 import { GovernanceActionDialog, type GovernanceActionSpec } from "../components/GovernanceAction";
@@ -29,7 +30,7 @@ function titleOf(record: JsonObject, id: string) {
     const localizedName = name as JsonObject;
     return String(i18n.resolvedLanguage?.startsWith("en") ? localizedName.en ?? localizedName.zh ?? id : localizedName.zh ?? localizedName.en ?? id);
   }
-  return String(name ?? record.email ?? id);
+  return readableTitle(name ?? record.email, id);
 }
 function countOf(value: JsonValue | undefined) { return Array.isArray(value) ? value.length : value && typeof value === "object" ? Object.keys(value).length : value == null ? 0 : 1; }
 
