@@ -432,6 +432,13 @@ export class SessionCaptureService {
       fileCount: saved.fileCount,
     });
     await this.#syncRunSummaries(current.runId);
+    await import("../session-projects/service.js")
+      .then(({ sessionProjectsService }) =>
+        sessionProjectsService.recordCapture(saved.runId, saved.captureId)
+      )
+      .catch((error) =>
+        console.error(`[lingban-session-capture] project capture sync failed for ${saved.captureId}:`, error)
+      );
     if (saved.createDraft) {
       void import("../session-drafts/service.js")
         .then(async ({ sessionDraftService }) => {
@@ -439,10 +446,17 @@ export class SessionCaptureService {
             sessionId: saved.destinationSessionId,
             sessionName: null,
             sessionDescription: "",
-            taskFamily: runsService.getRun(saved.runId).run.taskVersionId,
+            taskFamily:
+              runsService.getRun(saved.runId).run.taskVersionId ??
+              runsService.getRun(saved.runId).run.sessionProjectId ??
+              "creator-source",
             parentSessionVersionId: null,
             idempotencyKey: `capture:${saved.captureId}:default-draft`,
           }, saved.requestedByUserId);
+          await import("../session-projects/service.js")
+            .then(({ sessionProjectsService }) =>
+              sessionProjectsService.recordDraft(saved.runId, saved.captureId, created.draft.draftId)
+            );
           await sessionDraftService.createRevision(created.draft.draftId, {
             expectedVersion: created.draft.version,
             workspaceSelection: saved.workspaceSelection,

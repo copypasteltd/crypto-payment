@@ -28,6 +28,7 @@
     "build": "pnpm --filter @lingban/container-bridge --filter @lingban/config --filter @lingban/contracts --filter @lingban/domain-models --filter @lingban/mcp --filter @lingban/session-pack --filter @lingban/shared build && pnpm -C app/run-worker run build",
     "typecheck": "pnpm --filter @lingban/container-bridge --filter @lingban/config --filter @lingban/contracts --filter @lingban/domain-models --filter @lingban/mcp --filter @lingban/session-pack --filter @lingban/shared build && pnpm -C app/run-worker run typecheck",
     "start:daemon": "pnpm -C app/run-worker run start:daemon",
+    "test:blank-bootstrap": "pnpm -C app/run-worker run test:blank-bootstrap",
     "test:compiled": "pnpm -C app/run-worker run test:compiled",
     "test": "pnpm -C app/run-worker run test",
     "validate": "pnpm run test"

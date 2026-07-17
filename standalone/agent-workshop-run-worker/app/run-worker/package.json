@@ -16,7 +16,8 @@
     "build": "pnpm -C ../.. --filter @lingban/config --filter @lingban/contracts --filter @lingban/domain-models --filter @lingban/mcp --filter @lingban/shared --filter @lingban/session-pack --filter @lingban/container-bridge build && tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "start:daemon": "node dist/daemon.js",
-    "test:compiled": "node --test tests/daemon-processor.test.mjs tests/bridge-runner.test.mjs tests/container-runtime.test.mjs tests/egress-proxy.test.mjs tests/ops-http.test.mjs tests/queue-event-telemetry.test.mjs tests/session-capture-orchestrator.test.mjs tests/session-pack-materializer.test.mjs",
+    "test:blank-bootstrap": "node --test tests/blank-session-bootstrap.test.mjs",
+    "test:compiled": "node --test tests/blank-session-bootstrap.test.mjs tests/daemon-processor.test.mjs tests/bridge-runner.test.mjs tests/container-runtime.test.mjs tests/egress-proxy.test.mjs tests/ops-http.test.mjs tests/queue-event-telemetry.test.mjs tests/session-capture-orchestrator.test.mjs tests/session-pack-materializer.test.mjs",
     "test": "pnpm build && pnpm test:compiled"
   },
   "dependencies": {

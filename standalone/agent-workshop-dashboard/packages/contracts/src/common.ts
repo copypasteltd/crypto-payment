@@ -35,6 +35,7 @@ export const bridgeIdSchema = prefixedId("brg_");
 export const providerIdSchema = prefixedId("prv_");
 export const workspaceProviderBindingIdSchema = prefixedId("wpb_");
 export const sessionCaptureIdSchema = prefixedId("cap_");
+export const sessionProjectIdSchema = prefixedId("spj_");
 export const sessionCaptureAccessAuditIdSchema = prefixedId("scaa_");
 export const sessionDraftIdSchema = prefixedId("sdf_");
 export const sessionDraftRevisionIdSchema = prefixedId("sdr_");

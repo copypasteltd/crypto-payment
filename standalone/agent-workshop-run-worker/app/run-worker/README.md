@@ -23,6 +23,7 @@ The standalone worker export includes all internal workspace packages required b
 - 执行 preflight、幂等检查、配额和 Runtime 先决条件校验。
 - 创建 host/runtime/target/output 目录并应用路径边界。
 - 物化 Session Pack、MCP Binding、Secret Manifest 与 Provider Runtime 配置。
+- Blank Source Run 跳过 Session Pack 下载、验签、解包和工作区恢复。
 - 生成 Bridge Context 和 Runtime Launch Plan。
 - 启动 Bridge，采集心跳、状态、诊断与退出原因。
 - 执行重试、退避、DLQ、孤儿 Run 恢复、终态清理与 TTL 回收。
@@ -95,6 +96,10 @@ pnpm -C app/run-worker start:daemon
 
 本地测试使用原生 Node.js，覆盖启动计划、队列、Workspace、Session Pack、Egress、Ops HTTP 与恢复逻辑。隔离 Runtime 真链验收在指定服务器执行。
 
+`sessionBootstrapMode=blank` 只准备空 Target Path 和 Bridge Context，并设置 `deferInitialTurn=true`。Consumer Run 继续执行密封 Session Pack 的验签与恢复。
+
+`sessionBootstrapMode=blank` prepares an empty Target Path and Bridge Context with `deferInitialTurn=true`. Consumer Runs continue to verify and restore sealed Session Packs.
+
 Native Node.js tests cover launch plans, queues, workspaces, session packs, egress controls, operations HTTP, and recovery. Full isolated-runtime validation runs on the designated server.
 
 ## Session Capture / Session Capture
@@ -120,9 +125,9 @@ Capture uploads use expected SHA-256 values and lease generations. Retryable fai
 
 As of 2026-07-17, the worker includes persistent queue consumption, runtime materialization, provider injection, bridge startup, Session Capture barriers and snapshots, egress governance, diagnostics, recovery, dead-letter queues, and cleanup.
 
-最新原生测试结果：28/28 通过。
+最新原生测试结果：29/29 通过。
 
-Latest native test result: 28/28 passed.
+Latest native test result: 29/29 passed.
 
 生产运行需要 Redis 高可用、Worker 多副本抢占验证、Runner 版本固定、容量上限、告警规则和资源回收演练。
 

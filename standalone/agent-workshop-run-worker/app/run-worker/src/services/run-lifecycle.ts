@@ -129,6 +129,7 @@ function buildBridgeSessionContext(
         ? preparedWorkspace.containerPaths.targetPath
         : preparedWorkspace.hostPaths.targetPath,
     initialPrompt: payload.initialPrompt,
+    deferInitialTurn: payload.run.sessionBootstrapMode === "blank",
     requestedInitialMessage: payload.requestedInitialMessage,
     credentialMounts: payload.credentialMounts.map((mount) =>
       rewriteCredentialMount(mount, preparedWorkspace, mode)

@@ -296,8 +296,8 @@ export class BillingService {
       runId: string;
       workspaceId: string;
       requestedByUserId?: string | null;
-      taskVersionId: string;
-      sessionVersionId: string;
+      taskVersionId: string | null;
+      sessionVersionId: string | null;
       entrySurface: string;
       createdAt: string;
       updatedAt: string;

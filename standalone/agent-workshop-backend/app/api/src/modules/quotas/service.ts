@@ -63,8 +63,8 @@ type RunCreateQuotaContext = {
   workspaceContextKey: string | null;
   requestedByUserId: string | null;
   serviceId: string | null;
-  taskVersionId: string;
-  sessionVersionId: string;
+  taskVersionId: string | null;
+  sessionVersionId: string | null;
   entrySurface: string;
   packageIds: string[];
 };
