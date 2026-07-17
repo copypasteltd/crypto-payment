@@ -124,6 +124,7 @@ function buildBridgeSessionContext(
     entrySurface: payload.run.entrySurface,
     workspaceContextKey: payload.run.catalogMetadata?.workspaceContextKey ?? null,
     serviceId: payload.run.catalogMetadata?.serviceId ?? null,
+    approvalMode: payload.run.approvalMode,
     targetPath:
       mode === "container"
         ? preparedWorkspace.containerPaths.targetPath

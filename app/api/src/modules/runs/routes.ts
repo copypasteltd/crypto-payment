@@ -13,6 +13,7 @@ import {
   createRunInputSchema,
   reviewRunInformationAnswerInputSchema,
   sendRunMessageInputSchema,
+  updateRunApprovalModeInputSchema,
 } from "./schemas.js";
 import { runEventBus } from "../realtime/event-bus.js";
 import { requireRequestAuth, requireWorkspaceAccess } from "../auth/request-auth.js";
@@ -313,6 +314,23 @@ export async function registerRunRoutes(server: FastifyInstance) {
     const authContext = requireWorkspaceAccess(request, snapshot.run.workspaceId, ["owner", "admin", "operator"]);
     return await runsService.approve(params.runId, body, {
       decidedByUserId: authContext?.user.userId ?? null,
+      decisionMode: "manual",
+      awaitBridgeDispatch: true,
+    });
+  });
+
+  server.patch("/:runId/approval-mode", async (request) => {
+    const params = runIdParamsSchema.parse(request.params);
+    const body = updateRunApprovalModeInputSchema.parse(request.body);
+    const snapshot = runsService.getRun(params.runId);
+    const authContext = requireWorkspaceAccess(
+      request,
+      snapshot.run.workspaceId,
+      ["owner", "admin", "operator"]
+    );
+
+    return await runsService.setApprovalMode(params.runId, body, {
+      updatedByUserId: authContext?.user.userId ?? null,
     });
   });
 
@@ -323,6 +341,8 @@ export async function registerRunRoutes(server: FastifyInstance) {
     const authContext = requireWorkspaceAccess(request, snapshot.run.workspaceId, ["owner", "admin", "operator"]);
     return await runsService.approve(params.runId, body, {
       decidedByUserId: authContext?.user.userId ?? null,
+      decisionMode: "manual",
+      awaitBridgeDispatch: true,
     });
   });
 

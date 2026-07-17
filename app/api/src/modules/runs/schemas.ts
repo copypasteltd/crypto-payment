@@ -10,4 +10,5 @@ export {
   runStatusUpdateSchema,
   runSnapshotSchema,
   sendRunMessageInputSchema,
+  updateRunApprovalModeInputSchema,
 } from "@lingban/contracts";

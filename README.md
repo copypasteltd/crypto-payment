@@ -122,6 +122,8 @@ Local development and verification use native Node.js and pnpm. The current work
 
 ## 阅读顺序 / Reading Order
 
+- [全自动审批模式开发说明](docs/20260718全自动审批模式开发说明.md)
+
 1. [产品需求草案](docs/产品需求草案.md)
 2. [前端需求](docs/前端需求.md)
 3. [后端设计文档](docs/后端设计文档.md)
