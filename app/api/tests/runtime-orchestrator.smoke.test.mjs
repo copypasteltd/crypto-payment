@@ -158,6 +158,9 @@ function createFakeQueue() {
         name,
         data: payload,
         options,
+        async getState() {
+          return "waiting";
+        },
         async remove() {
           jobs.delete(job.id);
         },
@@ -355,6 +358,35 @@ test("EmbeddedRunOrchestrator bullmq mode enqueues start and delayed cleanup job
   await orchestrator.shutdown();
   assert.equal(startQueue.closed, true);
   assert.equal(cleanupQueue.closed, true);
+});
+
+test("EmbeddedRunOrchestrator re-enqueues an active run whose previous runtime finished", async () => {
+  const { EmbeddedRunOrchestrator } = await importRuntimeOrchestrator();
+  const snapshots = createSnapshots({
+    run_interrupted: "RUNNING",
+  });
+  snapshots.get("run_interrupted").runtime = {
+    finishedAt: "2026-07-18T00:00:00.000Z",
+  };
+  const startQueue = createFakeQueue();
+  const cleanupQueue = createFakeQueue();
+  const orchestrator = new EmbeddedRunOrchestrator(
+    createHooks(snapshots, []),
+    {
+      runWorker: createFakeRunWorker(),
+      runtimeDispatchMode: "bullmq",
+      runStartQueue: startQueue,
+      runCleanupQueue: cleanupQueue,
+    }
+  );
+
+  await orchestrator.recover();
+  await nextTick();
+
+  assert.equal(startQueue.added.length, 1);
+  assert.equal(startQueue.added[0].payload.run.runId, "run_interrupted");
+  assert.equal(cleanupQueue.added.length, 0);
+  await orchestrator.shutdown();
 });
 
 test("EmbeddedRunOrchestrator syncs runtime metadata during launch and shutdown", async () => {

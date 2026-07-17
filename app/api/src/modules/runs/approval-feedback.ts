@@ -12,7 +12,7 @@ import { runQueryRepository } from "./query-repository.js";
 import { runsRepository } from "./repository.js";
 
 export type ApprovalFeedbackDependencies = {
-  runsRepository: Pick<typeof runsRepository, "update">;
+  runsRepository: Pick<typeof runsRepository, "get" | "update">;
   runEventBus: Pick<typeof runEventBus, "append" | "appendMany">;
   runQueryRepository?: Pick<RunQueryRepository, "upsertSnapshot"> | null;
 };
@@ -43,17 +43,27 @@ function createSystemMessage(
   });
 }
 
-function createQuotaApproval(runId: string, prompt: string, relatedResourceRef?: string | null) {
+function createQuotaApproval(
+  runId: string,
+  prompt: string,
+  relatedResourceRef: string | null,
+  options: { autoApprove: boolean; decidedByUserId: string | null }
+) {
+  const requestedAt = nowIso();
   return runApprovalSchema.parse({
     approvalId: `apr_${randomUUID()}`,
     runId,
     kind: "quota-override",
     relatedResourceRef: relatedResourceRef ?? null,
     prompt,
-    state: "pending",
-    requestedAt: nowIso(),
-    decidedAt: null,
-    note: null,
+    state: options.autoApprove ? "approved" : "pending",
+    requestedAt,
+    decidedAt: options.autoApprove ? requestedAt : null,
+    decisionMode: options.autoApprove ? "auto_all" : null,
+    decidedByUserId: options.autoApprove ? options.decidedByUserId : null,
+    note: options.autoApprove
+      ? "Automatically approved by the instance approval policy."
+      : null,
   });
 }
 
@@ -94,13 +104,25 @@ export async function appendQuotaApprovalFeedback(input: {
   messageText?: string | null;
 },
 dependencies: ApprovalFeedbackDependencies = defaultApprovalFeedbackDependencies) {
+  const aggregate = dependencies.runsRepository.get(input.runId);
+  if (!aggregate) {
+    throw new AppError(404, "RUN_NOT_FOUND", `Run not found: ${input.runId}`);
+  }
+  const autoApprove = aggregate.run.approvalMode === "auto_all";
   const approval = createQuotaApproval(
     input.runId,
     input.prompt,
-    input.relatedResourceRef ?? null
+    input.relatedResourceRef ?? null,
+    {
+      autoApprove,
+      decidedByUserId: aggregate.run.approvalModeUpdatedByUserId ?? aggregate.run.requestedByUserId ?? null,
+    }
   );
-  const message = input.messageText?.trim()
-    ? createSystemMessage(input.runId, input.messageText.trim(), "approval")
+  const messageText = autoApprove
+    ? "Quota approval was accepted automatically by the instance approval policy."
+    : input.messageText?.trim() ?? "";
+  const message = messageText
+    ? createSystemMessage(input.runId, messageText, "approval")
     : null;
 
   const updated = await dependencies.runsRepository.update(input.runId, (current) => ({

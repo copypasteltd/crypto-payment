@@ -200,7 +200,7 @@ export class RunUploadService {
       note: `Upload content write requested for ${upload.fileName}.`,
     });
     const consumedOverride = await quotaService.consumeApprovedUsageOverride(quotaUsage);
-    const quotaPreview = consumedOverride ? null : quotaService.previewUsage(quotaUsage);
+    let quotaPreview = consumedOverride ? null : quotaService.previewUsage(quotaUsage);
 
     if (quotaPreview?.decision === "block") {
       await quotaService.commitUsageDecision(quotaPreview, {
@@ -227,15 +227,27 @@ export class RunUploadService {
         approvalId: feedback.approval.approvalId,
         note: `Upload is waiting for quota approval for ${upload.fileName}.`,
       });
-      throw new AppError(
-        409,
-        "RUN_UPLOAD_QUOTA_APPROVAL_REQUIRED",
-        quotaPreview.summary?.en ?? "Quota approval is required before uploading this file.",
-        {
-          ...quotaPreview,
-          approvalId: feedback.approval.approvalId,
-        }
-      );
+      if (feedback.approval.state === "approved") {
+        await quotaService.applyRunApprovalDecision({
+          approval: feedback.approval,
+          approved: true,
+          decidedByUserId:
+            aggregate.run.approvalModeUpdatedByUserId ?? aggregate.run.requestedByUserId ?? null,
+          note: feedback.approval.note,
+        });
+        await quotaService.consumeApprovedUsageOverride(quotaUsage);
+        quotaPreview = null;
+      } else {
+        throw new AppError(
+          409,
+          "RUN_UPLOAD_QUOTA_APPROVAL_REQUIRED",
+          quotaPreview.summary?.en ?? "Quota approval is required before uploading this file.",
+          {
+            ...quotaPreview,
+            approvalId: feedback.approval.approvalId,
+          }
+        );
+      }
     }
 
     const scanResult = await runFileSecurityService.scanUploadBuffer(upload, content);
@@ -442,7 +454,7 @@ export class RunUploadService {
         : `Download ticket requested for ${file.path}.`,
     });
     const consumedOverride = await quotaService.consumeApprovedUsageOverride(quotaUsage);
-    const quotaPreview = consumedOverride ? null : quotaService.previewUsage(quotaUsage);
+    let quotaPreview = consumedOverride ? null : quotaService.previewUsage(quotaUsage);
 
     if (quotaPreview?.decision === "block") {
       await quotaService.commitUsageDecision(quotaPreview, {
@@ -479,20 +491,32 @@ export class RunUploadService {
           ? `Preview access ticket is waiting for quota approval for ${file.path}.`
           : `Download ticket is waiting for quota approval for ${file.path}.`,
       });
-      throw new AppError(
-        409,
-        isPreviewPurpose
-          ? "RUN_FILE_PREVIEW_QUOTA_APPROVAL_REQUIRED"
-          : "RUN_DOWNLOAD_QUOTA_APPROVAL_REQUIRED",
-        quotaPreview.summary?.en ??
-          (isPreviewPurpose
-            ? "Quota approval is required before previewing this file."
-            : "Quota approval is required before downloading this file."),
-        {
-          ...quotaPreview,
-          approvalId: feedback.approval.approvalId,
-        }
-      );
+      if (feedback.approval.state === "approved") {
+        await quotaService.applyRunApprovalDecision({
+          approval: feedback.approval,
+          approved: true,
+          decidedByUserId:
+            aggregate.run.approvalModeUpdatedByUserId ?? aggregate.run.requestedByUserId ?? null,
+          note: feedback.approval.note,
+        });
+        await quotaService.consumeApprovedUsageOverride(quotaUsage);
+        quotaPreview = null;
+      } else {
+        throw new AppError(
+          409,
+          isPreviewPurpose
+            ? "RUN_FILE_PREVIEW_QUOTA_APPROVAL_REQUIRED"
+            : "RUN_DOWNLOAD_QUOTA_APPROVAL_REQUIRED",
+          quotaPreview.summary?.en ??
+            (isPreviewPurpose
+              ? "Quota approval is required before previewing this file."
+              : "Quota approval is required before downloading this file."),
+          {
+            ...quotaPreview,
+            approvalId: feedback.approval.approvalId,
+          }
+        );
+      }
     }
 
     const indexedFile = runFileIndexService.get(runId, file.path);

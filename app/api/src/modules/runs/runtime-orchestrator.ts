@@ -276,7 +276,15 @@ export class EmbeddedRunOrchestrator {
       }
 
       if (ORPHANED_RUNTIME_STATUSES.has(status)) {
-        this.#scheduleOrphanRecoveryFailure(runId);
+        if (snapshot.runtime?.finishedAt) {
+          void this.startRun(runId).catch((error) => {
+            console.error(
+              `[lingban-runtime-orchestrator] failed to restart interrupted run ${runId}: ${toErrorMessage(error)}`
+            );
+          });
+        } else {
+          this.#scheduleOrphanRecoveryFailure(runId);
+        }
         continue;
       }
 
