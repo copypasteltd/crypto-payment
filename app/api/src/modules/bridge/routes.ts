@@ -423,6 +423,10 @@ export async function registerBridgeInternalRoutes(server: FastifyInstance) {
       workspaceId: snapshot.run.workspaceId,
       requestedByUserId: snapshot.run.requestedByUserId ?? null,
       mounts: startJob.credentialMounts,
+      platformCredentialIds:
+        startJob.provider?.bindingScope === "platform"
+          ? [startJob.provider.credentialId]
+          : [],
       traceId: readHeaderValue(request.headers["x-lingban-trace-id"]) ?? null,
     });
   });

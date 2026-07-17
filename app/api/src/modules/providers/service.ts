@@ -360,6 +360,7 @@ function assertUniqueWorkspaceProviderBinding(input: {
 export class ProvidersService {
   async init() {
     await providersRepository.init();
+    await this.#promoteLegacyAdminBindings();
     ensureBootstrapped();
   }
 
@@ -749,7 +750,11 @@ export class ProvidersService {
     const parsed = listWorkspaceProviderBindingsQuerySchema.parse(query);
     return providersRepository
       .listBindings()
-      .filter((item) => item.workspaceId === actor.workspaceId)
+      .filter(
+        (item) =>
+          item.scope === "platform" ||
+          (item.scope === "workspace" && item.workspaceId === actor.workspaceId)
+      )
       .filter((item) => (parsed.providerId ? item.providerId === parsed.providerId : true))
       .filter((item) => (parsed.enabled === undefined ? true : item.enabled === parsed.enabled))
       .sort(compareBindingsPriority);
@@ -768,6 +773,7 @@ export class ProvidersService {
     const binding = workspaceProviderBindingSchema.parse({
       bindingId: nextBindingId(),
       workspaceId: actor.workspaceId,
+      scope: "workspace",
       providerId: parsed.providerId,
       credentialId: parsed.credentialId,
       enabled: parsed.enabled ?? true,
@@ -790,7 +796,11 @@ export class ProvidersService {
   ) {
     assertWorkspaceBindingManager(actor);
     const current = providersRepository.getBindingById(bindingId);
-    if (!current || current.workspaceId !== actor.workspaceId) {
+    if (
+      !current ||
+      current.workspaceId !== actor.workspaceId ||
+      (current.scope === "platform" && !actor.isPlatformAdmin)
+    ) {
       throw new AppError(
         404,
         "PROVIDER_BINDING_NOT_FOUND",
@@ -818,16 +828,57 @@ export class ProvidersService {
     return next;
   }
 
+  async configurePlatformBinding(
+    actor: ProviderActor,
+    input: CreateWorkspaceProviderBindingInput
+  ) {
+    assertPlatformProviderManager(actor);
+    const parsed = createWorkspaceProviderBindingInputSchema.parse(input);
+    this.getProvider(parsed.providerId);
+    await ensureWorkspaceCredential(actor, parsed.credentialId);
+    const timestamp = nowIso();
+    const current = providersRepository
+      .listBindings()
+      .find(
+        (binding) =>
+          binding.providerId === parsed.providerId &&
+          (binding.scope === "platform" || binding.workspaceId === actor.workspaceId)
+      );
+    const binding = workspaceProviderBindingSchema.parse({
+      ...(current ?? {
+        bindingId: nextBindingId(),
+        createdAt: timestamp,
+      }),
+      workspaceId: actor.workspaceId,
+      scope: "platform",
+      providerId: parsed.providerId,
+      credentialId: parsed.credentialId,
+      enabled: parsed.enabled ?? current?.enabled ?? true,
+      isDefault: parsed.isDefault ?? current?.isDefault ?? false,
+      priority: parsed.priority ?? current?.priority ?? 100,
+      allowUserOverride: parsed.allowUserOverride ?? current?.allowUserOverride ?? true,
+      notes: parsed.notes ?? current?.notes ?? null,
+      updatedAt: timestamp,
+    });
+
+    await this.#persistBindingWithDefaultSemantics(binding);
+    return binding;
+  }
+
   resolveRunProvider(input: {
     workspaceId: string;
     requestedByUserId?: string | null;
     selection?: RunProviderSelection | null;
   }): ResolvedRunProvider | null {
     const selection = input.selection ?? null;
-    const workspaceBindings = providersRepository
+    const candidates = providersRepository
       .listBindings()
-      .filter((binding) => binding.workspaceId === input.workspaceId && binding.enabled)
-      .sort(compareBindingsPriority)
+      .filter(
+        (binding) =>
+          binding.enabled &&
+          (binding.scope === "platform" ||
+            (binding.scope === "workspace" && binding.workspaceId === input.workspaceId))
+      )
       .map((binding) => ({
         binding,
         provider: providersRepository.getProviderById(binding.providerId),
@@ -836,15 +887,27 @@ export class ProvidersService {
         (item): item is { binding: WorkspaceProviderBinding; provider: ProviderProfile } =>
           Boolean(item.provider?.enabled)
       );
+    const workspaceBindings = candidates
+      .filter((item) => item.binding.scope === "workspace")
+      .sort((left, right) => compareBindingsPriority(left.binding, right.binding));
+    const platformBindings = candidates
+      .filter((item) => item.binding.scope === "platform")
+      .sort((left, right) => compareBindingsPriority(left.binding, right.binding));
 
-    if (workspaceBindings.length === 0) {
+    if (workspaceBindings.length === 0 && platformBindings.length === 0) {
       return null;
     }
 
     const chosen =
       selection?.providerId
-        ? workspaceBindings.find((item) => item.provider.providerId === selection.providerId) ?? null
-        : workspaceBindings.find((item) => item.binding.isDefault) ?? workspaceBindings[0] ?? null;
+        ? workspaceBindings.find((item) => item.provider.providerId === selection.providerId) ??
+          platformBindings.find((item) => item.provider.providerId === selection.providerId) ??
+          null
+        : workspaceBindings.find((item) => item.binding.isDefault) ??
+          platformBindings.find((item) => item.binding.isDefault) ??
+          workspaceBindings[0] ??
+          platformBindings[0] ??
+          null;
 
     if (!chosen) {
       throw new AppError(
@@ -870,6 +933,7 @@ export class ProvidersService {
     return resolvedRunProviderSchema.parse({
       providerId: chosen.provider.providerId,
       bindingId: chosen.binding.bindingId,
+      bindingScope: chosen.binding.scope,
       displayName: chosen.provider.displayName,
       adapterMode: chosen.provider.adapterMode,
       apiStyle: chosen.provider.apiStyle,
@@ -892,9 +956,11 @@ export class ProvidersService {
   }
 
   async #persistBindingWithDefaultSemantics(binding: WorkspaceProviderBinding) {
-    const existingBindings = providersRepository
-      .listBindings()
-      .filter((item) => item.workspaceId === binding.workspaceId);
+    const isSameDefaultScope = (item: WorkspaceProviderBinding) =>
+      binding.scope === "platform"
+        ? item.scope === "platform"
+        : item.scope === "workspace" && item.workspaceId === binding.workspaceId;
+    const existingBindings = providersRepository.listBindings().filter(isSameDefaultScope);
     const nextBindings = existingBindings.map((item) =>
       item.bindingId === binding.bindingId
         ? binding
@@ -912,12 +978,28 @@ export class ProvidersService {
 
     const untouchedBindings = providersRepository
       .listBindings()
-      .filter((item) => item.workspaceId !== binding.workspaceId);
+      .filter((item) => !isSameDefaultScope(item));
 
     await providersRepository.replaceState({
       providers: providersRepository.listProviders(),
       bindings: [...untouchedBindings, ...nextBindings],
     });
+  }
+
+  async #promoteLegacyAdminBindings() {
+    const bindings = providersRepository.listBindings();
+    const promoted = bindings.map((binding) =>
+      binding.scope === "workspace" &&
+      binding.notes === "Created by the Admin Provider authentication workflow"
+        ? workspaceProviderBindingSchema.parse({ ...binding, scope: "platform" })
+        : binding
+    );
+    if (promoted.some((binding, index) => binding.scope !== bindings[index]?.scope)) {
+      await providersRepository.replaceState({
+        providers: providersRepository.listProviders(),
+        bindings: promoted,
+      });
+    }
   }
 }
 

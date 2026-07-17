@@ -35,7 +35,8 @@ test("creator can create a Session Project and launch a blank Source Run", async
     "API_HOST", "API_PORT", "LINGBAN_DATA_DIR", "LINGBAN_AUTH_MODE",
     "LINGBAN_RUNS_DIR", "LINGBAN_RUNTIME_LAUNCH_MODE", "LINGBAN_API_BASE_URL",
     "LINGBAN_RUNTIME_API_BASE_URL", "LINGBAN_INTERNAL_AUTH_TOKEN",
-    "LINGBAN_OBJECT_STORAGE_ROOT", "CODEX_BIN",
+    "LINGBAN_OBJECT_STORAGE_ROOT", "LINGBAN_PLATFORM_ADMIN_EMAILS",
+    "LINGBAN_CREDENTIAL_BROKER_MASTER_KEY", "CODEX_BIN",
   ];
   for (const key of envKeys) envBackup.set(key, process.env[key]);
 
@@ -53,6 +54,8 @@ test("creator can create a Session Project and launch a blank Source Run", async
     process.env.LINGBAN_RUNTIME_API_BASE_URL = baseUrl;
     process.env.LINGBAN_INTERNAL_AUTH_TOKEN = "creator-source-smoke-token";
     process.env.LINGBAN_OBJECT_STORAGE_ROOT = path.join(smokeRoot, "objects");
+    process.env.LINGBAN_PLATFORM_ADMIN_EMAILS = "creator-source-run@example.com";
+    process.env.LINGBAN_CREDENTIAL_BROKER_MASTER_KEY = "creator-source-smoke-master-key";
     process.env.CODEX_BIN = process.execPath;
 
     const { startApiServer } = await import("../dist/index.js");
@@ -73,6 +76,39 @@ test("creator can create a Session Project and launch a blank Source Run", async
       "content-type": "application/json",
       "idempotency-key": "creator-source-smoke-request",
     };
+    const provider = await requestJson(`${baseUrl}/v1/providers`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        displayName: "Creator Source Provider",
+        baseUrl: "https://creator-source-provider.example.com/v1",
+        defaultModel: "gpt-creator-source",
+      }),
+    });
+    const credential = await requestJson(`${baseUrl}/v1/credentials`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        scope: "workspace",
+        displayName: "Creator Source Provider Key",
+        provider: provider.providerId,
+        secretKind: "api-key",
+        mountMode: "env",
+        envName: "OPENAI_API_KEY",
+        secretValue: "creator-source-provider-key",
+      }),
+    });
+    const providerBinding = await requestJson(`${baseUrl}/v1/provider-bindings`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        providerId: provider.providerId,
+        credentialId: credential.credentialId,
+        enabled: true,
+        isDefault: true,
+      }),
+    });
+    assert.equal(providerBinding.scope, "workspace");
 
     const project = await requestJson(`${baseUrl}/v1/creator/session-projects`, {
       method: "POST",
@@ -100,6 +136,10 @@ test("creator can create a Session Project and launch a blank Source Run", async
     assert.equal(launched.run.taskVersionId, null);
     assert.equal(launched.run.sessionVersionId, null);
     assert.equal(launched.run.catalogMetadata, null);
+    assert.equal(
+      launched.run.targetPath,
+      path.join(smokeRoot, "worker-runs", launched.run.runId, "target")
+    );
     assert.equal(launched.sessionProject.status, "RECORDING");
     assert.equal(launched.sessionProject.sourceRunId, launched.run.runId);
     assert.match(launched.nextPrompt, /Creator Session/);
@@ -121,6 +161,7 @@ test("creator can create a Session Project and launch a blank Source Run", async
     });
     assert.equal(snapshot.run.sessionBootstrapMode, "blank");
     assert.equal(snapshot.informationCollection.requiredCount, 0);
+    assert.equal(snapshot.provider.bindingScope, "workspace");
   } finally {
     if (app) await app.close();
     for (const [key, value] of envBackup.entries()) {
