@@ -93,13 +93,25 @@ fi
 
 ln -sfn "${RELEASE_TARGET}" "${CURRENT_LINK}"
 systemctl daemon-reload
+
+WORKER_UNIT_AVAILABLE=false
+if systemctl cat lingban-run-worker.service >/dev/null 2>&1; then
+  WORKER_UNIT_AVAILABLE=true
+  systemctl stop lingban-run-worker
+fi
+
 if systemctl cat lingban-api.service >/dev/null 2>&1; then
   systemctl restart lingban-api
-  wait_for_readiness lingban-api "http://127.0.0.1:${API_PORT:-38100}/readyz"
+  wait_for_readiness lingban-api "http://127.0.0.1:${API_PORT:-38100}/health"
 fi
-if systemctl cat lingban-run-worker.service >/dev/null 2>&1; then
-  systemctl restart lingban-run-worker
+
+if [[ "${WORKER_UNIT_AVAILABLE}" == "true" ]]; then
+  systemctl start lingban-run-worker
   wait_for_readiness lingban-run-worker "http://127.0.0.1:${LINGBAN_WORKER_OPS_PORT:-38101}/readyz"
+fi
+
+if systemctl cat lingban-api.service >/dev/null 2>&1; then
+  wait_for_readiness lingban-api "http://127.0.0.1:${API_PORT:-38100}/readyz"
 fi
 
 echo "release installed: ${RELEASE_TARGET}"
