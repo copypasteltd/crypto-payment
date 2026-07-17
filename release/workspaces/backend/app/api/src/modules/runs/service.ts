@@ -351,6 +351,14 @@ async function buildInitialInformationCollection(
   run: RunRecord,
   prompt: string
 ): Promise<RunInformationCollection> {
+  if (run.sessionBootstrapMode === "blank" || !run.sessionVersionId) {
+    return createRunInformationCollection({
+      prompt,
+      slotSchemaVersion: null,
+      slots: [],
+    });
+  }
+
   const sealedTemplate = await tryResolveSealedInformationCollectionTemplate(run.sessionVersionId);
   const legacyTemplate = sealedTemplate ? null : await sessionCatalogService.tryResolveInformationCollectionTemplate(
       run.sessionVersionId,
@@ -657,7 +665,10 @@ export class RunsService {
     const parsed = createRunInputSchema.parse(input);
     const runId = nextRunId();
     let usesSealedV2Session = false;
-    if (parsed.catalogMetadata?.workspaceContextKey || parsed.catalogMetadata?.serviceId) {
+    if (
+      parsed.sessionVersionId &&
+      (parsed.catalogMetadata?.workspaceContextKey || parsed.catalogMetadata?.serviceId)
+    ) {
       try {
         sessionCatalogService.requireSessionPack(parsed.sessionVersionId, {
           workspaceContextKey: parsed.catalogMetadata?.workspaceContextKey ?? null,
@@ -670,7 +681,12 @@ export class RunsService {
       }
     }
     let effectiveInput = parsed;
-    if (!usesSealedV2Session && parsed.catalogMetadata?.workspaceContextKey && parsed.catalogMetadata?.serviceId) {
+    if (
+      parsed.sessionVersionId &&
+      !usesSealedV2Session &&
+      parsed.catalogMetadata?.workspaceContextKey &&
+      parsed.catalogMetadata?.serviceId
+    ) {
       const consumerSessionPack = await sessionCatalogService.ensureConsumerSessionPackForRun(
         parsed.sessionVersionId,
         {

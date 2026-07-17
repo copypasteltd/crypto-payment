@@ -346,8 +346,12 @@ export function createRunRecord(params: {
   return runRecordSchema.parse({
     runId: params.runId,
     workspaceId: input.workspaceId,
+    runPurpose: input.runPurpose,
+    sessionBootstrapMode: input.sessionBootstrapMode,
+    sessionProjectId: input.sessionProjectId,
     taskVersionId: input.taskVersionId,
     sessionVersionId: input.sessionVersionId,
+    draftRevisionId: input.draftRevisionId,
     requestedByUserId: input.requestedByUserId ?? null,
     title: input.title,
     targetPath: input.targetPath,
@@ -485,6 +489,16 @@ export function applyBridgeEventsToRunSnapshot(snapshot: RunSnapshot, events: Br
 }
 
 export function createInformationCollectionPrompt(run: RunRecord) {
+  if (run.runPurpose === "creator_source") {
+    return [
+      "当前运行用于 Creator Session 录制。",
+      `录制项目：${run.title}`,
+      `目标路径：${run.targetPath}`,
+      "当前工作目录不继承任何业务 Session。请等待 Creator 发送第一条业务指令，再根据指令执行完整工作流。",
+      "保护所有凭证和敏感信息，不要在消息、文件或日志中输出密钥明文。",
+    ].join("\n");
+  }
+
   return [
     "请问你需要我提供什么信息给你。",
     `当前任务标题：${run.title}`,

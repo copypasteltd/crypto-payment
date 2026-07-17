@@ -49,11 +49,13 @@ import { registerSessionDraftRoutes } from "../modules/session-drafts/routes.js"
 import { initializeSealedSessionVersionRegistry } from "../modules/session-drafts/version-registry.js";
 import { initializeServiceSessionBindingRegistry } from "../modules/session-drafts/service-binding-registry.js";
 import { registerSessionMigrationRoutes } from "../modules/session-migrations/routes.js";
+import { registerSessionProjectRoutes } from "../modules/session-projects/routes.js";
+import { initializeSessionProjectsInfrastructure } from "../modules/session-projects/service.js";
 
 const defaultCorsAllowMethods = "GET,POST,PATCH,PUT,DELETE,OPTIONS";
 const defaultCorsAllowHeaders =
-  "Authorization,Content-Type,Accept,Origin,X-Admin-CSRF,X-Request-Id,X-Trace-Id,X-Client-Release";
-const defaultCorsExposeHeaders = "Content-Disposition,Content-Length,Content-Type,X-Session-Capture-Audit-Id";
+  "Authorization,Content-Type,Accept,Origin,Idempotency-Key,X-Admin-CSRF,X-Request-Id,X-Trace-Id,X-Client-Release";
+const defaultCorsExposeHeaders = "Content-Disposition,Content-Length,Content-Type,Idempotency-Status,X-Session-Capture-Audit-Id";
 
 function normalizeConfiguredOrigins(rawValue: string | undefined) {
   return (rawValue ?? "")
@@ -95,6 +97,7 @@ export async function createServer() {
   await initializeWorkshopInfrastructure();
   await initializeSessionInfrastructure();
   await initializeCreatorInfrastructure();
+  await initializeSessionProjectsInfrastructure();
   await initializeQuotaInfrastructure();
   await initializeSealedSessionVersionRegistry();
   await initializeServiceSessionBindingRegistry();
@@ -221,6 +224,10 @@ export async function createServer() {
 
   server.register(registerCreatorRoutes, {
     prefix: "/v1",
+  });
+
+  server.register(registerSessionProjectRoutes, {
+    prefix: "/v1/creator",
   });
 
   server.register(registerMcpRoutes, {

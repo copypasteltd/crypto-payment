@@ -53,6 +53,8 @@ import {
   listQuotaOverridesQuerySchema,
   listQuotaPoliciesQuerySchema,
   createServiceLaunchTemplateInputSchema,
+  createWorkshopServiceBundleInputSchema,
+  createWorkshopServiceBundleResponseSchema,
   createRunDownloadTicketInputSchema,
   createRunDownloadTicketResponseSchema,
   loginAuthInputSchema,
@@ -126,6 +128,7 @@ import {
   serviceDetailSchema,
   serviceLaunchTemplateSchema,
   serviceCatalogEntrySchema,
+  serviceTaskVersionRecordSchema,
   mcpCallRecordSchema,
   mcpBindingRecordSchema,
   mcpRegistryEntrySchema,
@@ -138,6 +141,13 @@ import {
   createRunResponseSchema,
   createSessionCaptureInputSchema,
   createSessionCaptureResponseSchema,
+  createCreatorSourceRunInputSchema,
+  createCreatorSourceRunResponseSchema,
+  createSessionProjectInputSchema,
+  listSessionProjectsQuerySchema,
+  listSessionProjectsResponseSchema,
+  sessionProjectRecordSchema,
+  updateSessionProjectInputSchema,
   listSessionCapturesResponseSchema,
   listSessionCaptureObjectAccessAuditResponseSchema,
   requestSessionCaptureObjectDownloadSchema,
@@ -291,6 +301,8 @@ import {
   type CreateRunDownloadTicketInput,
   type CreateRunDownloadTicketResponse,
   type CreateServiceLaunchTemplateInput,
+  type CreateWorkshopServiceBundleInput,
+  type CreateWorkshopServiceBundleResponse,
   type CreateRunUploadInput,
   type CreateRunUploadResponse,
   type FinalizeRunUploadInput,
@@ -305,6 +317,7 @@ import {
   type ServiceCatalogEntry,
   type ServiceDetail,
   type ServiceLaunchTemplate,
+  type ServiceTaskVersionRecord,
   type SwitchWorkspaceInput,
   type ApproveRunInput,
   type ReviewRunInformationAnswerInput,
@@ -313,6 +326,13 @@ import {
   type CreateRunResponse,
   type CreateSessionCaptureInput,
   type CreateSessionCaptureResponse,
+  type CreateCreatorSourceRunInput,
+  type CreateCreatorSourceRunResponse,
+  type CreateSessionProjectInput,
+  type ListSessionProjectsQuery,
+  type ListSessionProjectsResponse,
+  type SessionProjectRecord,
+  type UpdateSessionProjectInput,
   type ListSessionCapturesResponse,
   type ListSessionCaptureObjectAccessAuditResponse,
   type RequestSessionCaptureObjectDownload,
@@ -510,6 +530,11 @@ function buildAuthHeaders(getAccessToken?: () => string | undefined) {
   }
 
   return headers;
+}
+
+function createIdempotencyKey() {
+  return globalThis.crypto?.randomUUID?.() ??
+    `req-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
 function appendAccessToken(url: string, accessToken?: string) {
@@ -789,6 +814,7 @@ export function createRunsApiClient(config: ClientConfig) {
         method: "POST",
         headers: {
           "content-type": "application/json",
+          "idempotency-key": createIdempotencyKey(),
           ...buildAuthHeaders(config.getAccessToken),
         },
         body: JSON.stringify(body),
@@ -1679,6 +1705,21 @@ export function createWorkshopCatalogApiClient(config: ClientConfig) {
   const fetcher = config.fetcher ?? fetch;
 
   return {
+    async createWorkshopServiceBundle(
+      input: CreateWorkshopServiceBundleInput
+    ): Promise<CreateWorkshopServiceBundleResponse> {
+      const response = await fetcher(`${config.baseUrl}/v1/workshops`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "idempotency-key": createIdempotencyKey(),
+          ...buildAuthHeaders(config.getAccessToken),
+        },
+        body: JSON.stringify(createWorkshopServiceBundleInputSchema.parse(input)),
+      });
+      return parseJson(response, createWorkshopServiceBundleResponseSchema);
+    },
+
     async listWorkshops(query: ListWorkshopsQuery = {}): Promise<WorkshopCatalogEntry[]> {
       const parsed = listWorkshopsQuerySchema.parse(query);
       const response = await fetcher(
@@ -1778,6 +1819,18 @@ export function createWorkshopCatalogApiClient(config: ClientConfig) {
       );
 
       return parseJson(response, serviceDetailSchema);
+    },
+
+    async listTaskVersions(serviceId: string): Promise<ServiceTaskVersionRecord[]> {
+      const response = await fetcher(
+        `${config.baseUrl}/v1/services/${encodeURIComponent(serviceId)}/versions`,
+        { headers: buildAuthHeaders(config.getAccessToken) }
+      );
+      return parseJson(response, {
+        parse(value: unknown) {
+          return serviceTaskVersionRecordSchema.array().parse(value);
+        },
+      });
     },
 
     async createLaunchTemplate(
@@ -2414,6 +2467,94 @@ export function createCreatorApiClient(config: ClientConfig) {
     },
   };
 }
+
+export function createSessionProjectsApiClient(config: ClientConfig) {
+  const fetcher = config.fetcher ?? fetch;
+
+  return {
+    async list(
+      query: ListSessionProjectsQuery = {}
+    ): Promise<ListSessionProjectsResponse> {
+      const parsed = listSessionProjectsQuerySchema.parse(query);
+      const response = await fetcher(
+        `${config.baseUrl}/v1/creator/session-projects${buildQueryString({
+          q: parsed.q,
+          status: parsed.status,
+          limit: String(parsed.limit),
+        })}`,
+        { headers: buildAuthHeaders(config.getAccessToken) }
+      );
+      return parseJson(response, listSessionProjectsResponseSchema);
+    },
+
+    async create(input: CreateSessionProjectInput): Promise<SessionProjectRecord> {
+      const response = await fetcher(`${config.baseUrl}/v1/creator/session-projects`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "idempotency-key": createIdempotencyKey(),
+          ...buildAuthHeaders(config.getAccessToken),
+        },
+        body: JSON.stringify(createSessionProjectInputSchema.parse(input)),
+      });
+      return parseJson(response, sessionProjectRecordSchema);
+    },
+
+    async get(sessionProjectId: string): Promise<SessionProjectRecord> {
+      const response = await fetcher(
+        `${config.baseUrl}/v1/creator/session-projects/${encodeURIComponent(sessionProjectId)}`,
+        { headers: buildAuthHeaders(config.getAccessToken) }
+      );
+      return parseJson(response, sessionProjectRecordSchema);
+    },
+
+    async update(
+      sessionProjectId: string,
+      input: UpdateSessionProjectInput
+    ): Promise<SessionProjectRecord> {
+      const response = await fetcher(
+        `${config.baseUrl}/v1/creator/session-projects/${encodeURIComponent(sessionProjectId)}`,
+        {
+          method: "PATCH",
+          headers: {
+            "content-type": "application/json",
+            ...buildAuthHeaders(config.getAccessToken),
+          },
+          body: JSON.stringify(updateSessionProjectInputSchema.parse(input)),
+        }
+      );
+      return parseJson(response, sessionProjectRecordSchema);
+    },
+
+    async archive(sessionProjectId: string): Promise<SessionProjectRecord> {
+      const response = await fetcher(
+        `${config.baseUrl}/v1/creator/session-projects/${encodeURIComponent(sessionProjectId)}/archive`,
+        {
+          method: "POST",
+          headers: buildAuthHeaders(config.getAccessToken),
+        }
+      );
+      return parseJson(response, sessionProjectRecordSchema);
+    },
+
+    async createSourceRun(
+      input: CreateCreatorSourceRunInput
+    ): Promise<CreateCreatorSourceRunResponse> {
+      const response = await fetcher(`${config.baseUrl}/v1/creator/source-runs`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "idempotency-key": createIdempotencyKey(),
+          ...buildAuthHeaders(config.getAccessToken),
+        },
+        body: JSON.stringify(createCreatorSourceRunInputSchema.parse(input)),
+      });
+      return parseJson(response, createCreatorSourceRunResponseSchema);
+    },
+  };
+}
+
+export type SessionProjectsApiClient = ReturnType<typeof createSessionProjectsApiClient>;
 
 export function createMeApiClient(config: ClientConfig) {
   const fetcher = config.fetcher ?? fetch;

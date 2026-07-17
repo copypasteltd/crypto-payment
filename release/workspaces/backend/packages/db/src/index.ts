@@ -22,6 +22,8 @@ export * from "./notifications-repository.js";
 export * from "./search-repository.js";
 export * from "./session-archives-repository.js";
 export * from "./session-capture-repository.js";
+export * from "./session-projects-repository.js";
+export * from "./task-versions-repository.js";
 export * from "./session-asset-repository.js";
 export * from "./uploads-repository.js";
 export * from "./cli.js";

@@ -1,5 +1,13 @@
 import { z } from "zod";
-import { entrySurfaceSchema, sessionVersionIdSchema, taskVersionIdSchema, workspaceIdSchema } from "./common.js";
+import {
+  entrySurfaceSchema,
+  isoDatetimeSchema,
+  sessionProjectIdSchema,
+  sessionVersionIdSchema,
+  taskVersionIdSchema,
+  userIdSchema,
+  workspaceIdSchema,
+} from "./common.js";
 import { createRunBindingSchema, createRunInputSchema } from "./runs.js";
 
 export const localizedTextSchema = z.object({
@@ -121,6 +129,56 @@ export const createServiceLaunchTemplateInputSchema = z.object({
   entrySurface: entrySurfaceSchema,
 });
 
+export const createWorkshopServiceBundleInputSchema = z.object({
+  sessionProjectId: sessionProjectIdSchema,
+  displayName: localizedTextSchema,
+  summary: localizedTextSchema,
+  audience: localizedTextSchema,
+  nextStepSummary: localizedTextSchema,
+  scope: workshopScopeSchema.default("personal"),
+  visibility: catalogVisibilitySchema.default("workspace"),
+  coverAssetUrl: z.string().trim().min(1).max(1000).default("/assets/logo.svg"),
+  tagList: z.array(z.string().trim().min(1).max(80)).max(30).default([]),
+  service: z.object({
+    displayName: localizedTextSchema,
+    summary: localizedTextSchema,
+    authRequirementText: localizedTextSchema,
+    estimatedDuration: z.string().trim().min(1).max(80).default("05-15 min"),
+    targetPathHint: z.string().trim().min(1).max(1000),
+    outputContractSummary: localizedTextSchema,
+    requiredBindings: createRunBindingSchema.default({
+      firstPartyMcpIds: [],
+      externalConnectorRefs: [],
+      credentialIds: [],
+    }),
+    linkedInstanceHint: z.string().trim().min(1).max(240).nullable().default(null),
+  }),
+});
+
+export const serviceTaskVersionRecordSchema = z.object({
+  taskVersionId: taskVersionIdSchema,
+  serviceId: serviceIdSchema,
+  workshopId: workshopIdSchema,
+  workspaceId: workspaceIdSchema,
+  workspaceContextKey: workspaceContextKeySchema,
+  sessionProjectId: sessionProjectIdSchema,
+  sessionVersionId: sessionVersionIdSchema,
+  versionNumber: z.number().int().positive(),
+  title: localizedTextSchema,
+  targetRoot: z.string().trim().min(1).max(1000),
+  requiredBindings: createRunBindingSchema,
+  allowedEntrySurfaces: z.array(entrySurfaceSchema).min(1),
+  contentSha256: z.string().regex(/^[a-f0-9]{64}$/),
+  createdByUserId: userIdSchema,
+  createdAt: isoDatetimeSchema,
+});
+
+export const createWorkshopServiceBundleResponseSchema = z.object({
+  workshop: workshopCatalogEntrySchema,
+  service: serviceCatalogEntrySchema,
+  taskVersion: serviceTaskVersionRecordSchema,
+});
+
 export type LocalizedText = z.infer<typeof localizedTextSchema>;
 export type WorkshopScope = z.infer<typeof workshopScopeSchema>;
 export type CatalogVisibility = z.infer<typeof catalogVisibilitySchema>;
@@ -140,3 +198,6 @@ export type ServiceLaunchTemplate = z.infer<typeof serviceLaunchTemplateSchema>;
 export type ListWorkshopsQuery = z.infer<typeof listWorkshopsQuerySchema>;
 export type ListServicesQuery = z.infer<typeof listServicesQuerySchema>;
 export type CreateServiceLaunchTemplateInput = z.infer<typeof createServiceLaunchTemplateInputSchema>;
+export type CreateWorkshopServiceBundleInput = z.input<typeof createWorkshopServiceBundleInputSchema>;
+export type CreateWorkshopServiceBundleResponse = z.infer<typeof createWorkshopServiceBundleResponseSchema>;
+export type ServiceTaskVersionRecord = z.infer<typeof serviceTaskVersionRecordSchema>;

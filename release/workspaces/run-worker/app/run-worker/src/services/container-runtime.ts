@@ -265,8 +265,10 @@ export function buildContainerLaunchPlan(input: {
   const labels = {
     "lingban.run_id": input.payload.run.runId,
     "lingban.workspace_id": input.payload.run.workspaceId,
-    "lingban.task_version_id": input.payload.run.taskVersionId,
-    "lingban.session_version_id": input.payload.run.sessionVersionId,
+    "lingban.run_purpose": input.payload.run.runPurpose ?? "service_consumer",
+    "lingban.session_bootstrap_mode": input.payload.run.sessionBootstrapMode ?? "sealed_version",
+    "lingban.task_version_id": input.payload.run.taskVersionId ?? "none",
+    "lingban.session_version_id": input.payload.run.sessionVersionId ?? "none",
   };
 
   const resources = {

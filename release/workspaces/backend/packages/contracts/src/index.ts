@@ -22,6 +22,7 @@ export * from "./session-bindings.js";
 export * from "./session-captures.js";
 export * from "./session-drafts.js";
 export * from "./session-migrations.js";
+export * from "./session-projects.js";
 export * from "./session-versions.js";
 export * from "./uploads.js";
 export {

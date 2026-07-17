@@ -65,6 +65,7 @@ export const bridgeSessionContextSchema = z.object({
   serviceId: z.string().min(1).nullable().default(null),
   targetPath: z.string().min(1),
   initialPrompt: z.string().min(1),
+  deferInitialTurn: z.boolean().default(false),
   requestedInitialMessage: z.string().min(1).nullable().default(null),
   credentialMounts: z.array(credentialMountSchema).default([]),
   mcpBindings: z.array(mcpBindingSchema).default([]),

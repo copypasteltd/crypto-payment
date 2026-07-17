@@ -84,11 +84,13 @@ export async function startRunJob(payload: StartRunJobPayload) {
     baseUrl: workerConfig.runtimeApiBaseUrl,
     authToken: workerConfig.internalAuthToken,
   });
-  await materializeRunSessionPack({
-    runId: parsed.run.runId,
-    preparedWorkspace,
-    apiConnector,
-  });
+  if (parsed.run.sessionBootstrapMode !== "blank") {
+    await materializeRunSessionPack({
+      runId: parsed.run.runId,
+      preparedWorkspace,
+      apiConnector,
+    });
+  }
   const hostBridgeContext = buildHostBridgeSessionContext(nextPayload, preparedWorkspace);
   const containerBridgeContext = buildContainerBridgeSessionContext(nextPayload, preparedWorkspace);
   const runtime = await materializeRunRuntime({

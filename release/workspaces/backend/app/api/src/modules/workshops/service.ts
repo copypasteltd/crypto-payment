@@ -1,10 +1,15 @@
+import { createHash } from "node:crypto";
 import {
+  createWorkshopServiceBundleInputSchema,
+  createWorkshopServiceBundleResponseSchema,
   createServiceLaunchTemplateInputSchema,
   listServicesQuerySchema,
   listWorkshopsQuerySchema,
   serviceDetailSchema,
   serviceLaunchTemplateSchema,
   workshopDetailSchema,
+  serviceTaskVersionRecordSchema,
+  type CreateWorkshopServiceBundleInput,
   type CreateServiceLaunchTemplateInput,
   type ListServicesQuery,
   type ListWorkshopsQuery,
@@ -15,7 +20,19 @@ import { creatorService } from "../creator/service.js";
 import { getSealedSessionVersion } from "../session-drafts/version-registry.js";
 import { getActiveServiceSessionBinding } from "../session-drafts/service-binding-registry.js";
 import { sessionCatalogService } from "../sessions/service.js";
+import { sessionProjectsService } from "../session-projects/service.js";
 import { workshopCatalogRepository } from "./repository.js";
+import { taskVersionsRepository } from "./task-versions-repository.js";
+import {
+  serviceCatalogRecordSchema,
+  workshopCatalogRecordSchema,
+} from "./storage-schema.js";
+
+type CatalogWriteActor = {
+  userId: string;
+  workspaceId: string;
+  workspaceContextKey: string;
+};
 
 function buildRunSuffix() {
   return new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14);
@@ -30,6 +47,129 @@ function deriveTargetRoot(root: string, serviceId: string) {
 }
 
 export class WorkshopCatalogService {
+  async createWorkshopServiceBundle(
+    input: CreateWorkshopServiceBundleInput,
+    actor: CatalogWriteActor,
+    idempotencyKey: string
+  ) {
+    const parsed = createWorkshopServiceBundleInputSchema.parse(input);
+    const project = await sessionProjectsService.get(parsed.sessionProjectId, actor);
+    if (!project.currentSessionVersionId || !["SEALED", "PACKAGED"].includes(project.status)) {
+      throw new AppError(
+        409,
+        "SESSION_PROJECT_NOT_SEALED",
+        "A sealed Session Version is required before catalog assets can be created"
+      );
+    }
+    const context = workshopCatalogRepository.getContextByKey(actor.workspaceContextKey);
+    if (!context) {
+      throw new AppError(409, "WORKSHOP_CONTEXT_MISMATCH", "Current workspace catalog context is unavailable");
+    }
+
+    const resourceSeed = createHash("sha256")
+      .update(`${actor.workspaceId}:${actor.userId}:${idempotencyKey}`)
+      .digest("hex")
+      .slice(0, 32);
+    const workshopId = `wks_${resourceSeed}`;
+    const serviceId = `svc_${resourceSeed}`;
+    const taskVersionId = `tsv_${resourceSeed}`;
+    const existingVersions = await taskVersionsRepository.listByServiceId(serviceId);
+    const versionNumber = (existingVersions[0]?.versionNumber ?? 0) + 1;
+    const at = new Date().toISOString();
+    const requiredBindings = {
+      firstPartyMcpIds: [...new Set([
+        ...project.sourceBindings.firstPartyMcpIds,
+        ...parsed.service.requiredBindings.firstPartyMcpIds,
+      ])],
+      externalConnectorRefs: [...new Set([
+        ...project.sourceBindings.externalConnectorRefs,
+        ...parsed.service.requiredBindings.externalConnectorRefs,
+      ])],
+      credentialIds: [...new Set([
+        ...project.sourceBindings.credentialIds,
+        ...parsed.service.requiredBindings.credentialIds,
+      ])],
+    };
+    const targetRoot = deriveTargetRoot(context.root, serviceId);
+
+    const workshopRecord = workshopCatalogRecordSchema.parse({
+      workshopId,
+      scope: parsed.scope,
+      status: "draft",
+      visibility: parsed.visibility,
+      displayName: parsed.displayName,
+      ownerLabel: { zh: actor.userId, en: actor.userId },
+      badge: {
+        zh: parsed.visibility === "public" ? "公开" : "工作区",
+        en: parsed.visibility === "public" ? "Public" : "Workspace",
+      },
+      audience: parsed.audience,
+      summary: parsed.summary,
+      nextStepSummary: parsed.nextStepSummary,
+      coverAssetUrl: parsed.coverAssetUrl,
+      tagList: parsed.tagList,
+      defaultServiceId: serviceId,
+      visibleInContexts: [actor.workspaceContextKey],
+    });
+    const serviceRecord = serviceCatalogRecordSchema.parse({
+      serviceId,
+      workshopId,
+      status: "draft",
+      displayName: parsed.service.displayName,
+      summary: parsed.service.summary,
+      authRequirementText: parsed.service.authRequirementText,
+      estimatedDuration: parsed.service.estimatedDuration,
+      targetPathHint: parsed.service.targetPathHint,
+      outputContractSummary: parsed.service.outputContractSummary,
+      launchMode: "instant-conversation",
+      requiredBindings,
+      linkedInstanceHint: parsed.service.linkedInstanceHint,
+      visibleInContexts: [actor.workspaceContextKey],
+    });
+    const immutableContent = {
+      serviceId,
+      workshopId,
+      workspaceId: actor.workspaceId,
+      workspaceContextKey: actor.workspaceContextKey,
+      sessionProjectId: project.sessionProjectId,
+      sessionVersionId: project.currentSessionVersionId,
+      versionNumber,
+      title: parsed.service.displayName,
+      targetRoot,
+      requiredBindings,
+      allowedEntrySurfaces: context.allowedEntrySurfaces,
+    };
+    const taskVersion = serviceTaskVersionRecordSchema.parse({
+      taskVersionId,
+      ...immutableContent,
+      contentSha256: createHash("sha256").update(JSON.stringify(immutableContent)).digest("hex"),
+      createdByUserId: actor.userId,
+      createdAt: at,
+    });
+
+    await taskVersionsRepository.create(taskVersion);
+    await workshopCatalogRepository.saveWorkshopService({
+      workshop: workshopRecord,
+      service: serviceRecord,
+    });
+    await sessionProjectsService.recordCatalogAssets(project.currentSessionVersionId, {
+      workshopId,
+      serviceId,
+    });
+
+    const { visibleInContexts: _workshopContexts, ...workshop } = workshopRecord;
+    const { visibleInContexts: _serviceContexts, ...service } = serviceRecord;
+    return createWorkshopServiceBundleResponseSchema.parse({ workshop, service, taskVersion });
+  }
+
+  async listTaskVersions(serviceId: string, actor: CatalogWriteActor) {
+    const service = workshopCatalogRepository.getServiceById(serviceId);
+    if (!service || !service.visibleInContexts.includes(actor.workspaceContextKey)) {
+      throw new AppError(404, "SERVICE_NOT_FOUND", `Service not found: ${serviceId}`);
+    }
+    return taskVersionsRepository.listByServiceId(serviceId);
+  }
+
   #resolveContext(input: {
     workspaceContextKey?: string;
     workspaceId?: string;
@@ -312,7 +452,10 @@ export class WorkshopCatalogService {
 }
 
 export async function initializeWorkshopInfrastructure() {
-  await workshopCatalogRepository.init();
+  await Promise.all([
+    workshopCatalogRepository.init(),
+    taskVersionsRepository.init(),
+  ]);
 }
 
 export const workshopCatalogService = new WorkshopCatalogService();

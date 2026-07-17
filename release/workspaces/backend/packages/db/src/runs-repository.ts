@@ -111,17 +111,31 @@ export class PostgresRunsRepository extends CachedRunsRepository {
         status,
         title,
         target_path,
+        run_purpose,
+        session_bootstrap_mode,
+        session_project_id,
+        task_version_id,
+        session_version_id,
+        workspace_context_key,
+        service_id,
         created_at,
         updated_at,
         aggregate_json
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb)
       ON CONFLICT (run_id) DO UPDATE
       SET
         workspace_id = EXCLUDED.workspace_id,
         status = EXCLUDED.status,
         title = EXCLUDED.title,
         target_path = EXCLUDED.target_path,
+        run_purpose = EXCLUDED.run_purpose,
+        session_bootstrap_mode = EXCLUDED.session_bootstrap_mode,
+        session_project_id = EXCLUDED.session_project_id,
+        task_version_id = EXCLUDED.task_version_id,
+        session_version_id = EXCLUDED.session_version_id,
+        workspace_context_key = EXCLUDED.workspace_context_key,
+        service_id = EXCLUDED.service_id,
         created_at = EXCLUDED.created_at,
         updated_at = EXCLUDED.updated_at,
         aggregate_json = EXCLUDED.aggregate_json
@@ -132,6 +146,13 @@ export class PostgresRunsRepository extends CachedRunsRepository {
         payload.run.status,
         payload.run.title,
         payload.run.targetPath,
+        payload.run.runPurpose,
+        payload.run.sessionBootstrapMode,
+        payload.run.sessionProjectId,
+        payload.run.taskVersionId,
+        payload.run.sessionVersionId,
+        payload.run.catalogMetadata?.workspaceContextKey ?? null,
+        payload.run.catalogMetadata?.serviceId ?? null,
         payload.run.createdAt,
         payload.run.updatedAt,
         JSON.stringify(payload),
