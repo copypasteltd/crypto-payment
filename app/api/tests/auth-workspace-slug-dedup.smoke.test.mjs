@@ -100,6 +100,31 @@ test("auth registration auto-deduplicates workspace slug for repeated workspace 
     assert.equal(first.currentWorkspace.slug, "repeated-workspace");
     assert.equal(second.currentWorkspace.slug, "repeated-workspace-2");
     assert.notEqual(first.currentWorkspace.workspaceId, second.currentWorkspace.workspaceId);
+
+    const unicode = await requestJson(`${baseUrl}/v1/auth/register`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json; charset=utf-8",
+      },
+      body: JSON.stringify({
+        email: "unicode-registration@example.com",
+        password: "TestPassword123!",
+        displayName: "灵办体验账户",
+        workspaceName: "灵办体验空间",
+      }),
+    });
+
+    assert.equal(unicode.user.displayName, "灵办体验账户");
+    assert.equal(unicode.currentWorkspace.name, "灵办体验空间");
+
+    const unicodeSession = await requestJson(`${baseUrl}/v1/auth/session`, {
+      headers: {
+        authorization: `Bearer ${unicode.tokens.accessToken}`,
+      },
+    });
+
+    assert.equal(unicodeSession.user.displayName, "灵办体验账户");
+    assert.equal(unicodeSession.currentWorkspace.name, "灵办体验空间");
   } finally {
     if (app) {
       await app.close();
