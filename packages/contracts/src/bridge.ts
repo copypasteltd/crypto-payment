@@ -16,6 +16,7 @@ import {
   runStatusSchema,
   sendRunMessageInputSchema,
   startRunJobPayloadSchema,
+  updateRunApprovalModeInputSchema,
 } from "./runs.js";
 import { mcpCallRecordSchema } from "./mcp.js";
 import { agentRuntimeEventBridgeSchema, agentThreadStateBridgeSchema } from "./agent-runtime.js";
@@ -23,6 +24,7 @@ import { agentRuntimeEventBridgeSchema, agentThreadStateBridgeSchema } from "./a
 export const bridgeCommandTypeSchema = z.enum([
   "sendMessage",
   "approve",
+  "setApprovalMode",
   "cancel",
   "ping",
   "syncFiles",
@@ -44,6 +46,7 @@ export const bridgeRegistrationSchema = z.object({
   supportedCommands: z.array(bridgeCommandTypeSchema).default([
     "sendMessage",
     "approve",
+    "setApprovalMode",
     "cancel",
     "ping",
     "syncFiles",
@@ -62,6 +65,10 @@ export const runControlCommandSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("approve"),
     payload: approveRunInputSchema,
+  }),
+  z.object({
+    type: z.literal("setApprovalMode"),
+    payload: updateRunApprovalModeInputSchema,
   }),
   z.object({
     type: z.literal("cancel"),

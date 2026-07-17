@@ -118,11 +118,14 @@ export class PostgresRunsRepository extends CachedRunsRepository {
         session_version_id,
         workspace_context_key,
         service_id,
+        approval_mode,
+        approval_mode_updated_at,
+        approval_mode_updated_by_user_id,
         created_at,
         updated_at,
         aggregate_json
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15::jsonb)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18::jsonb)
       ON CONFLICT (run_id) DO UPDATE
       SET
         workspace_id = EXCLUDED.workspace_id,
@@ -136,6 +139,9 @@ export class PostgresRunsRepository extends CachedRunsRepository {
         session_version_id = EXCLUDED.session_version_id,
         workspace_context_key = EXCLUDED.workspace_context_key,
         service_id = EXCLUDED.service_id,
+        approval_mode = EXCLUDED.approval_mode,
+        approval_mode_updated_at = EXCLUDED.approval_mode_updated_at,
+        approval_mode_updated_by_user_id = EXCLUDED.approval_mode_updated_by_user_id,
         created_at = EXCLUDED.created_at,
         updated_at = EXCLUDED.updated_at,
         aggregate_json = EXCLUDED.aggregate_json
@@ -153,6 +159,9 @@ export class PostgresRunsRepository extends CachedRunsRepository {
         payload.run.sessionVersionId,
         payload.run.catalogMetadata?.workspaceContextKey ?? null,
         payload.run.catalogMetadata?.serviceId ?? null,
+        payload.run.approvalMode,
+        payload.run.approvalModeUpdatedAt,
+        payload.run.approvalModeUpdatedByUserId,
         payload.run.createdAt,
         payload.run.updatedAt,
         JSON.stringify(payload),
