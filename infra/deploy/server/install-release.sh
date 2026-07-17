@@ -12,6 +12,24 @@ TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 RELEASE_TARGET="${DEPLOY_ROOT}/releases/${TIMESTAMP}"
 CURRENT_LINK="${DEPLOY_ROOT}/current"
 
+wait_for_readiness() {
+  local service_name="$1"
+  local url="$2"
+  local attempts="${3:-60}"
+
+  for ((attempt = 1; attempt <= attempts; attempt += 1)); do
+    if curl --fail --silent --max-time 2 "${url}" >/dev/null; then
+      echo "${service_name} ready: ${url}"
+      return 0
+    fi
+    sleep 1
+  done
+
+  echo "${service_name} failed readiness: ${url}" >&2
+  journalctl -u "${service_name}" -n 80 --no-pager >&2 || true
+  return 1
+}
+
 if [[ -f /etc/lingban/api.env ]]; then
   if grep -q '^LINGBAN_RELEASE=' /etc/lingban/api.env; then
     sed -i "s/^LINGBAN_RELEASE=.*/LINGBAN_RELEASE=${TIMESTAMP}/" /etc/lingban/api.env
@@ -77,9 +95,11 @@ ln -sfn "${RELEASE_TARGET}" "${CURRENT_LINK}"
 systemctl daemon-reload
 if systemctl cat lingban-api.service >/dev/null 2>&1; then
   systemctl restart lingban-api
+  wait_for_readiness lingban-api "http://127.0.0.1:${API_PORT:-38100}/readyz"
 fi
 if systemctl cat lingban-run-worker.service >/dev/null 2>&1; then
   systemctl restart lingban-run-worker
+  wait_for_readiness lingban-run-worker "http://127.0.0.1:${LINGBAN_WORKER_OPS_PORT:-38101}/readyz"
 fi
 
 echo "release installed: ${RELEASE_TARGET}"
