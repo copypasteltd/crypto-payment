@@ -1080,9 +1080,11 @@ export class CredentialsService {
     workspaceId: string;
     requestedByUserId: string | null | undefined;
     credentialIds: string[];
+    platformCredentialIds?: string[];
   }) {
     const resolved: CredentialDetail[] = [];
     const uniqueIds = [...new Set(params.credentialIds)];
+    const platformCredentialIds = new Set(params.platformCredentialIds ?? []);
     const missingCredentialIds: string[] = [];
 
     for (const credentialId of uniqueIds) {
@@ -1092,7 +1094,10 @@ export class CredentialsService {
         continue;
       }
 
-      if (record.workspaceId !== params.workspaceId) {
+      if (
+        record.workspaceId !== params.workspaceId &&
+        !platformCredentialIds.has(credentialId)
+      ) {
         throw new AppError(
           403,
           "RUN_CREDENTIAL_SCOPE_DENIED",
@@ -1101,7 +1106,7 @@ export class CredentialsService {
       }
 
       const refreshedRecord = await this.reconcileDerivedStatuses({
-        workspaceId: params.workspaceId,
+        workspaceId: record.workspaceId,
         credentialId,
       }).then(() => credentialsRepository.getById(credentialId) ?? record);
 
@@ -1128,6 +1133,7 @@ export class CredentialsService {
     workspaceId: string;
     requestedByUserId: string | null;
     mounts: CredentialMount[];
+    platformCredentialIds?: string[];
     traceId?: string | null;
   }): Promise<MaterializeRunCredentialsResponse> {
     const now = new Date();
@@ -1136,6 +1142,7 @@ export class CredentialsService {
       now.getTime() + getApiRuntimeConfig().credentialBrokerLeaseTtlSeconds * 1000
     ).toISOString();
     const uniqueCredentialIds = [...new Set(params.mounts.map((mount) => mount.credentialId))];
+    const platformCredentialIds = new Set(params.platformCredentialIds ?? []);
     const secrets: Record<string, string> = {};
     const secretVersionByCredentialId: Record<string, number> = {};
     const brokerKindByCredentialId: Record<string, NonNullable<CredentialDetail["brokerKind"]>> =
@@ -1148,7 +1155,7 @@ export class CredentialsService {
       }
 
       const refreshedRecord = await this.reconcileDerivedStatuses({
-        workspaceId: params.workspaceId,
+        workspaceId: record.workspaceId,
         credentialId,
         actorUserId: params.requestedByUserId ?? null,
         runId: params.runId,
@@ -1159,7 +1166,10 @@ export class CredentialsService {
         runId: params.runId,
       });
 
-      if (refreshedRecord.workspaceId !== params.workspaceId) {
+      if (
+        refreshedRecord.workspaceId !== params.workspaceId &&
+        !platformCredentialIds.has(credentialId)
+      ) {
         throw new AppError(
           403,
           "RUN_CREDENTIAL_SCOPE_DENIED",

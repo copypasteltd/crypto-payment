@@ -282,7 +282,10 @@ function hasRetryAttemptsExhausted(
 }
 
 function buildDeadLetterJobId(prefix: string, runId: string, attemptsMade: number, at: string) {
-  return `${prefix}:${runId}:${attemptsMade}:${at}`;
+  const sanitize = (value: string) => value.replace(/[^a-zA-Z0-9._-]+/g, "-");
+  return [prefix, runId, String(attemptsMade), at]
+    .map(sanitize)
+    .join("-");
 }
 
 function resolveRecoveryFailureReason(

@@ -22,6 +22,46 @@ import { buildRunSessionPackContainerPaths } from "./session-pack-materializer.j
 
 type RuntimeFiles = WorkerRuntimeConfig["files"];
 
+function tomlString(value: string) {
+  return JSON.stringify(value);
+}
+
+export function buildCodexRuntimeConfig(
+  payload: StartRunJobPayload,
+  preparedWorkspace: PreparedRunWorkspace
+) {
+  const lines: string[] = [];
+  if (payload.provider) {
+    lines.push(
+      `model = ${tomlString(payload.provider.model)}`,
+      'model_provider = "lingban_runtime"',
+      "",
+      "[model_providers.lingban_runtime]",
+      `name = ${tomlString(payload.provider.displayName)}`,
+      `base_url = ${tomlString(payload.provider.baseUrl)}`,
+      `env_key = ${tomlString(payload.provider.authEnvName)}`,
+      'wire_api = "responses"',
+      "requires_openai_auth = false",
+      "supports_websockets = false",
+      ""
+    );
+  }
+
+  const trustedProjectPaths = new Set([
+    preparedWorkspace.hostPaths.targetPath,
+    preparedWorkspace.containerPaths.targetPath,
+  ]);
+  for (const targetPath of trustedProjectPaths) {
+    lines.push(
+      `[projects.${tomlString(targetPath)}]`,
+      'trust_level = "trusted"',
+      ""
+    );
+  }
+
+  return `${lines.join("\n").trimEnd()}\n`;
+}
+
 function buildRuntimeEnv(
   payload: StartRunJobPayload,
   preparedWorkspace: PreparedRunWorkspace,
@@ -382,6 +422,10 @@ export async function materializeRunRuntime(input: {
     mcpBindingsPath: path.join(runtimeDir, "mcp-bindings.json"),
     secretManifestPath: path.join(runtimeDir, "secret-manifest.json"),
     containerLaunchPlanPath: path.join(runtimeDir, "container-launch-plan.json"),
+    codexConfigPath: path.join(
+      input.preparedWorkspace.hostPaths.codexHomePath,
+      "config.toml"
+    ),
   };
 
   const env = buildRuntimeEnv(
@@ -421,6 +465,11 @@ export async function materializeRunRuntime(input: {
   });
 
   await Promise.all([
+    fs.writeFile(
+      files.codexConfigPath,
+      buildCodexRuntimeConfig(input.payload, input.preparedWorkspace),
+      { encoding: "utf8", mode: 0o600 }
+    ),
     fs.writeFile(files.runtimeConfigPath, JSON.stringify(runtimeConfig, null, 2), "utf8"),
     fs.writeFile(files.bridgeContextHostPath, JSON.stringify(input.hostBridgeContext, null, 2), "utf8"),
     fs.writeFile(

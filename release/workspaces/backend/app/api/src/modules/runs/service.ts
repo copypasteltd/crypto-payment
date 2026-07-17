@@ -42,6 +42,7 @@ import {
 } from "@lingban/contracts";
 import { inferRunIdFromBridgeEvent, type AgentRuntimeRepository, type RunQueryRepository } from "@lingban/db";
 import { randomUUID } from "node:crypto";
+import path from "node:path";
 import {
   applyUserMessageToInformationCollection,
   canTransitionRunStatus,
@@ -194,6 +195,14 @@ function bootstrapSequences(repository: RunsRepositoryLike) {
 
 function nextRunId() {
   return `run_${String(runSequence++).padStart(8, "0")}`;
+}
+
+function resolveCreatorSourceTargetPath(runId: string) {
+  const configuredRunsRoot = process.env.LINGBAN_RUNS_DIR?.trim();
+  const runsRoot = configuredRunsRoot
+    ? path.resolve(configuredRunsRoot)
+    : path.resolve(process.cwd(), ".lingban-data", "worker", "runs");
+  return path.join(runsRoot, runId, "target");
 }
 
 function nextMessageId() {
@@ -662,8 +671,15 @@ export class RunsService {
   }
 
   async createRun(input: CreateRunInput) {
-    const parsed = createRunInputSchema.parse(input);
+    const requestedInput = createRunInputSchema.parse(input);
     const runId = nextRunId();
+    const parsed = createRunInputSchema.parse({
+      ...requestedInput,
+      targetPath:
+        requestedInput.runPurpose === "creator_source"
+          ? resolveCreatorSourceTargetPath(runId)
+          : requestedInput.targetPath,
+    });
     let usesSealedV2Session = false;
     if (
       parsed.sessionVersionId &&
@@ -746,6 +762,14 @@ export class RunsService {
       requestedByUserId: run.requestedByUserId ?? null,
       selection: effectiveInput.providerSelection ?? null,
     });
+    if (run.runPurpose === "creator_source" && !resolvedProvider) {
+      throw new AppError(
+        409,
+        "PROVIDER_BINDING_UNAVAILABLE",
+        `Creator Source Run requires an enabled Provider binding for workspace ${run.workspaceId}`,
+        { workspaceId: run.workspaceId, runPurpose: run.runPurpose }
+      );
+    }
     const resolvedMcpContext = await mcpService.resolveRunContext({
       runId: run.runId,
       workspaceId: run.workspaceId,
@@ -761,6 +785,10 @@ export class RunsService {
       workspaceId: run.workspaceId,
       requestedByUserId: run.requestedByUserId ?? null,
       credentialIds: [...resolvedCredentialIds],
+      platformCredentialIds:
+        resolvedProvider?.bindingScope === "platform"
+          ? [resolvedProvider.credentialId]
+          : [],
     });
     const startJob = buildStartRunJobPayload({
       run,
