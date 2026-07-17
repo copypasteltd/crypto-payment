@@ -40,7 +40,7 @@ async function requestJson(url, init = {}) {
   return text ? JSON.parse(text) : null;
 }
 
-function createAggregate(runId, status) {
+function createAggregate(runId, status, runtime = {}) {
   const createdAt = "2026-07-09T03:00:00.000Z";
   const run = {
     runId,
@@ -76,7 +76,7 @@ function createAggregate(runId, status) {
 
   return {
     run,
-    runtime: {},
+    runtime,
     messages: [],
     files: [],
     artifacts: [],
@@ -143,6 +143,15 @@ test("internal runtime recovery endpoints expose startable, active-bridge, and o
     await runsRepository.save(createAggregate("run_internal_created", "CREATED"));
     await runsRepository.save(createAggregate("run_internal_running_bridge", "RUNNING"));
     await runsRepository.save(createAggregate("run_internal_running_orphan", "RUNNING"));
+    await runsRepository.save(createAggregate("run_internal_running_finished", "RUNNING", {
+      launchMode: "docker",
+      containerName: "lingban-run-run_internal_running_finished",
+      startedAt: "2026-07-09T03:01:00.000Z",
+      readyAt: "2026-07-09T03:01:05.000Z",
+      finishedAt: "2026-07-09T03:04:00.000Z",
+      exitCode: null,
+      exitSignal: "SIGTERM",
+    }));
     await runsRepository.save(createAggregate("run_internal_running_stale", "RUNNING"));
 
     bridgeRegistry.register({
@@ -197,6 +206,15 @@ test("internal runtime recovery endpoints expose startable, active-bridge, and o
     assert.equal(byRunId.get("run_internal_running_bridge")?.bridge?.registered, true);
     assert.equal(byRunId.get("run_internal_running_orphan")?.action, "mark-orphan-failed");
     assert.equal(byRunId.get("run_internal_running_orphan")?.bridge?.registered, false);
+    assert.equal(
+      byRunId.get("run_internal_running_finished")?.snapshot?.runtime?.finishedAt,
+      "2026-07-09T03:04:00.000Z"
+    );
+    assert.equal(byRunId.get("run_internal_running_finished")?.action, "enqueue-start");
+    assert.equal(
+      byRunId.get("run_internal_running_finished")?.startJob?.run?.runId,
+      "run_internal_running_finished"
+    );
     assert.equal(byRunId.get("run_internal_running_stale")?.action, "mark-orphan-failed");
     assert.equal(byRunId.get("run_internal_running_stale")?.bridge?.registered, false);
 

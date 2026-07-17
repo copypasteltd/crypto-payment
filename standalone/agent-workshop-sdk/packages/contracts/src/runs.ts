@@ -11,6 +11,8 @@ import {
   messageKindSchema,
   messageRoleSchema,
   runIdSchema,
+  sessionDraftRevisionIdSchema,
+  sessionProjectIdSchema,
   sessionVersionIdSchema,
   taskVersionIdSchema,
   uploadIdSchema,
@@ -49,6 +51,23 @@ export const runAttentionModeSchema = z.enum([
   "done",
 ]);
 
+export const runPurposeSchema = z.enum([
+  "creator_source",
+  "service_consumer",
+  "replay_validation",
+  "batch_consumer",
+]);
+
+export const sessionBootstrapModeSchema = z.enum([
+  "blank",
+  "sealed_version",
+  "draft_revision",
+]);
+
+export const runApprovalModeSchema = z.enum(["manual", "auto_all"]);
+
+export const runApprovalDecisionModeSchema = z.enum(["manual", "auto_all"]);
+
 export const createRunBindingSchema = z.object({
   firstPartyMcpIds: z.array(z.string().min(1)).default([]),
   externalConnectorRefs: z.array(z.string().min(1)).default([]),
@@ -70,14 +89,19 @@ export const runCatalogMetadataSchema = z.object({
   serviceName: runCatalogLocalizedTextSchema.nullable().default(null),
 });
 
-export const createRunInputSchema = z.object({
+const createRunInputObjectSchema = z.object({
   workspaceId: workspaceIdSchema,
-  taskVersionId: taskVersionIdSchema,
-  sessionVersionId: sessionVersionIdSchema,
+  runPurpose: runPurposeSchema.default("service_consumer"),
+  sessionBootstrapMode: sessionBootstrapModeSchema.default("sealed_version"),
+  sessionProjectId: sessionProjectIdSchema.nullable().default(null),
+  taskVersionId: taskVersionIdSchema.nullable().default(null),
+  sessionVersionId: sessionVersionIdSchema.nullable().default(null),
+  draftRevisionId: sessionDraftRevisionIdSchema.nullable().default(null),
   requestedByUserId: userIdSchema.optional(),
   title: z.string().min(1),
   targetPath: z.string().min(1),
   entrySurface: entrySurfaceSchema,
+  approvalMode: runApprovalModeSchema.default("manual"),
   initialMessage: z.string().min(1).nullable().default(null),
   bindings: createRunBindingSchema.default({
     firstPartyMcpIds: [],
@@ -87,6 +111,46 @@ export const createRunInputSchema = z.object({
   providerSelection: runProviderSelectionSchema.nullable().default(null),
   catalogMetadata: runCatalogMetadataSchema.nullable().default(null),
 });
+
+function validateRunIdentity(
+  value: z.infer<typeof createRunInputObjectSchema>,
+  ctx: z.RefinementCtx
+) {
+  if (value.runPurpose === "creator_source") {
+    if (value.sessionBootstrapMode !== "blank") {
+      ctx.addIssue({ code: "custom", path: ["sessionBootstrapMode"], message: "Creator source runs require blank bootstrap" });
+    }
+    if (!value.sessionProjectId) {
+      ctx.addIssue({ code: "custom", path: ["sessionProjectId"], message: "Creator source runs require a Session Project" });
+    }
+    if (value.taskVersionId || value.sessionVersionId || value.draftRevisionId || value.catalogMetadata) {
+      ctx.addIssue({ code: "custom", path: ["runPurpose"], message: "Creator source runs cannot inherit task, session, revision, or catalog state" });
+    }
+    return;
+  }
+
+  if (value.runPurpose === "replay_validation") {
+    if (value.sessionBootstrapMode !== "draft_revision") {
+      ctx.addIssue({ code: "custom", path: ["sessionBootstrapMode"], message: "Replay runs require draft revision bootstrap" });
+    }
+    if (!value.sessionProjectId || !value.draftRevisionId) {
+      ctx.addIssue({ code: "custom", path: ["draftRevisionId"], message: "Replay runs require a Session Project and Draft Revision" });
+    }
+    return;
+  }
+
+  if (value.sessionBootstrapMode !== "sealed_version") {
+    ctx.addIssue({ code: "custom", path: ["sessionBootstrapMode"], message: "Consumer runs require sealed version bootstrap" });
+  }
+  if (!value.taskVersionId || !value.sessionVersionId) {
+    ctx.addIssue({ code: "custom", path: ["sessionVersionId"], message: "Consumer runs require task and session versions" });
+  }
+  if (value.draftRevisionId) {
+    ctx.addIssue({ code: "custom", path: ["draftRevisionId"], message: "Consumer runs cannot bind a Draft Revision" });
+  }
+}
+
+export const createRunInputSchema = createRunInputObjectSchema.superRefine(validateRunIdentity);
 
 export const listRunsQuerySchema = z.object({
   q: z.string().trim().min(1).max(200).optional(),
@@ -100,12 +164,19 @@ export const listRunsQuerySchema = z.object({
 export const runRecordSchema = z.object({
   runId: runIdSchema,
   workspaceId: workspaceIdSchema,
-  taskVersionId: taskVersionIdSchema,
-  sessionVersionId: sessionVersionIdSchema,
+  runPurpose: runPurposeSchema.default("service_consumer"),
+  sessionBootstrapMode: sessionBootstrapModeSchema.default("sealed_version"),
+  sessionProjectId: sessionProjectIdSchema.nullable().default(null),
+  taskVersionId: taskVersionIdSchema.nullable().default(null),
+  sessionVersionId: sessionVersionIdSchema.nullable().default(null),
+  draftRevisionId: sessionDraftRevisionIdSchema.nullable().default(null),
   requestedByUserId: userIdSchema.nullable().optional(),
   title: z.string().min(1),
   targetPath: z.string().min(1),
   entrySurface: entrySurfaceSchema,
+  approvalMode: runApprovalModeSchema.default("manual"),
+  approvalModeUpdatedAt: isoDatetimeSchema.nullable().default(null),
+  approvalModeUpdatedByUserId: userIdSchema.nullable().default(null),
   catalogMetadata: runCatalogMetadataSchema.nullable().default(null),
   status: runStatusSchema,
   statusReason: z.string().nullable(),
@@ -380,6 +451,8 @@ export const runApprovalSchema = z.object({
   state: approvalStateSchema,
   requestedAt: isoDatetimeSchema,
   decidedAt: isoDatetimeSchema.nullable(),
+  decisionMode: runApprovalDecisionModeSchema.nullable().default(null),
+  decidedByUserId: userIdSchema.nullable().default(null),
   note: z.string().nullable(),
 });
 
@@ -469,6 +542,10 @@ export const approveRunInputSchema = z.object({
   note: z.string().max(2000).optional(),
 });
 
+export const updateRunApprovalModeInputSchema = z.object({
+  approvalMode: runApprovalModeSchema,
+});
+
 export const reviewRunInformationAnswerDecisionSchema = z.enum([
   "approve",
   "reject",
@@ -522,11 +599,15 @@ export const cleanupRunJobPayloadSchema = z.object({
 });
 
 export type RunStatus = z.infer<typeof runStatusSchema>;
+export type RunPurpose = z.infer<typeof runPurposeSchema>;
+export type SessionBootstrapMode = z.infer<typeof sessionBootstrapModeSchema>;
+export type RunApprovalMode = z.infer<typeof runApprovalModeSchema>;
+export type RunApprovalDecisionMode = z.infer<typeof runApprovalDecisionModeSchema>;
 export type RunListViewStatus = z.infer<typeof runListViewStatusSchema>;
 export type RunAttentionMode = z.infer<typeof runAttentionModeSchema>;
 export type CreateRunBinding = z.infer<typeof createRunBindingSchema>;
 export type RunCatalogMetadata = z.infer<typeof runCatalogMetadataSchema>;
-export type CreateRunInput = z.infer<typeof createRunInputSchema>;
+export type CreateRunInput = z.input<typeof createRunInputSchema>;
 export type ListRunsQuery = z.infer<typeof listRunsQuerySchema>;
 export type CreateRunResponse = z.infer<typeof createRunResponseSchema>;
 export type RunRecord = z.infer<typeof runRecordSchema>;
@@ -589,6 +670,7 @@ export type RunWorkshopFacet = z.infer<typeof runWorkshopFacetSchema>;
 export type RunListSummary = z.infer<typeof runListSummarySchema>;
 export type SendRunMessageInput = z.infer<typeof sendRunMessageInputSchema>;
 export type ApproveRunInput = z.infer<typeof approveRunInputSchema>;
+export type UpdateRunApprovalModeInput = z.infer<typeof updateRunApprovalModeInputSchema>;
 export type ReviewRunInformationAnswerDecision = z.infer<
   typeof reviewRunInformationAnswerDecisionSchema
 >;

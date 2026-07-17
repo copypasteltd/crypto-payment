@@ -1982,6 +1982,8 @@ export function createFakePostgresPool() {
     if (
       normalized.startsWith("alter table lingban_session_") ||
       normalized.startsWith("alter table lingban_runs add column if not exists") ||
+      normalized.startsWith("alter table lingban_runs drop constraint if exists") ||
+      normalized.startsWith("alter table lingban_runs add constraint") ||
       normalized.startsWith("update lingban_runs set run_purpose =") ||
       normalized.startsWith("create or replace function lingban_reject_sealed_session_version_content_update") ||
       normalized.startsWith("create or replace function lingban_reject_session_capture_content_update") ||

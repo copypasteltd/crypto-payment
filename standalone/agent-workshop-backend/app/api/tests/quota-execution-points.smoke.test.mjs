@@ -288,6 +288,85 @@ test("quota execution points smoke: upload, message and download approvals can b
       snapshot.approvals.filter((approval) => approval.kind === "quota-override").length >= 3,
       true
     );
+
+    const autoTargetPath = path.join(smokeRoot, "auto-target");
+    await mkdir(autoTargetPath, { recursive: true });
+    const autoRun = await requestJson(`${baseUrl}/v1/runs`, {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({
+        workspaceId: register.currentWorkspace.workspaceId,
+        taskVersionId: "tsv_quota_exec_auto",
+        sessionVersionId: "sev_quota_exec_auto",
+        title: "Automatic approval quota smoke",
+        targetPath: autoTargetPath,
+        entrySurface: "dashboard",
+        approvalMode: "auto_all",
+        initialMessage: null,
+        bindings: {
+          firstPartyMcpIds: [],
+          externalConnectorRefs: [],
+          credentialIds: [],
+        },
+      }),
+    });
+    const autoRunId = autoRun.run.runId;
+
+    const autoMessage = await requestJson(`${baseUrl}/v1/runs/${autoRunId}/messages`, {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({ text: "automatic quota approval", attachments: [] }),
+    });
+    assert.equal(autoMessage.run.approvalMode, "auto_all");
+    assert.equal(
+      autoMessage.approvals.some(
+        (approval) =>
+          approval.kind === "quota-override" &&
+          approval.state === "approved" &&
+          approval.decisionMode === "auto_all"
+      ),
+      true
+    );
+
+    const autoUpload = await requestJson(`${baseUrl}/v1/runs/${autoRunId}/uploads`, {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({
+        fileName: "auto.txt",
+        label: "Automatic approval upload",
+        contentType: "text/plain",
+      }),
+    });
+    const autoUploadResponse = await fetch(
+      `${baseUrl}/v1/runs/${autoRunId}/uploads/${autoUpload.upload.uploadId}/content`,
+      {
+        method: "PUT",
+        headers: {
+          authorization: authHeaders.authorization,
+          "content-type": "application/octet-stream",
+        },
+        body: Buffer.from("automatic approval\n", "utf8"),
+      }
+    );
+    assert.equal(autoUploadResponse.ok, true, await autoUploadResponse.text());
+
+    const autoFinalized = await requestJson(
+      `${baseUrl}/v1/runs/${autoRunId}/uploads/${autoUpload.upload.uploadId}/finalize`,
+      {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({ label: "Automatic approval upload" }),
+      }
+    );
+    const autoRelativePath = path
+      .relative(autoTargetPath, autoFinalized.attachment.path)
+      .replace(/\\/g, "/");
+    const autoTicket = await requestJson(`${baseUrl}/v1/runs/${autoRunId}/download-tickets`, {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({ path: autoRelativePath }),
+    });
+    assert.equal(autoTicket.ticket.path.endsWith("/auto.txt"), true);
   } finally {
     if (app) {
       await app.close().catch(() => undefined);

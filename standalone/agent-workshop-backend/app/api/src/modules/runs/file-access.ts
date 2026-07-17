@@ -65,6 +65,7 @@ export type RunFileAccessDependencies = {
   quotaService: Pick<
     typeof quotaService,
     | "buildQuotaApprovalPrompt"
+    | "applyRunApprovalDecision"
     | "commitUsageDecision"
     | "consumeApprovedUsageOverride"
     | "previewUsage"
@@ -447,7 +448,7 @@ export class RunFileAccessService {
     const consumedOverride = await this.#dependencies.quotaService.consumeApprovedUsageOverride(
       quotaUsage
     );
-    const quotaPreview = consumedOverride
+    let quotaPreview = consumedOverride
       ? null
       : this.#dependencies.quotaService.previewUsage(quotaUsage);
 
@@ -479,15 +480,29 @@ export class RunFileAccessService {
         approvalId: feedback.approval.approvalId,
         note: `Text file read is waiting for quota approval for ${file.path}.`,
       });
-      throw new AppError(
-        409,
-        "RUN_FILE_READ_QUOTA_APPROVAL_REQUIRED",
-        quotaPreview.summary?.en ?? "Quota approval is required before reading this file.",
-        {
-          ...quotaPreview,
-          approvalId: feedback.approval.approvalId,
-        }
-      );
+      if (feedback.approval.state === "approved") {
+        await this.#dependencies.quotaService.applyRunApprovalDecision({
+          approval: feedback.approval,
+          approved: true,
+          decidedByUserId:
+            resolved.aggregate.run.approvalModeUpdatedByUserId ??
+            resolved.aggregate.run.requestedByUserId ??
+            null,
+          note: feedback.approval.note,
+        });
+        await this.#dependencies.quotaService.consumeApprovedUsageOverride(quotaUsage);
+        quotaPreview = null;
+      } else {
+        throw new AppError(
+          409,
+          "RUN_FILE_READ_QUOTA_APPROVAL_REQUIRED",
+          quotaPreview.summary?.en ?? "Quota approval is required before reading this file.",
+          {
+            ...quotaPreview,
+            approvalId: feedback.approval.approvalId,
+          }
+        );
+      }
     }
 
     if (quotaPreview) {
@@ -543,7 +558,7 @@ export class RunFileAccessService {
       const consumedOverride = await this.#dependencies.quotaService.consumeApprovedUsageOverride(
         quotaUsage
       );
-      const quotaPreview = consumedOverride
+      let quotaPreview = consumedOverride
         ? null
         : this.#dependencies.quotaService.previewUsage(quotaUsage);
 
@@ -575,15 +590,29 @@ export class RunFileAccessService {
           approvalId: feedback.approval.approvalId,
           note: `File preview is waiting for quota approval for ${file.path}.`,
         });
-        throw new AppError(
-          409,
-          "RUN_FILE_PREVIEW_QUOTA_APPROVAL_REQUIRED",
-          quotaPreview.summary?.en ?? "Quota approval is required before previewing this file.",
-          {
-            ...quotaPreview,
-            approvalId: feedback.approval.approvalId,
-          }
-        );
+        if (feedback.approval.state === "approved") {
+          await this.#dependencies.quotaService.applyRunApprovalDecision({
+            approval: feedback.approval,
+            approved: true,
+            decidedByUserId:
+              resolved.aggregate.run.approvalModeUpdatedByUserId ??
+              resolved.aggregate.run.requestedByUserId ??
+              null,
+            note: feedback.approval.note,
+          });
+          await this.#dependencies.quotaService.consumeApprovedUsageOverride(quotaUsage);
+          quotaPreview = null;
+        } else {
+          throw new AppError(
+            409,
+            "RUN_FILE_PREVIEW_QUOTA_APPROVAL_REQUIRED",
+            quotaPreview.summary?.en ?? "Quota approval is required before previewing this file.",
+            {
+              ...quotaPreview,
+              approvalId: feedback.approval.approvalId,
+            }
+          );
+        }
       }
 
       if (quotaPreview) {
@@ -657,7 +686,7 @@ export class RunFileAccessService {
       const consumedOverride = await this.#dependencies.quotaService.consumeApprovedUsageOverride(
         quotaUsage
       );
-      const quotaPreview = consumedOverride
+      let quotaPreview = consumedOverride
         ? null
         : this.#dependencies.quotaService.previewUsage(quotaUsage);
 
@@ -689,15 +718,29 @@ export class RunFileAccessService {
           approvalId: feedback.approval.approvalId,
           note: `Direct file download is waiting for quota approval for ${file.path}.`,
         });
-        throw new AppError(
-          409,
-          "RUN_FILE_DOWNLOAD_QUOTA_APPROVAL_REQUIRED",
-          quotaPreview.summary?.en ?? "Quota approval is required before downloading this file.",
-          {
-            ...quotaPreview,
-            approvalId: feedback.approval.approvalId,
-          }
-        );
+        if (feedback.approval.state === "approved") {
+          await this.#dependencies.quotaService.applyRunApprovalDecision({
+            approval: feedback.approval,
+            approved: true,
+            decidedByUserId:
+              resolved.aggregate.run.approvalModeUpdatedByUserId ??
+              resolved.aggregate.run.requestedByUserId ??
+              null,
+            note: feedback.approval.note,
+          });
+          await this.#dependencies.quotaService.consumeApprovedUsageOverride(quotaUsage);
+          quotaPreview = null;
+        } else {
+          throw new AppError(
+            409,
+            "RUN_FILE_DOWNLOAD_QUOTA_APPROVAL_REQUIRED",
+            quotaPreview.summary?.en ?? "Quota approval is required before downloading this file.",
+            {
+              ...quotaPreview,
+              approvalId: feedback.approval.approvalId,
+            }
+          );
+        }
       }
 
       if (quotaPreview) {

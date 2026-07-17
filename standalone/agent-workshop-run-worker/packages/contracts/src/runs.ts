@@ -64,6 +64,10 @@ export const sessionBootstrapModeSchema = z.enum([
   "draft_revision",
 ]);
 
+export const runApprovalModeSchema = z.enum(["manual", "auto_all"]);
+
+export const runApprovalDecisionModeSchema = z.enum(["manual", "auto_all"]);
+
 export const createRunBindingSchema = z.object({
   firstPartyMcpIds: z.array(z.string().min(1)).default([]),
   externalConnectorRefs: z.array(z.string().min(1)).default([]),
@@ -97,6 +101,7 @@ const createRunInputObjectSchema = z.object({
   title: z.string().min(1),
   targetPath: z.string().min(1),
   entrySurface: entrySurfaceSchema,
+  approvalMode: runApprovalModeSchema.default("manual"),
   initialMessage: z.string().min(1).nullable().default(null),
   bindings: createRunBindingSchema.default({
     firstPartyMcpIds: [],
@@ -169,6 +174,9 @@ export const runRecordSchema = z.object({
   title: z.string().min(1),
   targetPath: z.string().min(1),
   entrySurface: entrySurfaceSchema,
+  approvalMode: runApprovalModeSchema.default("manual"),
+  approvalModeUpdatedAt: isoDatetimeSchema.nullable().default(null),
+  approvalModeUpdatedByUserId: userIdSchema.nullable().default(null),
   catalogMetadata: runCatalogMetadataSchema.nullable().default(null),
   status: runStatusSchema,
   statusReason: z.string().nullable(),
@@ -443,6 +451,8 @@ export const runApprovalSchema = z.object({
   state: approvalStateSchema,
   requestedAt: isoDatetimeSchema,
   decidedAt: isoDatetimeSchema.nullable(),
+  decisionMode: runApprovalDecisionModeSchema.nullable().default(null),
+  decidedByUserId: userIdSchema.nullable().default(null),
   note: z.string().nullable(),
 });
 
@@ -532,6 +542,10 @@ export const approveRunInputSchema = z.object({
   note: z.string().max(2000).optional(),
 });
 
+export const updateRunApprovalModeInputSchema = z.object({
+  approvalMode: runApprovalModeSchema,
+});
+
 export const reviewRunInformationAnswerDecisionSchema = z.enum([
   "approve",
   "reject",
@@ -587,6 +601,8 @@ export const cleanupRunJobPayloadSchema = z.object({
 export type RunStatus = z.infer<typeof runStatusSchema>;
 export type RunPurpose = z.infer<typeof runPurposeSchema>;
 export type SessionBootstrapMode = z.infer<typeof sessionBootstrapModeSchema>;
+export type RunApprovalMode = z.infer<typeof runApprovalModeSchema>;
+export type RunApprovalDecisionMode = z.infer<typeof runApprovalDecisionModeSchema>;
 export type RunListViewStatus = z.infer<typeof runListViewStatusSchema>;
 export type RunAttentionMode = z.infer<typeof runAttentionModeSchema>;
 export type CreateRunBinding = z.infer<typeof createRunBindingSchema>;
@@ -654,6 +670,7 @@ export type RunWorkshopFacet = z.infer<typeof runWorkshopFacetSchema>;
 export type RunListSummary = z.infer<typeof runListSummarySchema>;
 export type SendRunMessageInput = z.infer<typeof sendRunMessageInputSchema>;
 export type ApproveRunInput = z.infer<typeof approveRunInputSchema>;
+export type UpdateRunApprovalModeInput = z.infer<typeof updateRunApprovalModeInputSchema>;
 export type ReviewRunInformationAnswerDecision = z.infer<
   typeof reviewRunInformationAnswerDecisionSchema
 >;

@@ -11,6 +11,7 @@ import {
   type BridgeSessionContext,
   type MessageKind,
   type MessageRole,
+  type RunApprovalMode,
   type RunStatus,
   type SendRunMessageInput,
 } from "@lingban/contracts";
@@ -136,6 +137,7 @@ export class CodexSession {
   #lastStdoutAt: string | null = null;
   #lastMessageAt: string | null = null;
   #lastApprovalAt: string | null = null;
+  #approvalMode: RunApprovalMode;
   #lastCancelAt: string | null = null;
   #lastHeartbeatAt: string | null = null;
   #lastUnexpectedExitAt: string | null = null;
@@ -153,6 +155,7 @@ export class CodexSession {
   #restartTimer: NodeJS.Timeout | null = null;
   #replayHistory: string[] = [];
   #replayHistoryBytes = 0;
+  #deferredInitialPromptPending = false;
 
   constructor(options: CodexSessionOptions) {
     this.#options = {
@@ -169,6 +172,8 @@ export class CodexSession {
       emit: options.emit,
       now: this.#options.now,
     });
+    this.#approvalMode = options.context.approvalMode;
+    this.#deferredInitialPromptPending = options.context.deferInitialTurn;
   }
 
   start() {
@@ -206,7 +211,11 @@ export class CodexSession {
   }
 
   sendMessage(input: SendRunMessageInput) {
-    const payload = formatUserMessage(input);
+    const userPayload = formatUserMessage(input);
+    const payload = this.#deferredInitialPromptPending
+      ? `${this.#options.context.initialPrompt}\n\n${userPayload}`
+      : userPayload;
+    this.#deferredInitialPromptPending = false;
     this.#recordReplayInput(payload);
     this.#lastMessageAt = this.#options.now();
 
@@ -237,6 +246,10 @@ export class CodexSession {
     }
 
     throw new Error("Codex session is not running");
+  }
+
+  setApprovalMode(approvalMode: RunApprovalMode) {
+    this.#approvalMode = approvalMode;
   }
 
   cancel(reason?: string) {
@@ -319,6 +332,7 @@ export class CodexSession {
       eventHighWatermark: 0,
       pendingRequestCount: 0,
       pendingApprovalCount: 0,
+      approvalMode: this.#approvalMode,
       startedAt: this.#startedAt,
       lastLaunchAt: this.#lastLaunchAt,
       lastStdoutAt: this.#lastStdoutAt,
@@ -386,6 +400,9 @@ export class CodexSession {
   }
 
   #writeInitialInputs() {
+    if (this.#options.context.deferInitialTurn) {
+      return;
+    }
     this.#writeToPty(`${this.#options.context.initialPrompt}\n`);
     if (this.#options.context.requestedInitialMessage) {
       this.#writeToPty(`${this.#options.context.requestedInitialMessage}\n`);

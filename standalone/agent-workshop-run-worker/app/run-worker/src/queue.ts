@@ -20,6 +20,7 @@ export const RUN_START_DLQ_JOB_NAME = "run.start.dlq";
 export const RUN_CLEANUP_DLQ_JOB_NAME = "run.cleanup.dlq";
 
 type QueueJobLike = {
+  getState(): Promise<string> | string;
   remove(): Promise<unknown> | unknown;
 };
 
@@ -141,7 +142,11 @@ export async function enqueueRunStartJob(
   const parsed = startRunJobPayloadSchema.parse(payload);
   const existing = await queue.getJob(parsed.run.runId);
   if (existing) {
-    return existing;
+    const state = await existing.getState();
+    if (state !== "failed" && state !== "completed") {
+      return existing;
+    }
+    await existing.remove();
   }
 
   return queue.add(RUN_START_JOB_NAME, parsed, {
