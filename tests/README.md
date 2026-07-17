@@ -13,6 +13,7 @@ The `tests/` directory contains cross-application E2E orchestration, browser acc
 | `e2e/serve-static.mjs` | Dashboard 与 Mobile 静态服务 |
 | `e2e/specs/dashboard.spec.mjs` | Workspace、Creator、Admin、Provider 与批量任务 |
 | `e2e/specs/mobile.spec.mjs` | 工坊、任务、对话、文件、Provider 与个人中心 |
+| `e2e/specs/admin.spec.mjs` | 独立 Admin、Provider 创建与测活、模型同步、表单边界、结构化 API 和网络错误反馈 |
 | `evidence/` | 报告、截图和最近执行证据 |
 
 ## 认证与数据策略 / Auth and Data Strategy
@@ -34,6 +35,7 @@ pnpm exec playwright show-report
 | 日期 | 范围 | 结果 |
 | --- | --- | --- |
 | 2026-07-14 | Dashboard + Mobile H5 E2E | 23/23 通过 |
+| 2026-07-16 | Independent Admin E2E | 9/9 通过 |
 | 2026-07-14 | Backend smoke | 62/62 通过 |
 | 2026-07-14 | Run Worker | 27/27 通过 |
 | 2026-07-14 | Runtime Bridge | 23/23 通过 |

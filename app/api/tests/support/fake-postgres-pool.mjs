@@ -1841,9 +1841,16 @@ export function createFakePostgresPool() {
         status: params[2],
         title: params[3],
         target_path: params[4],
-        created_at: params[5],
-        updated_at: params[6],
-        aggregate_json: typeof params[7] === "string" ? JSON.parse(params[7]) : clone(params[7]),
+        run_purpose: params[5],
+        session_bootstrap_mode: params[6],
+        session_project_id: params[7],
+        task_version_id: params[8],
+        session_version_id: params[9],
+        workspace_context_key: params[10],
+        service_id: params[11],
+        created_at: params[12],
+        updated_at: params[13],
+        aggregate_json: typeof params[14] === "string" ? JSON.parse(params[14]) : clone(params[14]),
       };
       if (existingIndex >= 0) {
         tables.lingban_runs[existingIndex] = row;
@@ -1974,6 +1981,8 @@ export function createFakePostgresPool() {
 
     if (
       normalized.startsWith("alter table lingban_session_") ||
+      normalized.startsWith("alter table lingban_runs add column if not exists") ||
+      normalized.startsWith("update lingban_runs set run_purpose =") ||
       normalized.startsWith("create or replace function lingban_reject_sealed_session_version_content_update") ||
       normalized.startsWith("create or replace function lingban_reject_session_capture_content_update") ||
       normalized.startsWith("drop trigger if exists trg_lingban_session_version_immutable") ||

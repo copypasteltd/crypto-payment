@@ -33,6 +33,7 @@ const expectedVersions = [
   "0028_credentials_workspace_owner_nullable",
   "0029_admin_control_plane",
   "0030_session_control",
+  "0031_creator_source_runs",
 ];
 
 test("database migrations are discoverable, dry-runnable, and idempotently applied", async () => {

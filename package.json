@@ -32,7 +32,7 @@
     "test:session-pack": "pnpm -C packages/session-pack test:smoke",
     "test:session-pack:compiled": "pnpm -C packages/session-pack test:smoke:compiled",
     "test:backend:smoke": "pnpm -C app/api test:smoke",
-    "test:backend:smoke:compiled": "pnpm -C app/api test:session-control && pnpm -C app/api test:smoke:compiled",
+    "test:backend:smoke:compiled": "pnpm -C app/api test:release-gates",
     "test:runtime": "pnpm -C app/run-worker test && pnpm -C app/container-bridge test",
     "test:runtime:compiled": "pnpm -C app/run-worker test:compiled && pnpm -C app/container-bridge test:compiled",
     "ci:backend": "pnpm build:backend && pnpm test:db:compiled && pnpm test:files:compiled && pnpm test:shared:compiled && pnpm test:session-pack:compiled && pnpm test:backend:smoke:compiled",

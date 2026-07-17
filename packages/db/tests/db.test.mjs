@@ -239,9 +239,16 @@ function createFakePostgresPool() {
         status: params[2],
         title: params[3],
         target_path: params[4],
-        created_at: params[5],
-        updated_at: params[6],
-        aggregate_json: typeof params[7] === "string" ? JSON.parse(params[7]) : clone(params[7]),
+        run_purpose: params[5],
+        session_bootstrap_mode: params[6],
+        session_project_id: params[7],
+        task_version_id: params[8],
+        session_version_id: params[9],
+        workspace_context_key: params[10],
+        service_id: params[11],
+        created_at: params[12],
+        updated_at: params[13],
+        aggregate_json: typeof params[14] === "string" ? JSON.parse(params[14]) : clone(params[14]),
       };
       const existingIndex = tables.lingban_runs.findIndex((item) => item.run_id === row.run_id);
 

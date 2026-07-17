@@ -43,6 +43,7 @@ import { getApiRuntimeConfig } from "../../app/runtime.js";
 import { creatorRepository } from "../creator/repository.js";
 import { runsService } from "../runs/service.js";
 import { sessionCaptureService } from "../session-captures/service.js";
+import { sessionProjectsService } from "../session-projects/service.js";
 import { ObjectStoreImmutableConflictError, objectStore } from "../uploads/object-store.js";
 import { sessionAssetRepository } from "./repository.js";
 import { registerSealedSessionVersion } from "./version-registry.js";
@@ -718,6 +719,13 @@ export class SessionDraftService {
     const next = sessionDraftRecordSchema.parse({ ...detail.draft, status: parsed.decision === "approved" ? "ready_to_seal" : "editing", version: detail.draft.version + 1, updatedAt: at });
     const updated = await sessionAssetRepository.addReview(review, next, parsed.expectedVersion);
     if (!updated) throw new AppError(409, "RESOURCE_VERSION_CONFLICT", `Draft changed concurrently: ${draftId}`);
+    const capture = await sessionCaptureService.get(detail.draft.sourceCaptureId);
+    await sessionProjectsService.recordDraftProgress(
+      capture.runId,
+      capture.captureId,
+      draftId,
+      parsed.decision === "approved" ? "READY_TO_SEAL" : "EDITING"
+    );
     return { draft: updated, review };
   }
 
@@ -728,6 +736,14 @@ export class SessionDraftService {
     if (!revision || detail.draft.currentRevisionId !== revision.revisionId) {
       throw new AppError(409, "SESSION_DRAFT_REVISION_CONFLICT", "Replay must target the current revision");
     }
+
+    const capture = await sessionCaptureService.get(detail.draft.sourceCaptureId);
+    await sessionProjectsService.recordDraftProgress(
+      capture.runId,
+      capture.captureId,
+      draftId,
+      "REPLAYING"
+    );
 
     const startedAt = nowIso();
     const checks: SessionDraftReplayCheck[] = [];
@@ -868,6 +884,12 @@ export class SessionDraftService {
       replay.status,
       Math.max(0, Date.parse(replay.finishedAt) - Date.parse(replay.startedAt)) / 1000
     );
+    await sessionProjectsService.recordDraftProgress(
+      capture.runId,
+      capture.captureId,
+      draftId,
+      replay.status === "passed" ? "READY_TO_SEAL" : "EDITING"
+    );
     return { draft: updated, replay };
   }
 
@@ -942,6 +964,13 @@ export class SessionDraftService {
     if (!saved) throw new AppError(409, "SESSION_VERSION_ALREADY_SEALED", `Draft changed concurrently: ${draftId}`);
     registerSealedSessionVersion(saved);
     sessionControlMetrics.versionSealed();
+    const capture = await sessionCaptureService.get(detail.draft.sourceCaptureId);
+    await sessionProjectsService.recordSessionVersion(
+      capture.runId,
+      capture.captureId,
+      draftId,
+      saved.sessionVersionId
+    );
     return { draft: nextDraft, version: saved };
   }
 
@@ -969,6 +998,9 @@ export class SessionDraftService {
     const saved = await sessionAssetRepository.putPackageBinding(binding, input.expectedVersion);
     if (!saved) throw new AppError(409, "CREATOR_PACKAGE_SESSION_BINDING_CONFLICT", `Package binding changed concurrently: ${packageId}`);
     await creatorRepository.savePackage({ ...pkg, currentSessionVersionId: input.state === "active" ? version.sessionVersionId : pkg.currentSessionVersionId, candidateSessionVersionId: input.state === "candidate" ? version.sessionVersionId : pkg.candidateSessionVersionId });
+    if (input.state === "candidate" || input.state === "active") {
+      await sessionProjectsService.recordPackage(version.sessionVersionId, packageId);
+    }
     return saved;
   }
 }

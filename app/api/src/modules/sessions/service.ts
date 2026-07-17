@@ -4530,6 +4530,13 @@ class SessionCatalogService {
     if (!aggregate) {
       throw new AppError(404, "RUN_NOT_FOUND", `Run not found: ${runId}`);
     }
+    if (!aggregate.run.sessionVersionId) {
+      throw new AppError(
+        409,
+        "RUN_SESSION_PACK_NOT_APPLICABLE",
+        `Run ${runId} uses blank session bootstrap`
+      );
+    }
 
     const detail = this.#getRequiredDetail(
       canonicalizeLookupSessionVersionId(aggregate.run.sessionVersionId)

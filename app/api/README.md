@@ -22,6 +22,8 @@ This component depends on internal `workspace:*` packages. The standalone backen
 
 - 认证、刷新会话、工作区、成员、邀请与角色权限。
 - 工坊、服务、Creator Package、Session Pack、Release 与 Replay。
+- Session Project、Blank Source Run、Capture 状态推进与 Creator 封装闭环。
+- Draft Workshop/Service 写入、不可变 Task Version 和发布激活。
 - Run 创建、消息、附件、审批、状态机、实时事件与恢复。
 - target path 文件树、预览、下载票据、归档和生命周期管理。
 - Provider、Credential、MCP、Quota、Billing 与审计治理。
@@ -38,6 +40,7 @@ This component depends on internal `workspace:*` packages. The standalone backen
 | `/v1/workspaces` | 工作区切换、成员与邀请治理 |
 | `/v1/me` | 用户摘要、资产、授权、最近使用、收藏与通知摘要 |
 | `/v1/workshops`, `/v1/services` | 工坊目录、服务详情与启动模板 |
+| `/v1/creator/session-projects`, `/v1/creator/source-runs` | Session Project 与空白 Source Run |
 | `/v1/runs` | Run、对话、审批、文件、上传与下载票据 |
 | `/ws/runs` | Run WebSocket 订阅与控制消息 |
 | `/v1/sessions` | Session 版本、继承、发布、回滚、脱敏与归档 |
@@ -66,12 +69,15 @@ This component depends on internal `workspace:*` packages. The standalone backen
 | `src/modules/mcp/` | MCP 注册、绑定、探测、网络策略和调用审计 |
 | `src/modules/sessions/` | Session 版本线、脱敏审查、继承、发布与归档 |
 | `src/modules/creator/` | Package、Release、Gate、Activation、Replay 与治理摘要 |
+| `src/modules/session-projects/` | Source Run 聚合、Capture/Draft/Version/Package/Catalog 状态关联 |
+| `src/modules/idempotency/` | 关键创建操作的标准幂等键、请求哈希与响应回放 |
+| `src/modules/workshops/task-versions-repository.ts` | 正式不可变 Task Version 存储 |
 | `src/modules/quotas/` | 配额策略、计数、事件与超额审批 |
 | `src/modules/billing/` | 用量事件、账本、聚合与成本读取 |
 | `src/modules/batch-runs/` | 批量文件解析、字段映射与执行控制 |
 | `src/modules/realtime/` | WebSocket/SSE 事件分发 |
 | `src/modules/admin/` | 独立 Admin 会话、平台读模型、治理状态、影响预检、操作执行、审计与系统设置 |
-| `migrations/0029_admin_control_plane.sql` | Admin 资源状态、审计事件、版本化设置和待执行操作持久化 |
+| `migrations/0031_creator_source_runs.sql` | Session Project、Task Version、幂等记录与 Run 身份字段 |
 
 ## 数据与运行模式 / Data and Runtime Modes
 
@@ -90,6 +96,10 @@ This component depends on internal `workspace:*` packages. The standalone backen
 3. Run Worker 准备 target path 和 Runtime 物料，随后启动 Bridge。
 4. Bridge 托管 Codex CLI 并通过 `/internal` 回传消息、状态、文件和诊断。
 5. API 持久化事件并通过 WebSocket/SSE 推送给当前会话。
+
+Creator Source Run 使用 `runPurpose=creator_source`、`sessionBootstrapMode=blank` 和空 `sessionVersionId`。首个 Codex Turn 等待 Creator 第一条消息；Capture 完成后进入 Draft、Replay、Seal、Package、Catalog 和 Release 链。
+
+Creator Source Runs use `runPurpose=creator_source`, `sessionBootstrapMode=blank`, and no inherited Session Version. The first Codex Turn waits for the Creator's first message, then the captured session proceeds through Draft, Replay, Seal, Package, Catalog, and Release.
 
 ## 配置 / Configuration
 
@@ -124,6 +134,8 @@ pnpm install
 pnpm -C app/api typecheck
 pnpm -C app/api build
 pnpm -C app/api test:admin
+pnpm -C app/api test:creator-source
+pnpm -C app/api test:catalog-write
 pnpm -C app/api test:smoke:compiled
 pnpm -C app/api migrate
 pnpm -C app/api start
@@ -138,6 +150,7 @@ Local verification uses native Node.js and pnpm. Runtime-isolation integration t
 - `/readyz` 聚合数据库、对象存储、Worker 与 Bridge 就绪状态。
 - `/internal/metrics` 输出运行链指标；内部接口使用共享 Token 守卫。
 - Bridge 回调支持幂等键、重放防护和工作区边界校验。
+- Project、Source Run 与 Catalog Bundle 创建要求 `Idempotency-Key`，相同键和请求体返回原响应。
 - 文件链执行路径归一化、target path 边界、下载票据和安全扫描。
 - Provider 管理接口要求平台管理员角色，工作区仅访问自身绑定。
 - Credential 返回值仅包含元数据、引用和脱敏摘要。
