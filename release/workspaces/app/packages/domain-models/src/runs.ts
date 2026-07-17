@@ -356,6 +356,10 @@ export function createRunRecord(params: {
     title: input.title,
     targetPath: input.targetPath,
     entrySurface: input.entrySurface,
+    approvalMode: input.approvalMode,
+    approvalModeUpdatedAt: input.approvalMode === "auto_all" ? params.createdAt : null,
+    approvalModeUpdatedByUserId:
+      input.approvalMode === "auto_all" ? input.requestedByUserId ?? null : null,
     catalogMetadata: input.catalogMetadata ?? null,
     status: "CREATED",
     statusReason: null,

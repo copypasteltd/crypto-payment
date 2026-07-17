@@ -148,7 +148,19 @@ export async function registerRealtimeSocketRoutes(server: FastifyInstance) {
             sendAck(socket, runId);
             break;
           case "runs.approve":
-            await runsService.approve(runId, parsed.payload);
+            {
+              const snapshot = runsService.getRun(runId);
+              const authContext = requireWorkspaceAccess(
+                request,
+                snapshot.run.workspaceId,
+                ["owner", "admin", "operator"]
+              );
+              await runsService.approve(runId, parsed.payload, {
+                decidedByUserId: authContext?.user.userId ?? null,
+                decisionMode: "manual",
+                awaitBridgeDispatch: true,
+              });
+            }
             sendAck(socket, runId);
             break;
           case "runs.cancel":

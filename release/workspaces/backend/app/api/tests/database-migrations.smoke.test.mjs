@@ -34,6 +34,7 @@ const expectedVersions = [
   "0029_admin_control_plane",
   "0030_session_control",
   "0031_creator_source_runs",
+  "0032_run_approval_mode",
 ];
 
 test("database migrations are discoverable, dry-runnable, and idempotently applied", async () => {

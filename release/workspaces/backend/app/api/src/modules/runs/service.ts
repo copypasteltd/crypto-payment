@@ -14,11 +14,13 @@ import {
   runSnapshotSchema,
   sendRunMessageInputSchema,
   startRunJobPayloadSchema,
+  updateRunApprovalModeInputSchema,
   type ApproveRunInput,
   type BridgeEvent,
   type CreateRunInput,
   type InternalRuntimeDiagnostics,
   type RunApproval,
+  type RunApprovalDecisionMode,
   type RunArtifact,
   type RunConversationMessage,
   type RunControlCommand,
@@ -34,6 +36,7 @@ import {
   type ReviewRunInformationAnswerInput,
   type RunSnapshot,
   type RunStatus,
+  type UpdateRunApprovalModeInput,
   type SendRunMessageInput,
   type StartRunJobPayload,
   type SessionCaptureSummary,
@@ -321,13 +324,24 @@ function createApproval(
     state: "pending",
     requestedAt: nowIso(),
     decidedAt: null,
+    decisionMode: null,
+    decidedByUserId: null,
     note: null,
   });
 }
 
-function createSeedApproval(runId: string): RunApproval {
-  return createApproval(runId, {
-    prompt: "Confirm any sensitive operation before execution continues.",
+function automaticallyApproveRecord(
+  approval: RunApproval,
+  decidedByUserId: string | null,
+  decidedAt = nowIso()
+) {
+  return runApprovalSchema.parse({
+    ...approval,
+    state: "approved",
+    decidedAt,
+    decisionMode: "auto_all",
+    decidedByUserId,
+    note: "Automatically approved by the instance approval policy.",
   });
 }
 
@@ -623,6 +637,15 @@ export class RunsService {
       if (bridge.registered) {
         action = "await-bridge";
         reason = `run is ${snapshot.run.status} and bridge registration is active`;
+      } else if (snapshot.runtime.finishedAt) {
+        action = "enqueue-start";
+        reason =
+          `run is ${snapshot.run.status}, its previous runtime finished at ` +
+          `${snapshot.runtime.finishedAt}, and it should be re-enqueued for runtime recovery`;
+        startJob = startRunJobPayloadSchema.parse({
+          ...aggregate.startJob,
+          run: aggregate.run,
+        });
       } else {
         action = "mark-orphan-failed";
         reason =
@@ -815,12 +838,17 @@ export class RunsService {
             relatedResourceRef: quotaPreview.overrideId,
           })
         : null;
-    const startupApprovals = [
+    const requestedStartupApprovals = [
       ...(quotaApproval ? [quotaApproval] : []),
       ...mcpStartupApprovals,
     ];
+    const startupApprovals = run.approvalMode === "auto_all"
+      ? requestedStartupApprovals.map((approval) =>
+          automaticallyApproveRecord(approval, run.requestedByUserId ?? null, createdAt)
+        )
+      : requestedStartupApprovals;
 
-    if (startupApprovals.length > 0) {
+    if (startupApprovals.some((approval) => approval.state === "pending")) {
       run = this.#applyRunStatus(
         run,
         "WAITING_APPROVAL",
@@ -845,10 +873,7 @@ export class RunsService {
       ],
       files,
       artifacts: files.map((file) => createSeedArtifact(run.runId, file)),
-      approvals:
-        startupApprovals.length > 0
-          ? startupApprovals
-          : [createSeedApproval(run.runId)],
+      approvals: startupApprovals,
     });
     await this.#upsertQuerySnapshot(aggregate);
     await this.#runFileIndexService.replaceFromEntries(
@@ -867,6 +892,15 @@ export class RunsService {
         ? [quotaPreview.internal.overrideDraft.packageId]
         : [],
     });
+
+    if (quotaApproval && run.approvalMode === "auto_all") {
+      await quotaService.applyRunApprovalDecision({
+        approval: quotaApproval,
+        approved: true,
+        decidedByUserId: run.requestedByUserId ?? null,
+        note: "Automatically approved by the instance approval policy.",
+      });
+    }
 
     await this.#emitEvent({
       type: "conversation.message",
@@ -997,7 +1031,7 @@ export class RunsService {
       note: `Estimated message send usage: ${estimatedTokenDelta} model tokens.`,
     });
     const consumedOverride = await quotaService.consumeApprovedUsageOverride(quotaUsage);
-    const quotaPreview = consumedOverride ? null : quotaService.previewUsage(quotaUsage);
+    let quotaPreview = consumedOverride ? null : quotaService.previewUsage(quotaUsage);
 
     if (quotaPreview?.decision === "block") {
       await quotaService.commitUsageDecision(quotaPreview, {
@@ -1040,15 +1074,27 @@ export class RunsService {
           `Message send is waiting for quota approval. ` +
           `Estimated model tokens: ${estimatedTokenDelta}.`,
       });
-      throw new AppError(
-        409,
-        "RUN_MESSAGE_QUOTA_APPROVAL_REQUIRED",
-        quotaPreview.summary?.en ?? "Quota approval is required before sending the message.",
-        {
-          ...quotaPreview,
-          approvalId: feedback.approval.approvalId,
-        }
-      );
+      if (feedback.approval.state === "approved") {
+        await quotaService.applyRunApprovalDecision({
+          approval: feedback.approval,
+          approved: true,
+          decidedByUserId:
+            aggregate.run.approvalModeUpdatedByUserId ?? aggregate.run.requestedByUserId ?? null,
+          note: feedback.approval.note,
+        });
+        await quotaService.consumeApprovedUsageOverride(quotaUsage);
+        quotaPreview = null;
+      } else {
+        throw new AppError(
+          409,
+          "RUN_MESSAGE_QUOTA_APPROVAL_REQUIRED",
+          quotaPreview.summary?.en ?? "Quota approval is required before sending the message.",
+          {
+            ...quotaPreview,
+            approvalId: feedback.approval.approvalId,
+          }
+        );
+      }
     }
 
     const updated = await this.#runsRepository.update(runId, (current) => {
@@ -1280,15 +1326,131 @@ export class RunsService {
     return this.#buildSnapshot(updated);
   }
 
+  async setApprovalMode(
+    runId: string,
+    input: UpdateRunApprovalModeInput,
+    options: { updatedByUserId?: string | null } = {}
+  ): Promise<RunSnapshot> {
+    const parsed = updateRunApprovalModeInputSchema.parse(input);
+    const current = this.#requireAggregate(runId);
+    if (isTerminalStatus(current.run.status)) {
+      throw new AppError(
+        409,
+        "RUN_APPROVAL_MODE_TERMINAL",
+        `Approval mode cannot be changed after run ${runId} has reached ${current.run.status}.`
+      );
+    }
+
+    if (current.run.approvalMode === parsed.approvalMode) {
+      return this.#buildSnapshot(current);
+    }
+
+    const at = nowIso();
+    const modeMessage = createMessage(
+      runId,
+      "system",
+      "approval",
+      parsed.approvalMode === "auto_all"
+        ? "Automatic approval enabled for this instance. All approval requests will be accepted automatically."
+        : "Automatic approval disabled for this instance. Future approval requests require manual confirmation."
+    );
+    const updated = await this.#runsRepository.update(runId, (aggregate) => ({
+      ...aggregate,
+      run: {
+        ...aggregate.run,
+        approvalMode: parsed.approvalMode,
+        approvalModeUpdatedAt: at,
+        approvalModeUpdatedByUserId: options.updatedByUserId ?? null,
+        updatedAt: at,
+      },
+      messages: [...aggregate.messages, modeMessage],
+    }));
+    if (!updated) throw new AppError(404, "RUN_NOT_FOUND", `Run not found: ${runId}`);
+
+    await this.#upsertQuerySnapshot(updated);
+    await this.#emitEvent({ type: "conversation.message", message: modeMessage });
+
+    if (parsed.approvalMode === "auto_all") {
+      for (const approval of updated.approvals.filter((item) => item.state === "pending")) {
+        try {
+          await this.approve(
+            runId,
+            {
+              approvalId: approval.approvalId,
+              approved: true,
+              note: "Automatically approved when automatic approval was enabled.",
+            },
+            {
+              decidedByUserId: options.updatedByUserId ?? null,
+              decisionMode: "auto_all",
+              preserveStatus: approval.kind === "general",
+              awaitBridgeDispatch: approval.kind === "general",
+            }
+          );
+        } catch (error) {
+          console.error(
+            `[lingban-runs-service] failed to drain approval ${approval.approvalId} for ${runId}: ${toErrorMessage(error)}`
+          );
+          if (approval.kind === "general") {
+            await this.decideApprovalWithoutStatusTransition(
+              runId,
+              {
+                approvalId: approval.approvalId,
+                approved: true,
+                note: "Automatically approved after runtime reconciliation.",
+              },
+              {
+                decidedByUserId: options.updatedByUserId ?? null,
+                decisionMode: "auto_all",
+              }
+            );
+          }
+        }
+      }
+    }
+
+    const registration = this.#bridgeRegistry.get(runId);
+    if (registration?.supportedCommands.includes("setApprovalMode")) {
+      await this.#bridgeRegistry.dispatch(runId, {
+        type: "setApprovalMode",
+        payload: parsed,
+      }).catch((error) => {
+        console.error(
+          `[lingban-runs-service] failed to synchronize approval mode for ${runId}: ${toErrorMessage(error)}`
+        );
+      });
+    }
+
+    return this.getRun(runId);
+  }
+
   async approve(
     runId: string,
     input: ApproveRunInput,
     options: {
       decidedByUserId?: string | null;
       preserveStatus?: boolean;
+      decisionMode?: RunApprovalDecisionMode;
+      awaitBridgeDispatch?: boolean;
     } = {}
   ): Promise<RunSnapshot> {
     const parsed = approveRunInputSchema.parse(input);
+    const currentBeforeDecision = this.#requireAggregate(runId);
+    const pendingBeforeDecision = parsed.approvalId
+      ? currentBeforeDecision.approvals.find(
+          (approval) => approval.approvalId === parsed.approvalId && approval.state === "pending"
+        )
+      : currentBeforeDecision.approvals.find((approval) => approval.state === "pending");
+    const bridgeDispatchedBeforePersistence = Boolean(
+      options.awaitBridgeDispatch && pendingBeforeDecision?.kind === "general"
+    );
+
+    if (bridgeDispatchedBeforePersistence) {
+      await this.#bridgeRegistry.dispatch(runId, {
+        type: "approve",
+        payload: parsed,
+      });
+    }
     let decidedApproval: RunApproval | null = null;
     let decidedApprovalKind: RunApproval["kind"] | null = null;
     let previousStatus: RunStatus | null = null;
@@ -1365,6 +1527,8 @@ export class RunsService {
               ...approval,
               state: parsed.approved ? "approved" : "rejected",
               decidedAt: at,
+              decisionMode: options.decisionMode ?? "manual",
+              decidedByUserId: options.decidedByUserId ?? null,
               note: parsed.note ?? null,
             });
           }
@@ -1430,7 +1594,8 @@ export class RunsService {
       void this.#runtimeControl.startRun(runId).catch(() => undefined);
     } else if (
       decidedApprovalKind !== "quota-override" &&
-      decidedApprovalKind !== "mcp-access"
+      decidedApprovalKind !== "mcp-access" &&
+      !bridgeDispatchedBeforePersistence
     ) {
       dispatchBridgeCommandDetached(this.#bridgeRegistry, runId, {
         type: "approve",
@@ -1449,7 +1614,10 @@ export class RunsService {
   async decideApprovalWithoutStatusTransition(
     runId: string,
     input: ApproveRunInput,
-    options: { decidedByUserId?: string | null } = {}
+    options: {
+      decidedByUserId?: string | null;
+      decisionMode?: RunApprovalDecisionMode;
+    } = {}
   ): Promise<RunSnapshot> {
     const parsed = approveRunInputSchema.parse(input);
     let decidedApproval: RunApproval | null = null;
@@ -1488,6 +1656,8 @@ export class RunsService {
               ...approval,
               state: parsed.approved ? "approved" : "rejected",
               decidedAt: at,
+              decisionMode: options.decisionMode ?? "manual",
+              decidedByUserId: options.decidedByUserId ?? null,
               note: parsed.note ?? null,
             });
           }
@@ -1735,7 +1905,27 @@ export class RunsService {
   }
 
   async ingestBridgeEvents(runId: string, events: BridgeEvent[]) {
-    const parsedEvents = events.map((event) => bridgeEventSchema.parse(event));
+    const approvalContext = this.#requireAggregate(runId).run;
+    const parsedEvents = events.map((event) => {
+      const parsedEvent = bridgeEventSchema.parse(event);
+      if (
+        parsedEvent.type === "approval.requested" &&
+        parsedEvent.approval.decisionMode === "auto_all" &&
+        !parsedEvent.approval.decidedByUserId
+      ) {
+        return bridgeEventSchema.parse({
+          ...parsedEvent,
+          approval: {
+            ...parsedEvent.approval,
+            decidedByUserId:
+              approvalContext.approvalModeUpdatedByUserId ??
+              approvalContext.requestedByUserId ??
+              null,
+          },
+        });
+      }
+      return parsedEvent;
+    });
     for (const event of parsedEvents) {
       if (inferRunIdFromBridgeEvent(event) !== runId) {
         throw new AppError(409, "RUN_EVENT_SCOPE_MISMATCH", `Bridge event does not belong to run ${runId}`);
@@ -1849,6 +2039,35 @@ export class RunsService {
     }
 
     await this.#emitEvents(parsedEvents);
+
+    if (updated.run.approvalMode === "auto_all") {
+      for (const event of parsedEvents) {
+        if (event.type !== "approval.requested" || event.approval.state !== "pending") {
+          continue;
+        }
+
+        try {
+          await this.approve(
+            runId,
+            {
+              approvalId: event.approval.approvalId,
+              approved: true,
+              note: "Automatically approved by the instance approval policy.",
+            },
+            {
+              decidedByUserId: updated.run.approvalModeUpdatedByUserId,
+              decisionMode: "auto_all",
+              preserveStatus: true,
+              awaitBridgeDispatch: true,
+            }
+          );
+        } catch (error) {
+          console.error(
+            `[lingban-runs-service] failed to auto-approve ${event.approval.approvalId} for ${runId}: ${toErrorMessage(error)}`
+          );
+        }
+      }
+    }
 
     for (const event of parsedEvents) {
       switch (event.type) {

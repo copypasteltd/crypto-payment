@@ -135,6 +135,7 @@ import {
   rotateCredentialInputSchema,
   switchWorkspaceInputSchema,
   approveRunInputSchema,
+  updateRunApprovalModeInputSchema,
   reviewRunInformationAnswerInputSchema,
   clientRealtimeMessageSchema,
   createRunInputSchema,
@@ -320,6 +321,7 @@ import {
   type ServiceTaskVersionRecord,
   type SwitchWorkspaceInput,
   type ApproveRunInput,
+  type UpdateRunApprovalModeInput,
   type ReviewRunInformationAnswerInput,
   type BridgeEvent,
   type CreateRunInput,
@@ -961,6 +963,23 @@ export function createRunsApiClient(config: ClientConfig) {
       const body = approveRunInputSchema.parse(input);
       const response = await fetcher(`${config.baseUrl}/v1/runs/${runId}/approvals`, {
         method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...buildAuthHeaders(config.getAccessToken),
+        },
+        body: JSON.stringify(body),
+      });
+
+      return parseJson(response, runSnapshotSchema);
+    },
+
+    async setRunApprovalMode(
+      runId: string,
+      input: UpdateRunApprovalModeInput
+    ): Promise<RunSnapshot> {
+      const body = updateRunApprovalModeInputSchema.parse(input);
+      const response = await fetcher(`${config.baseUrl}/v1/runs/${runId}/approval-mode`, {
+        method: "PATCH",
         headers: {
           "content-type": "application/json",
           ...buildAuthHeaders(config.getAccessToken),

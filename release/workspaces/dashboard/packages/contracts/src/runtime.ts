@@ -63,6 +63,7 @@ export const bridgeSessionContextSchema = z.object({
   entrySurface: entrySurfaceSchema.nullable().default(null),
   workspaceContextKey: z.string().min(1).nullable().default(null),
   serviceId: z.string().min(1).nullable().default(null),
+  approvalMode: z.enum(["manual", "auto_all"]).default("manual"),
   targetPath: z.string().min(1),
   initialPrompt: z.string().min(1),
   deferInitialTurn: z.boolean().default(false),
