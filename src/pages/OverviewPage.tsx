@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Activity, AlertTriangle, ArrowUpRight, Boxes, CircleDollarSign, Network, PlugZap, RefreshCw, UsersRound } from "lucide-react";
 import { adminRequest } from "../lib/api";
+import { readableTitle } from "../lib/display";
 import type { JsonObject } from "../lib/types";
 import { DataTable, type DataColumn } from "../components/DataTable";
 import { ErrorState, IconButton, LoadingState, PageHeader, Panel, StatusBadge, formatDate } from "../components/ui";
@@ -50,7 +51,7 @@ export function OverviewPage() {
   ];
   const anomalyColumns: DataColumn<JsonObject>[] = [
     { key: "severity", label: t("overview:severity"), width: 110, render: (row) => <StatusBadge status={row.severity} /> },
-    { key: "title", label: t("overview:object"), render: (row) => <div className="primary-cell"><strong>{String(row.title ?? row.resourceId)}</strong><code>{String(row.resourceId ?? "")}</code></div> },
+    { key: "title", label: t("overview:object"), render: (row) => { const id = String(row.resourceId ?? ""); const fallback = row.resourceType === "run" ? `${t("common:run")} ${id}` : id; return <div className="primary-cell"><strong>{readableTitle(row.title, fallback)}</strong><code>{id}</code></div>; } },
     { key: "detail", label: t("overview:latestDiagnosis"), render: (row) => <span className="truncate-cell">{String(row.detail ?? "-")}</span> },
     { key: "time", label: t("overview:occurredAt"), width: 180, render: (row) => formatDate(row.occurredAt) },
     { key: "open", label: "", width: 50, render: () => <ArrowUpRight size={16} /> },
