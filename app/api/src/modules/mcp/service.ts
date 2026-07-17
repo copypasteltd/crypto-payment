@@ -1328,7 +1328,7 @@ export class McpService {
     runId: string;
     workspaceId: string;
     requestedByUserId: string | null | undefined;
-    sessionVersionId: string;
+    sessionVersionId: string | null;
     bindings: CreateRunBinding;
   }) {
     const visibleEntries = visibleRegistryEntriesForWorkspace(params.workspaceId);

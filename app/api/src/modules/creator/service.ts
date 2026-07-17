@@ -68,8 +68,10 @@ import { findVersionLineRef, requireVersionLineRef } from "../sessions/version-l
 import { sessionCatalogService } from "../sessions/service.js";
 import { activateServiceSessionBinding } from "../session-drafts/service-binding-registry.js";
 import { getSealedSessionVersion } from "../session-drafts/version-registry.js";
+import { sessionProjectsService } from "../session-projects/service.js";
 import { objectStore } from "../uploads/object-store.js";
 import { workshopCatalogRepository } from "../workshops/repository.js";
+import { taskVersionsRepository } from "../workshops/task-versions-repository.js";
 import { creatorRepository } from "./repository.js";
 
 type CreatorScopeActor = {
@@ -648,6 +650,28 @@ export class CreatorService {
 
     const existingActivations = creatorRepository.listReleaseActivations();
     const { taskVersionId, sessionVersionId } = extractLaunchTemplateVersionsFromPackage(pkg);
+    const taskVersion = await taskVersionsRepository.get(taskVersionId);
+    if (pkg.linkedServiceIds.some((serviceId) => serviceId.startsWith("svc_")) && !taskVersion) {
+      throw new AppError(
+        409,
+        "CREATOR_TASK_VERSION_NOT_FOUND",
+        `Formal Task Version not found: ${taskVersionId}`
+      );
+    }
+    if (
+      taskVersion &&
+      (
+        taskVersion.sessionVersionId !== sessionVersionId ||
+        !pkg.linkedServiceIds.includes(taskVersion.serviceId) ||
+        taskVersion.workspaceContextKey !== release.targetWorkspaceContextKey
+      )
+    ) {
+      throw new AppError(
+        409,
+        "CREATOR_TASK_VERSION_BINDING_MISMATCH",
+        `Task Version ${taskVersionId} does not match the release binding`
+      );
+    }
     const targetContext = workshopCatalogRepository.getContextByKey(release.targetWorkspaceContextKey);
     if (!targetContext) {
       throw new AppError(
@@ -675,7 +699,26 @@ export class CreatorService {
         item.targetWorkspaceContextKey === release.targetWorkspaceContextKey &&
         item.state === "active"
     );
+    const activateCatalogPublication = async () => {
+      let publishedWorkshopId: string | null = null;
+      let publishedServiceId: string | null = null;
+      for (const serviceId of pkg.linkedServiceIds) {
+        const service = workshopCatalogRepository.getServiceById(serviceId);
+        if (!service || !pkg.linkedWorkshopIds.includes(service.workshopId)) continue;
+        await workshopCatalogRepository.activateWorkshopService(service.workshopId, serviceId);
+        publishedWorkshopId ??= service.workshopId;
+        publishedServiceId ??= serviceId;
+      }
+      if (publishedWorkshopId && publishedServiceId) {
+        await sessionProjectsService.recordPublication(sessionVersionId, {
+          packageId: pkg.packageId,
+          workshopId: publishedWorkshopId,
+          serviceId: publishedServiceId,
+        });
+      }
+    };
     if (existingActive) {
+      await activateCatalogPublication();
       return existingActive;
     }
 
@@ -733,6 +776,7 @@ export class CreatorService {
         activation,
       ])
     );
+    await activateCatalogPublication();
 
     return activation;
   }

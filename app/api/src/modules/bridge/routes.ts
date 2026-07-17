@@ -112,6 +112,14 @@ async function buildRuntimeFallbackSessionPackArchive(
   snapshot: RunSnapshot,
   startJob: StartRunJobPayload
 ) {
+  const sessionVersionId = snapshot.run.sessionVersionId;
+  if (!sessionVersionId) {
+    throw new AppError(
+      409,
+      "RUN_SESSION_PACK_NOT_APPLICABLE",
+      `Run ${snapshot.run.runId} uses blank session bootstrap`
+    );
+  }
   const { browserRequired, playwrightRequired } =
     inferRuntimeFallbackBrowserRequirements(startJob);
   const connectors = startJob.mcpBindings.map((binding) => ({
@@ -157,11 +165,11 @@ async function buildRuntimeFallbackSessionPackArchive(
   const bundle = signSessionPackBundleForApiRuntime(
     packSessionVersion({
     manifest: {
-      session_id: buildRuntimeFallbackSessionId(snapshot.run.sessionVersionId),
-      session_version: snapshot.run.sessionVersionId,
+      session_id: buildRuntimeFallbackSessionId(sessionVersionId),
+      session_version: sessionVersionId,
       task_family: snapshot.run.taskVersionId ?? snapshot.run.title,
       runtime_profile: {
-        profile_id: `runtime-fallback:${snapshot.run.sessionVersionId}`,
+        profile_id: `runtime-fallback:${sessionVersionId}`,
         browser_required: browserRequired || undefined,
         playwright_required: playwrightRequired || undefined,
       },
@@ -266,7 +274,7 @@ async function buildRuntimeFallbackSessionPackArchive(
 
   return {
     content: serializeSessionPackBundle(bundle),
-    fileName: buildRuntimeFallbackArchiveFileName(snapshot.run.sessionVersionId),
+    fileName: buildRuntimeFallbackArchiveFileName(sessionVersionId),
     source: "runtime-fallback" as const,
   };
 }
@@ -362,6 +370,13 @@ export async function registerBridgeInternalRoutes(server: FastifyInstance) {
   server.get("/runs/:runId/session-pack/archive", async (request, reply) => {
     const params = runIdParamsSchema.parse(request.params);
     const snapshot = runsService.getRun(params.runId);
+    if (!snapshot.run.sessionVersionId) {
+      throw new AppError(
+        409,
+        "RUN_SESSION_PACK_NOT_APPLICABLE",
+        `Run ${snapshot.run.runId} uses blank session bootstrap`
+      );
+    }
     const sealedVersion = getSealedSessionVersion(snapshot.run.sessionVersionId);
     if (sealedVersion) {
       await ensureSealedSessionVersionVerified(sealedVersion.sessionVersionId);
