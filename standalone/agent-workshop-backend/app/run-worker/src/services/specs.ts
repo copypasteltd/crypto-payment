@@ -77,6 +77,7 @@ export const workerRuntimeConfigSchema = z.object({
     mcpBindingsPath: z.string().min(1),
     secretManifestPath: z.string().min(1),
     containerLaunchPlanPath: z.string().min(1),
+    codexConfigPath: z.string().min(1),
   }),
 });
 

@@ -406,6 +406,7 @@ test("admin control plane: cookie auth, CSRF, impact execution, audit, and secre
       onboardedDetail.json.bindings[0].credentialId,
       onboardedProvider.json.authentication.credentialId
     );
+    assert.equal(onboardedDetail.json.bindings[0].scope, "platform");
 
     const replacementCredential = await request(
       baseUrl,

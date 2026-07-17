@@ -10,6 +10,7 @@ import {
 
 export const providerAdapterModeSchema = z.enum(["openai-compatible", "gateway"]);
 export const providerApiStyleSchema = z.enum(["openai-compatible", "gateway"]);
+export const providerBindingScopeSchema = z.enum(["platform", "workspace"]);
 export const providerHealthStatusSchema = z.enum([
   "healthy",
   "auth_required",
@@ -123,6 +124,7 @@ export const providerIdParamsSchema = z.object({
 export const workspaceProviderBindingSchema = z.object({
   bindingId: workspaceProviderBindingIdSchema,
   workspaceId: workspaceIdSchema,
+  scope: providerBindingScopeSchema.default("workspace"),
   providerId: providerIdSchema,
   credentialId: credentialIdSchema,
   enabled: z.boolean().default(true),
@@ -180,6 +182,7 @@ export const runProviderSelectionSchema = z
 export const resolvedRunProviderSchema = z.object({
   providerId: providerIdSchema,
   bindingId: workspaceProviderBindingIdSchema,
+  bindingScope: providerBindingScopeSchema.default("workspace"),
   displayName: z.string().trim().min(1).max(160),
   adapterMode: providerAdapterModeSchema,
   apiStyle: providerApiStyleSchema,
@@ -203,6 +206,7 @@ export const providerHealthcheckResultSchema = z.object({
 
 export type ProviderAdapterMode = z.infer<typeof providerAdapterModeSchema>;
 export type ProviderApiStyle = z.infer<typeof providerApiStyleSchema>;
+export type ProviderBindingScope = z.infer<typeof providerBindingScopeSchema>;
 export type ProviderHealthStatus = z.infer<typeof providerHealthStatusSchema>;
 export type ProviderHealthSummary = z.infer<typeof providerHealthSummarySchema>;
 export type ProviderCapabilities = z.infer<typeof providerCapabilitiesSchema>;
