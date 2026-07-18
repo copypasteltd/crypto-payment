@@ -154,7 +154,14 @@ test("materializeRunRuntime keeps internal auth token out of runtime artifacts a
     assert.equal(runtime.containerLaunchPlan.runtimeUser.appliesAtCreate, true);
     assert.equal(runtime.containerLaunchPlan.runtimeUser.dropRootInEntrypoint, false);
     const codexConfig = await fs.readFile(runtime.runtimeConfig.files.codexConfigPath, "utf8");
+    assert.match(codexConfig, /sandbox_mode = "workspace-write"/);
+    assert.match(codexConfig, /\[sandbox_workspace_write\]/);
+    assert.match(codexConfig, /network_access = true/);
     assert.match(codexConfig, /model_provider = "lingban_runtime"/);
+    assert.ok(
+      codexConfig.indexOf('model_provider = "lingban_runtime"') <
+        codexConfig.indexOf("[sandbox_workspace_write]")
+    );
     assert.match(codexConfig, /base_url = "https:\/\/provider-runtime\.example\.com\/v1"/);
     assert.match(codexConfig, /env_key = "OPENAI_API_KEY"/);
     assert.match(codexConfig, /wire_api = "responses"/);

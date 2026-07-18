@@ -755,6 +755,84 @@ test.describe("mobile h5 smoke", () => {
     await expect(page.getByTestId("mobile-task-files-page")).toBeVisible();
   });
 
+  test("keeps the task conversation composer visually consistent on mobile", async ({ page }) => {
+    await page.goto("/");
+    await page.getByTestId("mobile-workshops-to-tasks").click();
+    await page.getByTestId(`mobile-task-open-${runId}`).click();
+
+    const detailPage = page.getByTestId("mobile-task-detail-page");
+    const composer = page.getByTestId("mobile-task-composer");
+    const composerInput = page.locator(
+      '[data-testid="mobile-task-composer-input"] textarea'
+    );
+    const approvalControl = page.getByTestId("mobile-approval-mode-control");
+    const sendButton = page.getByTestId("mobile-task-send-button");
+
+    await expect(detailPage).toBeVisible();
+    await composer.scrollIntoViewIfNeeded();
+    await expect(composer).toBeVisible();
+    await expect(approvalControl).toBeVisible();
+
+    const visualState = await page.evaluate(() => {
+      const input = document.querySelector(
+        '[data-testid="mobile-task-composer-input"] textarea'
+      );
+      const approval = document.querySelector(
+        '[data-testid="mobile-approval-mode-control"]'
+      );
+      const send = document.querySelector('[data-testid="mobile-task-send-button"]');
+      const inputStyle = input ? getComputedStyle(input) : null;
+      const approvalRect = approval?.getBoundingClientRect();
+      const inputRect = input?.getBoundingClientRect();
+      const sendStyle = send ? getComputedStyle(send) : null;
+
+      return {
+        documentWidth: document.documentElement.scrollWidth,
+        viewportWidth: window.innerWidth,
+        inputBackground: inputStyle?.backgroundColor ?? null,
+        inputColor: inputStyle?.color ?? null,
+        sendFontSize: sendStyle ? Number.parseFloat(sendStyle.fontSize) : null,
+        overlaps:
+          approvalRect && inputRect
+            ? approvalRect.top < inputRect.bottom && approvalRect.bottom > inputRect.top
+            : true,
+      };
+    });
+
+    expect(visualState.documentWidth).toBeLessThanOrEqual(visualState.viewportWidth);
+    expect(visualState.inputBackground).not.toBe("rgb(255, 255, 255)");
+    expect(visualState.inputColor).not.toBe("rgb(0, 0, 0)");
+    expect(visualState.sendFontSize).not.toBeNull();
+    expect(visualState.sendFontSize).toBeLessThanOrEqual(14);
+    expect(visualState.overlaps).toBe(false);
+    await expect(composerInput).toHaveCSS("font-size", /1[23](?:\.\d+)?px/);
+    await expect(sendButton).toHaveCSS("border-radius", /6(?:\.\d+)?px/);
+
+    await page.setViewportSize({ width: 360, height: 800 });
+    await composer.scrollIntoViewIfNeeded();
+    const compactLayout = await page.evaluate(() => {
+      const composerElement = document.querySelector('[data-testid="mobile-task-composer"]');
+      const actionRow = composerElement?.querySelector(".composer-row");
+      const composerRect = composerElement?.getBoundingClientRect();
+      const actionRect = actionRow?.getBoundingClientRect();
+
+      return {
+        documentWidth: document.documentElement.scrollWidth,
+        viewportWidth: window.innerWidth,
+        composerLeft: composerRect?.left ?? -1,
+        composerRight: composerRect?.right ?? Number.POSITIVE_INFINITY,
+        actionLeft: actionRect?.left ?? -1,
+        actionRight: actionRect?.right ?? Number.POSITIVE_INFINITY,
+      };
+    });
+
+    expect(compactLayout.documentWidth).toBeLessThanOrEqual(compactLayout.viewportWidth);
+    expect(compactLayout.composerLeft).toBeGreaterThanOrEqual(0);
+    expect(compactLayout.composerRight).toBeLessThanOrEqual(compactLayout.viewportWidth);
+    expect(compactLayout.actionLeft).toBeGreaterThanOrEqual(compactLayout.composerLeft);
+    expect(compactLayout.actionRight).toBeLessThanOrEqual(compactLayout.composerRight);
+  });
+
   test("previews and downloads files from the h5 file page", async ({ page }) => {
     const fileSnapshot = createFileBrowserRunSnapshot();
     let previewRequests = 0;
@@ -1290,7 +1368,7 @@ test.describe("mobile h5 smoke", () => {
     await page.goto("/");
     await page.getByTestId("mobile-workshops-to-me").click();
     await expect(page.getByTestId("mobile-me-page")).toBeVisible();
-    await expect(page.getByText("Metering and spend")).toBeVisible();
+    await expect(page.getByText("用量与支出")).toBeVisible();
   });
 
   test("launches a service into a live task with input collection guidance", async ({ page }) => {
