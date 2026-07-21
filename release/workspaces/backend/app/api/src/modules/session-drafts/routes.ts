@@ -23,6 +23,14 @@ const sessionParamsSchema = z.object({ sessionId: sessionIdSchema });
 const versionParamsSchema = z.object({ sessionVersionId: sessionVersionIdSchema });
 const roles = ["owner", "admin", "creator"] as const;
 
+async function requireDraftAccess(request: Parameters<typeof requireWorkspaceAccess>[0], draftId: string) {
+  const detail = await sessionDraftService.get(draftId);
+  const workspaceId = detail.session?.workspaceId ??
+    (await sessionCaptureService.get(detail.draft.sourceCaptureId)).workspaceId;
+  const auth = requireWorkspaceAccess(request, workspaceId, [...roles]);
+  return { detail, auth };
+}
+
 export async function registerSessionDraftRoutes(server: FastifyInstance) {
   server.get("/sessions/:sessionId/versions", async (request) => {
     const { sessionId } = sessionParamsSchema.parse(request.params);
@@ -82,29 +90,25 @@ export async function registerSessionDraftRoutes(server: FastifyInstance) {
 
   server.get("/session-drafts/:draftId", async (request) => {
     const { draftId } = draftParamsSchema.parse(request.params);
-    const detail = await sessionDraftService.get(draftId);
-    if (detail.session) requireWorkspaceAccess(request, detail.session.workspaceId, [...roles]);
+    const { detail } = await requireDraftAccess(request, draftId);
     return detail;
   });
 
   server.post("/session-drafts/:draftId/revisions", async (request) => {
     const { draftId } = draftParamsSchema.parse(request.params);
-    const detail = await sessionDraftService.get(draftId);
-    const auth = detail.session ? requireWorkspaceAccess(request, detail.session.workspaceId, [...roles]) : null;
+    const { auth } = await requireDraftAccess(request, draftId);
     return sessionDraftService.createRevision(draftId, createSessionDraftRevisionInputSchema.parse(request.body), auth?.user.userId ?? null);
   });
 
   server.post("/session-drafts/:draftId/redaction-review", async (request) => {
     const { draftId } = draftParamsSchema.parse(request.params);
-    const detail = await sessionDraftService.get(draftId);
-    const auth = detail.session ? requireWorkspaceAccess(request, detail.session.workspaceId, [...roles]) : null;
+    const { auth } = await requireDraftAccess(request, draftId);
     return sessionDraftService.reviewRedaction(draftId, submitSessionRedactionReviewInputSchema.parse(request.body), auth?.user.userId ?? null);
   });
 
   server.post("/session-drafts/:draftId/replay", async (request) => {
     const { draftId } = draftParamsSchema.parse(request.params);
-    const detail = await sessionDraftService.get(draftId);
-    const auth = detail.session ? requireWorkspaceAccess(request, detail.session.workspaceId, [...roles]) : null;
+    const { auth } = await requireDraftAccess(request, draftId);
     return sessionDraftService.replay(
       draftId,
       createSessionDraftReplayInputSchema.parse(request.body),
@@ -114,8 +118,7 @@ export async function registerSessionDraftRoutes(server: FastifyInstance) {
 
   server.post("/session-drafts/:draftId/seal", async (request) => {
     const { draftId } = draftParamsSchema.parse(request.params);
-    const detail = await sessionDraftService.get(draftId);
-    const auth = detail.session ? requireWorkspaceAccess(request, detail.session.workspaceId, [...roles]) : null;
+    const { auth } = await requireDraftAccess(request, draftId);
     return sessionDraftService.seal(draftId, sealSessionDraftInputSchema.parse(request.body), auth?.user.userId ?? null);
   });
 }

@@ -328,7 +328,7 @@ test("mcp health probe smoke: probe snapshots persist healthy/degraded/blocked/u
     assert.equal(blockedProbe.errorCode, "PROBE_NETWORK_POLICY_DISABLED");
 
     const unsupportedProbe = await requestJson(
-      `${baseUrl}/v1/mcps/${encodeURIComponent("mcp.image.gpt-image-2")}/probe`,
+      `${baseUrl}/v1/mcps/${encodeURIComponent("mcp.browser.playwright")}/probe`,
       {
         method: "POST",
         headers: authHeaders,

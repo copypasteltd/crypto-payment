@@ -132,9 +132,9 @@ async function seedCatalogAndCreatorState(storageRoot) {
         },
         launchMode: "instant-conversation",
         requiredBindings: {
-          firstPartyMcpIds: ["mcp.image.gpt-image-2"],
+          firstPartyMcpIds: ["mcp.browser.playwright"],
           externalConnectorRefs: ["third-party:asset-library"],
-          credentialIds: ["cred_openai_image_api_key", "cred_asset_library_api_key"],
+          credentialIds: ["cred_asset_library_api_key"],
         },
         linkedInstanceHint: "poster-batch-17",
         visibleInContexts: ["brand-lab"],
@@ -171,6 +171,7 @@ async function seedCatalogAndCreatorState(storageRoot) {
           en: "Brand content workshop / production",
         },
         workspaceContextKeys: ["brand-lab"],
+        workspaceIds: ["wsp_brand_content"],
         linkedWorkshopIds: ["brand-poster-suite"],
         linkedServiceIds: ["poster-batch"],
         session: {
@@ -332,7 +333,7 @@ test("creator activation resolves launch template versions even when catalog tem
     );
     assert.equal(template.createRunInput.taskVersionId, "tsv_poster_batch_20260708");
     assert.equal(template.createRunInput.sessionVersionId, "sev_brand_poster_suite_20260708");
-    assert.deepEqual(template.createRunInput.bindings.firstPartyMcpIds, ["mcp.image.gpt-image-2"]);
+    assert.deepEqual(template.createRunInput.bindings.firstPartyMcpIds, ["mcp.browser.playwright"]);
     assert.equal(template.createRunInput.catalogMetadata.workspaceContextKey, "brand-lab");
     assert.equal(template.createRunInput.catalogMetadata.workshopId, "brand-poster-suite");
     assert.equal(template.createRunInput.catalogMetadata.serviceId, "poster-batch");
@@ -361,12 +362,6 @@ test("creator activation resolves launch template versions even when catalog tem
     };
     const boundCredentialIds = [];
     for (const spec of [
-      {
-        mcpId: "mcp.image.gpt-image-2",
-        displayName: "Template image API key",
-        provider: "openai-image",
-        approvalRequired: false,
-      },
       {
         mcpId: "third-party:asset-library",
         displayName: "Template asset library key",

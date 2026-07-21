@@ -1,7 +1,8 @@
 import { ApiError } from "@lingban/api-sdk";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button, Input, View } from "@tarojs/components";
-import Taro, { getCurrentInstance } from "@tarojs/taro";
+import Taro from "@tarojs/taro";
+import { useMobileQuery as useQuery } from "../../lib/useMobileQuery";
 import { useEffect, useMemo, useState } from "react";
 import { mobileCatalogApi, mobileProvidersApi, mobileRunsApi } from "../../lib/api";
 import {
@@ -13,7 +14,9 @@ import {
 } from "../../lib/catalog";
 import { useMobileRecentRecorder } from "../../lib/recent";
 import { useResolvedMobileWorkspace } from "../../lib/useMobileWorkspace";
+import { useMobileRouteParams } from "../../lib/useMobileRouteParams";
 import { hasAuthoritativeMobileWorkspaceContext } from "../../lib/workspaceContext";
+import { useMobilePageShellClass } from "../../components/MobilePageShell";
 
 function resolveMissingCredentialIds(error: unknown) {
   if (!(error instanceof ApiError) || error.code !== "CREDENTIAL_REQUIREMENT_UNMET") {
@@ -43,8 +46,17 @@ type LaunchProviderOption = {
 };
 
 export default function ServiceDetailPage() {
+  const params = useMobileRouteParams<{ id?: string }>();
+  const pageShellClass = useMobilePageShellClass();
+  if (!params) {
+    return <View className={pageShellClass}><View className="section-copy">正在加载服务路由</View></View>;
+  }
+  return <ServiceDetailContent id={params.id} />;
+}
+
+function ServiceDetailContent({ id }: { id?: string }) {
+  const pageShellClass = useMobilePageShellClass();
   const queryClient = useQueryClient();
-  const id = getCurrentInstance().router?.params?.id;
   const currentWorkspace = useResolvedMobileWorkspace();
   const workspaceDataReady = hasAuthoritativeMobileWorkspaceContext(currentWorkspace);
   const entrySurface = resolveMobileEntrySurface();
@@ -67,6 +79,7 @@ export default function ServiceDetailPage() {
 
       return mobileCatalogApi.getService(id, {
         workspaceContextKey: currentWorkspace.id,
+        workspaceId: currentWorkspace.runtimeWorkspaceId,
         entrySurface,
       });
     },
@@ -238,7 +251,7 @@ export default function ServiceDetailPage() {
 
   if (!workspaceDataReady) {
     return (
-      <View className="page-shell">
+      <View className={pageShellClass}>
         <View className="page-section">
           <View className="hero-card">
             <View className="section-title">Waiting for workspace context</View>
@@ -257,7 +270,7 @@ export default function ServiceDetailPage() {
 
   if (!service) {
     return (
-      <View className="page-shell">
+      <View className={pageShellClass}>
         <View className="page-section">
           <View className="hero-card">
             <View className="section-title">当前工作区暂无可启动服务</View>
@@ -274,7 +287,7 @@ export default function ServiceDetailPage() {
   }
 
   return (
-    <View className="page-shell">
+    <View className={pageShellClass}>
       <View className="page-section">
         <View className="hero-card">
           <View className="section-head">

@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "./zod.js";
 import {
   entrySurfaceSchema,
   isoDatetimeSchema,
@@ -13,7 +13,11 @@ import {
 import { creatorPackageIdSchema } from "./creator.js";
 import { serviceIdSchema, workshopIdSchema, workspaceContextKeySchema } from "./catalog.js";
 import { runProviderSelectionSchema } from "./providers.js";
-import { createRunBindingSchema, runRecordSchema } from "./runs.js";
+import {
+  createRunBindingSchema,
+  runApprovalModeSchema,
+  runRecordSchema,
+} from "./runs.js";
 
 export const sessionProjectStatusSchema = z.enum([
   "DRAFT",
@@ -81,6 +85,7 @@ export const createCreatorSourceRunInputSchema = z.object({
   title: z.string().trim().min(1).max(200).optional(),
   targetPath: z.string().trim().min(1).max(1000).optional(),
   entrySurface: entrySurfaceSchema.default("dashboard"),
+  approvalMode: runApprovalModeSchema.default("manual"),
   providerSelection: runProviderSelectionSchema.nullable().default(null),
   bindings: createRunBindingSchema.default({
     firstPartyMcpIds: [],

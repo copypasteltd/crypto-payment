@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "./zod.js";
 import { localizedTextSchema, serviceIdSchema, workspaceContextKeySchema } from "./catalog.js";
 import {
   entrySurfaceSchema,

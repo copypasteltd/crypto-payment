@@ -9,14 +9,58 @@ import {
   type McpState,
 } from "@lingban/db";
 import { buildAtomicTempPath } from "@lingban/shared";
-import type {
-  McpNetworkPolicy,
-} from "@lingban/contracts";
 import { getApiRuntimeConfig } from "../../app/runtime.js";
 import { ensureApiDatabaseReady, getApiDatabasePool, withApiDatabaseTransaction } from "../../app/database.js";
 import { resolveApiStorageDir } from "../../app/storage.js";
 import { seedMcpState } from "./seed-data.js";
 export { type McpRepository } from "@lingban/db";
+
+export function reconcileMcpSeedState(currentState: McpState): McpState {
+  const state = mcpStateSchema.parse(currentState);
+  if (
+    state.registry.length === 0 &&
+    state.bindings.length === 0 &&
+    state.networkPolicies.length === 0
+  ) {
+    return mcpStateSchema.parse(seedMcpState);
+  }
+
+  const managedFirstPartyEntries = new Map(
+    seedMcpState.registry
+      .filter((entry) => entry.source === "first-party")
+      .map((entry) => [entry.mcpId, entry])
+  );
+  const reconciledRegistry = state.registry.map((entry) => {
+    const managedEntry = managedFirstPartyEntries.get(entry.mcpId);
+    if (!managedEntry || entry.source !== "first-party") {
+      return entry;
+    }
+
+    managedFirstPartyEntries.delete(entry.mcpId);
+    return {
+      ...managedEntry,
+      createdAt: entry.createdAt,
+    };
+  });
+  reconciledRegistry.push(...managedFirstPartyEntries.values());
+
+  const existingPolicyRefs = new Set(
+    state.networkPolicies.map((policy) => policy.policyRef)
+  );
+  const missingSeedPolicies = seedMcpState.networkPolicies.filter(
+    (policy) => !existingPolicyRefs.has(policy.policyRef)
+  );
+
+  return mcpStateSchema.parse({
+    ...state,
+    registry: reconciledRegistry,
+    networkPolicies: [...state.networkPolicies, ...missingSeedPolicies],
+  });
+}
+
+function statesEqual(left: McpState, right: McpState) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
 
 class FileBackedMcpRepository extends CachedMcpRepository {
   #statePath: string;
@@ -54,26 +98,9 @@ class FileBackedMcpRepository extends CachedMcpRepository {
 
   async applySeedState() {
     const state = this.getState();
-    if (
-      state.registry.length === 0 &&
-      state.bindings.length === 0 &&
-      state.networkPolicies.length === 0
-    ) {
-      await this.replaceState(mcpStateSchema.parse(seedMcpState));
-      return;
-    }
-
-    const missingSeedPolicies = seedMcpState.networkPolicies.filter(
-      (policy) =>
-        !state.networkPolicies.some((existing) => existing.policyRef === policy.policyRef)
-    );
-    if (missingSeedPolicies.length > 0) {
-      await this.replaceState(
-        mcpStateSchema.parse({
-          ...state,
-          networkPolicies: [...state.networkPolicies, ...missingSeedPolicies],
-        })
-      );
+    const reconciled = reconcileMcpSeedState(state);
+    if (!statesEqual(state, reconciled)) {
+      await this.replaceState(reconciled);
     }
   }
 }
@@ -94,26 +121,9 @@ class PostgresMcpRepository extends SharedPostgresMcpRepository {
 
   async applySeedState() {
     const state = this.getState();
-    if (
-      state.registry.length === 0 &&
-      state.bindings.length === 0 &&
-      state.networkPolicies.length === 0
-    ) {
-      await this.replaceState(mcpStateSchema.parse(seedMcpState));
-      return;
-    }
-
-    const missingSeedPolicies = seedMcpState.networkPolicies.filter(
-      (policy: McpNetworkPolicy) =>
-        !state.networkPolicies.some((existing) => existing.policyRef === policy.policyRef)
-    );
-    if (missingSeedPolicies.length > 0) {
-      await this.replaceState(
-        mcpStateSchema.parse({
-          ...state,
-          networkPolicies: [...state.networkPolicies, ...missingSeedPolicies],
-        })
-      );
+    const reconciled = reconcileMcpSeedState(state);
+    if (!statesEqual(state, reconciled)) {
+      await this.replaceState(reconciled);
     }
   }
 }

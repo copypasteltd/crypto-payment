@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "./zod.js";
 import { bridgeEventSchema } from "./bridge.js";
 import { runIdSchema } from "./common.js";
 import { approveRunInputSchema, runSnapshotSchema, sendRunMessageInputSchema } from "./runs.js";

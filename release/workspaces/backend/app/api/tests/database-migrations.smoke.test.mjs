@@ -35,6 +35,7 @@ const expectedVersions = [
   "0030_session_control",
   "0031_creator_source_runs",
   "0032_run_approval_mode",
+  "0033_wechat_mini_program_identities",
 ];
 
 test("database migrations are discoverable, dry-runnable, and idempotently applied", async () => {

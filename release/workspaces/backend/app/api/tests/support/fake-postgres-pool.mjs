@@ -743,6 +743,14 @@ export function createFakePostgresPool() {
       return { rows, rowCount: rows.length };
     }
 
+    if (normalized.startsWith("delete from lingban_catalog_launch_templates where template_key = any")) {
+      const keys = new Set(params[0] ?? []);
+      tables.lingban_catalog_launch_templates = tables.lingban_catalog_launch_templates.filter(
+        (item) => !keys.has(item.template_key)
+      );
+      return { rows: [], rowCount: 0 };
+    }
+
     if (normalized === "delete from lingban_catalog_launch_templates") {
       tables.lingban_catalog_launch_templates = [];
       return { rows: [], rowCount: 0 };
@@ -764,42 +772,54 @@ export function createFakePostgresPool() {
     }
 
     if (normalized.startsWith("insert into lingban_workshop_contexts")) {
-      tables.lingban_workshop_contexts.push({
+      const row = {
         context_key: params[0],
         runtime_workspace_id: params[1],
         context_json: typeof params[2] === "string" ? JSON.parse(params[2]) : clone(params[2]),
-      });
+      };
+      const index = tables.lingban_workshop_contexts.findIndex((item) => item.context_key === row.context_key);
+      if (index >= 0) tables.lingban_workshop_contexts[index] = row;
+      else tables.lingban_workshop_contexts.push(row);
       return { rows: [], rowCount: 1 };
     }
 
     if (normalized.startsWith("insert into lingban_catalog_workshops")) {
-      tables.lingban_catalog_workshops.push({
+      const row = {
         workshop_id: params[0],
         scope: params[1],
         status: params[2],
         workshop_json: typeof params[3] === "string" ? JSON.parse(params[3]) : clone(params[3]),
-      });
+      };
+      const index = tables.lingban_catalog_workshops.findIndex((item) => item.workshop_id === row.workshop_id);
+      if (index >= 0) tables.lingban_catalog_workshops[index] = row;
+      else tables.lingban_catalog_workshops.push(row);
       return { rows: [], rowCount: 1 };
     }
 
     if (normalized.startsWith("insert into lingban_catalog_services")) {
-      tables.lingban_catalog_services.push({
+      const row = {
         service_id: params[0],
         workshop_id: params[1],
         status: params[2],
         service_json: typeof params[3] === "string" ? JSON.parse(params[3]) : clone(params[3]),
-      });
+      };
+      const index = tables.lingban_catalog_services.findIndex((item) => item.service_id === row.service_id);
+      if (index >= 0) tables.lingban_catalog_services[index] = row;
+      else tables.lingban_catalog_services.push(row);
       return { rows: [], rowCount: 1 };
     }
 
     if (normalized.startsWith("insert into lingban_catalog_launch_templates")) {
-      tables.lingban_catalog_launch_templates.push({
+      const row = {
         template_key: params[0],
         service_id: params[1],
         workspace_context_key: params[2],
         entry_surface: params[3],
         template_json: typeof params[4] === "string" ? JSON.parse(params[4]) : clone(params[4]),
-      });
+      };
+      const index = tables.lingban_catalog_launch_templates.findIndex((item) => item.template_key === row.template_key);
+      if (index >= 0) tables.lingban_catalog_launch_templates[index] = row;
+      else tables.lingban_catalog_launch_templates.push(row);
       return { rows: [], rowCount: 1 };
     }
 
@@ -1848,9 +1868,12 @@ export function createFakePostgresPool() {
         session_version_id: params[9],
         workspace_context_key: params[10],
         service_id: params[11],
-        created_at: params[12],
-        updated_at: params[13],
-        aggregate_json: typeof params[14] === "string" ? JSON.parse(params[14]) : clone(params[14]),
+        approval_mode: params[12],
+        approval_mode_updated_at: params[13],
+        approval_mode_updated_by_user_id: params[14],
+        created_at: params[15],
+        updated_at: params[16],
+        aggregate_json: typeof params[17] === "string" ? JSON.parse(params[17]) : clone(params[17]),
       };
       if (existingIndex >= 0) {
         tables.lingban_runs[existingIndex] = row;

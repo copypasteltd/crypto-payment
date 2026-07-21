@@ -58,6 +58,7 @@ import {
   createRunDownloadTicketInputSchema,
   createRunDownloadTicketResponseSchema,
   loginAuthInputSchema,
+  wechatMiniProgramLoginInputSchema,
   logoutAuthInputSchema,
   refreshAuthInputSchema,
   registerAuthInputSchema,
@@ -135,6 +136,9 @@ import {
   rotateCredentialInputSchema,
   switchWorkspaceInputSchema,
   approveRunInputSchema,
+  archiveRunInputSchema,
+  deleteRunInputSchema,
+  deleteRunResponseSchema,
   updateRunApprovalModeInputSchema,
   reviewRunInformationAnswerInputSchema,
   clientRealtimeMessageSchema,
@@ -177,6 +181,7 @@ import {
   workspaceProfileSummarySchema,
   workspaceSummarySchema,
   serverRealtimeMessageSchema,
+  stopRunInputSchema,
   runFileEntrySchema,
   listRunFileIndexResponseSchema,
   runListSummarySchema,
@@ -263,6 +268,7 @@ import {
   type UnpublishSessionPackInput,
   type UnpublishSessionPackResponse,
   type LoginAuthInput,
+  type WechatMiniProgramLoginInput,
   type ListCredentialsQuery,
   type ListCredentialAuditEventsQuery,
   type LogoutAuthInput,
@@ -417,6 +423,10 @@ type ClientConfig = {
 
 type Awaitable<T> = T | PromiseLike<T>;
 
+export type IdempotentRequestOptions = {
+  idempotencyKey?: string;
+};
+
 type SessionRefreshFetchConfig = {
   baseUrl: string;
   fetcher?: FetchLike;
@@ -539,6 +549,10 @@ function createIdempotencyKey() {
     `req-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 }
 
+function resolveIdempotencyKey(options?: IdempotentRequestOptions) {
+  return options?.idempotencyKey?.trim() || createIdempotencyKey();
+}
+
 function appendAccessToken(url: string, accessToken?: string) {
   if (!accessToken) {
     return url;
@@ -592,7 +606,12 @@ function resolveRequestUrl(baseUrl: string, input: string | URL) {
 }
 
 function isAuthRetryBypassPathname(pathname: string) {
-  return pathname === "/v1/auth/login" || pathname === "/v1/auth/register" || pathname === "/v1/auth/refresh";
+  return (
+    pathname === "/v1/auth/login" ||
+    pathname === "/v1/auth/wechat-mini-program" ||
+    pathname === "/v1/auth/register" ||
+    pathname === "/v1/auth/refresh"
+  );
 }
 
 function withAccessToken(init: RequestInit | undefined, accessToken?: string) {
@@ -780,6 +799,7 @@ export function createRunsApiClient(config: ClientConfig) {
           attentionMode: parsed.attentionMode,
           entrySurface: parsed.entrySurface,
           tag: parsed.tag,
+          recordStatus: parsed.recordStatus,
         })}`,
         {
           headers: buildAuthHeaders(config.getAccessToken),
@@ -802,6 +822,7 @@ export function createRunsApiClient(config: ClientConfig) {
           attentionMode: parsed.attentionMode,
           entrySurface: parsed.entrySurface,
           tag: parsed.tag,
+          recordStatus: parsed.recordStatus,
         })}`,
         {
           headers: buildAuthHeaders(config.getAccessToken),
@@ -1101,6 +1122,55 @@ export function createRunsApiClient(config: ClientConfig) {
       });
 
       return parseJson(response, runSnapshotSchema);
+    },
+
+    async stopRun(runId: string, reason?: string): Promise<RunSnapshot> {
+      const body = stopRunInputSchema.parse({ reason, mode: "graceful" });
+      const response = await fetcher(`${config.baseUrl}/v1/runs/${runId}/stop`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...buildAuthHeaders(config.getAccessToken),
+        },
+        body: JSON.stringify(body),
+      });
+      return parseJson(response, runSnapshotSchema);
+    },
+
+    async archiveRun(runId: string, reason?: string): Promise<RunSnapshot> {
+      const response = await fetcher(`${config.baseUrl}/v1/runs/${runId}/archive`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...buildAuthHeaders(config.getAccessToken),
+        },
+        body: JSON.stringify(archiveRunInputSchema.parse(reason ? { reason } : {})),
+      });
+      return parseJson(response, runSnapshotSchema);
+    },
+
+    async restoreRun(runId: string): Promise<RunSnapshot> {
+      const response = await fetcher(`${config.baseUrl}/v1/runs/${runId}/restore`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...buildAuthHeaders(config.getAccessToken),
+        },
+        body: JSON.stringify({}),
+      });
+      return parseJson(response, runSnapshotSchema);
+    },
+
+    async deleteRun(runId: string, reason: string) {
+      const response = await fetcher(`${config.baseUrl}/v1/runs/${runId}`, {
+        method: "DELETE",
+        headers: {
+          "content-type": "application/json",
+          ...buildAuthHeaders(config.getAccessToken),
+        },
+        body: JSON.stringify(deleteRunInputSchema.parse({ reason, confirmation: runId })),
+      });
+      return parseJson(response, deleteRunResponseSchema);
     },
   };
 }
@@ -1530,6 +1600,23 @@ export function createAuthApiClient(config: ClientConfig) {
       return parseJson(response, authSessionResponseSchema);
     },
 
+    async loginWithWechatMiniProgram(
+      input: WechatMiniProgramLoginInput
+    ): Promise<AuthSessionResponse> {
+      const response = await fetcher(
+        `${config.baseUrl}/v1/auth/wechat-mini-program`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(wechatMiniProgramLoginInputSchema.parse(input)),
+        }
+      );
+
+      return parseJson(response, authSessionResponseSchema);
+    },
+
     async refresh(input: RefreshAuthInput): Promise<AuthSessionResponse> {
       const response = await fetcher(`${config.baseUrl}/v1/auth/refresh`, {
         method: "POST",
@@ -1725,13 +1812,14 @@ export function createWorkshopCatalogApiClient(config: ClientConfig) {
 
   return {
     async createWorkshopServiceBundle(
-      input: CreateWorkshopServiceBundleInput
+      input: CreateWorkshopServiceBundleInput,
+      options?: IdempotentRequestOptions
     ): Promise<CreateWorkshopServiceBundleResponse> {
       const response = await fetcher(`${config.baseUrl}/v1/workshops`, {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "idempotency-key": createIdempotencyKey(),
+          "idempotency-key": resolveIdempotencyKey(options),
           ...buildAuthHeaders(config.getAccessToken),
         },
         body: JSON.stringify(createWorkshopServiceBundleInputSchema.parse(input)),
@@ -2179,11 +2267,15 @@ export function createCreatorApiClient(config: ClientConfig) {
   const fetcher = config.fetcher ?? fetch;
 
   return {
-    async createPackage(input: CreateCreatorPackageInput): Promise<CreatorPackageDetail> {
+    async createPackage(
+      input: CreateCreatorPackageInput,
+      options?: IdempotentRequestOptions
+    ): Promise<CreatorPackageDetail> {
       const response = await fetcher(`${config.baseUrl}/v1/packages`, {
         method: "POST",
         headers: {
           "content-type": "application/json",
+          "idempotency-key": resolveIdempotencyKey(options),
           ...buildAuthHeaders(config.getAccessToken),
         },
         body: JSON.stringify(createCreatorPackageInputSchema.parse(input)),
@@ -2325,7 +2417,8 @@ export function createCreatorApiClient(config: ClientConfig) {
 
     async createPackageRelease(
       packageId: string,
-      input: CreateCreatorReleaseInput
+      input: CreateCreatorReleaseInput,
+      options?: IdempotentRequestOptions
     ): Promise<CreatorReleaseSummary> {
       const response = await fetcher(
         `${config.baseUrl}/v1/packages/${encodeURIComponent(packageId)}/releases`,
@@ -2333,6 +2426,7 @@ export function createCreatorApiClient(config: ClientConfig) {
           method: "POST",
           headers: {
             "content-type": "application/json",
+            "idempotency-key": resolveIdempotencyKey(options),
             ...buildAuthHeaders(config.getAccessToken),
           },
           body: JSON.stringify(createCreatorReleaseInputSchema.parse(input)),
@@ -2506,12 +2600,15 @@ export function createSessionProjectsApiClient(config: ClientConfig) {
       return parseJson(response, listSessionProjectsResponseSchema);
     },
 
-    async create(input: CreateSessionProjectInput): Promise<SessionProjectRecord> {
+    async create(
+      input: CreateSessionProjectInput,
+      options?: IdempotentRequestOptions
+    ): Promise<SessionProjectRecord> {
       const response = await fetcher(`${config.baseUrl}/v1/creator/session-projects`, {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "idempotency-key": createIdempotencyKey(),
+          "idempotency-key": resolveIdempotencyKey(options),
           ...buildAuthHeaders(config.getAccessToken),
         },
         body: JSON.stringify(createSessionProjectInputSchema.parse(input)),
@@ -2557,13 +2654,14 @@ export function createSessionProjectsApiClient(config: ClientConfig) {
     },
 
     async createSourceRun(
-      input: CreateCreatorSourceRunInput
+      input: CreateCreatorSourceRunInput,
+      options?: IdempotentRequestOptions
     ): Promise<CreateCreatorSourceRunResponse> {
       const response = await fetcher(`${config.baseUrl}/v1/creator/source-runs`, {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "idempotency-key": createIdempotencyKey(),
+          "idempotency-key": resolveIdempotencyKey(options),
           ...buildAuthHeaders(config.getAccessToken),
         },
         body: JSON.stringify(createCreatorSourceRunInputSchema.parse(input)),

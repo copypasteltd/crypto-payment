@@ -31,6 +31,7 @@
     "test:admin": "pnpm -C app/api run test:admin",
     "test:session-control": "pnpm -C app/api run test:session-control",
     "test:creator-source": "pnpm -C app/api run test:creator-source",
+    "test:creator-loop": "pnpm -C app/api run test:creator-loop",
     "test:catalog-write": "pnpm -C app/api run test:catalog-write",
     "test:release-gates": "pnpm -C app/api run test:release-gates",
     "migrate:legacy-sessions": "pnpm -C app/api run migrate:legacy-sessions",
@@ -41,6 +42,8 @@
     "migrate:seed": "pnpm -C app/api run migrate:seed",
     "test:smoke:compiled": "pnpm -C app/api run test:smoke:compiled",
     "test:smoke": "pnpm -C app/api run test:smoke",
+    "test:wechat-auth": "pnpm -C app/api run test:wechat-auth",
+    "test:run-lifecycle": "pnpm -C app/api run test:run-lifecycle",
     "validate": "pnpm run build && pnpm run test:smoke:compiled"
   }
 }

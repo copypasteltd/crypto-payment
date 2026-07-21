@@ -128,7 +128,11 @@ test("creator can create a Session Project and launch a blank Source Run", async
     const launched = await requestJson(`${baseUrl}/v1/creator/source-runs`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ sessionProjectId: project.sessionProjectId, title: project.name }),
+      body: JSON.stringify({
+        sessionProjectId: project.sessionProjectId,
+        title: project.name,
+        approvalMode: "auto_all",
+      }),
     });
     assert.equal(launched.run.runPurpose, "creator_source");
     assert.equal(launched.run.sessionBootstrapMode, "blank");
@@ -136,6 +140,7 @@ test("creator can create a Session Project and launch a blank Source Run", async
     assert.equal(launched.run.taskVersionId, null);
     assert.equal(launched.run.sessionVersionId, null);
     assert.equal(launched.run.catalogMetadata, null);
+    assert.equal(launched.run.approvalMode, "auto_all");
     assert.equal(
       launched.run.targetPath,
       path.join(smokeRoot, "worker-runs", launched.run.runId, "target")
@@ -146,7 +151,11 @@ test("creator can create a Session Project and launch a blank Source Run", async
     const replayedLaunch = await requestJson(`${baseUrl}/v1/creator/source-runs`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ sessionProjectId: project.sessionProjectId, title: project.name }),
+      body: JSON.stringify({
+        sessionProjectId: project.sessionProjectId,
+        title: project.name,
+        approvalMode: "auto_all",
+      }),
     });
     assert.equal(replayedLaunch.run.runId, launched.run.runId);
 

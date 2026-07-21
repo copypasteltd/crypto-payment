@@ -22,6 +22,12 @@ import { startRunJobResultSchema } from "../services/specs.js";
 import { materializeRunSessionPack } from "../services/session-pack-materializer.js";
 import { prepareRunWorkspace } from "../services/workspace-preparer.js";
 
+export function resolveWorkerHostApiBaseUrl(
+  config: Pick<ReturnType<typeof loadWorkerRuntimeConfig>, "apiBaseUrl">
+) {
+  return config.apiBaseUrl;
+}
+
 export async function startRunJob(payload: StartRunJobPayload) {
   const parsed = startRunJobPayloadSchema.parse(payload);
   const startedAt = new Date().toISOString();
@@ -81,7 +87,7 @@ export async function startRunJob(payload: StartRunJobPayload) {
   });
   const workerConfig = loadWorkerRuntimeConfig();
   const apiConnector = new ApiConnector({
-    baseUrl: workerConfig.runtimeApiBaseUrl,
+    baseUrl: resolveWorkerHostApiBaseUrl(workerConfig),
     authToken: workerConfig.internalAuthToken,
   });
   if (parsed.run.sessionBootstrapMode !== "blank") {

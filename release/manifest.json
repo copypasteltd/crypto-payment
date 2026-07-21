@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-17T20:27:46.129Z",
+  "generatedAt": "2026-07-21T09:12:36.312Z",
   "workspaceRoot": "C:\\dev\\copypaste\\agent-workshop",
   "artifacts": {
     "static": {
@@ -14,11 +14,13 @@
       "dashboard": "workspaces/dashboard",
       "app": "workspaces/app"
     },
+    "runnerBuild": "runner-build",
     "deployAssets": "deploy"
   },
   "postDeployChecklist": [
     "Install dependencies inside release/workspaces/backend and release/workspaces/run-worker.",
     "Build backend and run-worker standalone workspaces on the target Linux host.",
+    "Build the release-scoped Runner image from release/runner-build on the target Linux host.",
     "Run backend database migrations before restarting services.",
     "Serve release/static/dashboard and release/static/mobile-h5 through Nginx or another static host.",
     "Serve release/static/admin from an isolated Admin virtual host and proxy /admin/v1 to the API.",

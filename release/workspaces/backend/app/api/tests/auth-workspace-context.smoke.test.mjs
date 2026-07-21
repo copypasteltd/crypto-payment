@@ -337,6 +337,7 @@ async function seedWorkspaceContextAuthState(storageRoot) {
           en: "Brand-space staged",
         },
         workspaceContextKeys: ["brand-lab"],
+        workspaceIds: [enterpriseWorkspaceId],
         linkedWorkshopIds: ["brand-poster-suite"],
         linkedServiceIds: ["poster-batch"],
         session: {

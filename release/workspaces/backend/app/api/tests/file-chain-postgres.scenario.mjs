@@ -241,20 +241,10 @@ try {
   });
   assert.equal(Array.isArray(creatorPackages), true);
   assert.equal(
-    creatorPackages.length > 0,
-    true,
-    "postgres-backed creator catalog should return seed data"
+    creatorPackages.length,
+    0,
+    "a new personal workspace must not inherit another workspace's creator packages"
   );
-
-  const creatorPackage = await requestJson(
-    `${baseUrl}/v1/packages/${encodeURIComponent(creatorPackages[0].packageId)}`,
-    {
-      headers: {
-        authorization: currentAuthHeaders.authorization,
-      },
-    }
-  );
-  assert.equal(creatorPackage.packageId, creatorPackages[0].packageId);
 
   const createRun = await requestJson(`${baseUrl}/v1/runs`, {
     method: "POST",

@@ -23,13 +23,23 @@ Lingban Admin Console is the independent platform control plane for the single p
 | 平台总览 / Overview | 健康、核心指标、异常队列、最近管理操作 |
 | 用户与工作区 / Accounts | 用户、登录会话、工作区、成员、使用量、暂停与恢复 |
 | 工坊与 Session / Catalog | 工坊、服务、发布、Session 资产、血缘、隔离与上架治理 |
-| 运行与运行时 / Runs | Run 查询、对话与文件快照、成本、MCP 调用、取消、重试、终止和运行时诊断 |
+| 运行与运行时 / Runs | Run 查询、对话与文件快照、成本、MCP 调用、停止、强制终止、重新释放、归档、恢复、永久删除和运行时诊断 |
 | Provider 与模型 / Providers | URL 与 Bearer API Key 同表单配置；默认模型快速测试；按模型、端点和流式模式批量测试；远端模型差异预览、勾选确认与启停治理 |
 | MCP 与凭证 / Integrations | 第一方及第三方 MCP、网络与调用证据、私有凭证创建、轮换、冻结和吊销 |
 | 配额与账务 / Billing | 配额策略、计数器、Override、用量和不可变账本 |
 | 审计与系统 / System | 管理审计、系统健康、版本化配置、通知、保留策略和 Admin 账户状态 |
 
 All high-impact governance actions use impact preflight, an explicit reason, a confirmation phrase, version validation, CSRF protection, and an immutable audit record. Credential values are accepted only by write forms and are never returned by read APIs.
+
+## Run 生命周期治理 / Run Lifecycle Governance
+
+- 活动 Run 支持优雅停止与平台级强制终止。
+- `RELEASE_FAILED / ORPHANED` 支持重新协调 Runtime 释放。
+- 已结束且已释放的 Run 支持归档、恢复与永久删除。
+- 删除影响预检分别列出将清理的 Workspace、消息、文件、Upload、Download Ticket、Agent/Realtime 事件，以及继续保留的 Session Capture、Billing、MCP Audit、Run Tombstone 和 Admin Audit。
+- Admin 列表和详情同时展示 Runtime Lifecycle 与 Record Lifecycle。
+
+Run governance exposes graceful stop, force termination, release reconciliation, archival, restoration, and permanent deletion. Impact review makes deleted and retained data scopes explicit before execution.
 
 ## 操作反馈 / Operation Feedback
 

@@ -8,6 +8,7 @@ export const seedCreatorState: CreatorState = {
   packages: [
     {
       packageId: "chrome-tax-runner",
+      workspaceIds: ["wsp_harbor_finance"],
       title: l("chrome-tax-runner.session", "chrome-tax-runner.session"),
       source: l("来源：华港财务组 / 实例：tax-q2", "Source: Harbor Finance Team / instance: tax-q2"),
       state: "audited",
@@ -78,6 +79,7 @@ export const seedCreatorState: CreatorState = {
     },
     {
       packageId: "creator-drama-suite",
+      workspaceIds: ["wsp_personal", "wsp_brand_content"],
       title: l("creator-drama-suite.session", "creator-drama-suite.session"),
       source: l("来源：品牌内容组 / 实例：drama-ep08", "Source: Brand Content Team / instance: drama-ep08"),
       state: "pending_release",
@@ -123,6 +125,7 @@ export const seedCreatorState: CreatorState = {
     },
     {
       packageId: "brand-poster-suite",
+      workspaceIds: ["wsp_personal", "wsp_brand_content"],
       title: l("brand-poster-suite.session", "brand-poster-suite.session"),
       source: l("来源：品牌内容组 / 实例：poster-batch-17", "Source: Brand Content Team / instance: poster-batch-17"),
       state: "ready",

@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "./zod.js";
 import { serviceIdSchema, workspaceContextKeySchema } from "./catalog.js";
 import { creatorPackageIdSchema } from "./creator.js";
 import {

@@ -1,12 +1,15 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import {
+  archiveRunInputSchema,
+  deleteRunInputSchema,
   fileKindSchema,
   listMcpCallsQuerySchema,
   listRunsQuerySchema,
   runFileSourceSchema,
   runFileStorageTierSchema,
   serverRealtimeMessageSchema,
+  stopRunInputSchema,
 } from "@lingban/contracts";
 import {
   approveRunInputSchema,
@@ -16,6 +19,7 @@ import {
   updateRunApprovalModeInputSchema,
 } from "./schemas.js";
 import { runEventBus } from "../realtime/event-bus.js";
+import { AppError } from "../../app/errors.js";
 import { requireRequestAuth, requireWorkspaceAccess } from "../auth/request-auth.js";
 import { runFileAccessService } from "./file-access.js";
 import { runFileIndexService } from "./file-index.js";
@@ -136,6 +140,18 @@ export async function registerRunRoutes(server: FastifyInstance) {
     const snapshot = runsService.getRun(params.runId);
     requireWorkspaceAccess(request, snapshot.run.workspaceId);
     return snapshot;
+  });
+
+  server.get("/:runId/lifecycle", async (request) => {
+    const params = runIdParamsSchema.parse(request.params);
+    const snapshot = runsService.getRun(params.runId);
+    requireWorkspaceAccess(request, snapshot.run.workspaceId);
+    return {
+      runId: snapshot.run.runId,
+      runStatus: snapshot.run.status,
+      runtime: snapshot.runtime,
+      lifecycle: snapshot.lifecycle,
+    };
   });
 
   server.get("/:runId/files", async (request) => {
@@ -354,9 +370,56 @@ export async function registerRunRoutes(server: FastifyInstance) {
       })
       .parse(request.body ?? {});
     const snapshot = runsService.getRun(params.runId);
-    requireWorkspaceAccess(request, snapshot.run.workspaceId, ["owner", "admin", "operator", "creator"]);
+    const authContext = requireWorkspaceAccess(request, snapshot.run.workspaceId, ["owner", "admin", "operator", "creator"]);
 
-    return await runsService.cancel(params.runId, body.reason);
+    return await runsService.cancel(params.runId, body.reason, {
+      requestedByUserId: authContext?.user.userId ?? null,
+    });
+  });
+
+  server.post("/:runId/stop", async (request) => {
+    const params = runIdParamsSchema.parse(request.params);
+    const body = stopRunInputSchema.parse(request.body ?? {});
+    if (body.mode === "force") {
+      throw new AppError(403, "RUN_FORCE_STOP_ADMIN_ONLY", "Force termination is restricted to the platform Admin.");
+    }
+    const snapshot = runsService.getRun(params.runId);
+    const authContext = requireWorkspaceAccess(request, snapshot.run.workspaceId, ["owner", "admin", "operator", "creator"]);
+    return await runsService.stop(params.runId, {
+      reason: body.reason,
+      mode: "graceful",
+      requestedByUserId: authContext?.user.userId ?? null,
+    });
+  });
+
+  server.post("/:runId/archive", async (request) => {
+    const params = runIdParamsSchema.parse(request.params);
+    archiveRunInputSchema.parse(request.body ?? {});
+    const snapshot = runsService.getRun(params.runId);
+    const authContext = requireWorkspaceAccess(request, snapshot.run.workspaceId, ["owner", "admin", "operator", "creator"]);
+    return await runsService.archiveRun(params.runId, {
+      requestedByUserId: authContext?.user.userId ?? null,
+    });
+  });
+
+  server.post("/:runId/restore", async (request) => {
+    const params = runIdParamsSchema.parse(request.params);
+    const snapshot = runsService.getRun(params.runId);
+    const authContext = requireWorkspaceAccess(request, snapshot.run.workspaceId, ["owner", "admin", "operator", "creator"]);
+    return await runsService.restoreRun(params.runId, {
+      requestedByUserId: authContext?.user.userId ?? null,
+    });
+  });
+
+  server.delete("/:runId", async (request) => {
+    const params = runIdParamsSchema.parse(request.params);
+    const body = deleteRunInputSchema.parse(request.body);
+    const snapshot = runsService.getRunIncludingDeleted(params.runId);
+    const authContext = requireWorkspaceAccess(request, snapshot.run.workspaceId, ["owner", "admin"]);
+    return await runsService.deleteRun(params.runId, {
+      ...body,
+      requestedByUserId: authContext?.user.userId ?? null,
+    });
   });
 
   server.get("/:runId/stream", async (request, reply) => {
