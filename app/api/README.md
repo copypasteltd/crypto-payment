@@ -20,7 +20,7 @@ This component depends on internal `workspace:*` packages. The standalone backen
 
 ## 系统职责 / Responsibilities
 
-- 认证、刷新会话、工作区、成员、邀请与角色权限。
+- 邮箱认证、微信小程序认证、刷新会话、工作区、成员、邀请与角色权限。
 - 工坊、服务、Creator Package、Session Pack、Release 与 Replay。
 - Session Project、Blank Source Run、Capture 状态推进与 Creator 封装闭环。
 - Draft Workshop/Service 写入、不可变 Task Version 和发布激活。
@@ -36,7 +36,7 @@ This component depends on internal `workspace:*` packages. The standalone backen
 | Prefix | 主要能力 |
 | --- | --- |
 | `/health`, `/readyz` | 存活检查与依赖就绪报告 |
-| `/v1/auth` | 注册、登录、刷新、退出与会话读取 |
+| `/v1/auth` | 注册、邮箱登录、微信小程序登录、刷新、退出与会话读取 |
 | `/v1/workspaces` | 工作区切换、成员与邀请治理 |
 | `/v1/me` | 用户摘要、资产、授权、最近使用、收藏与通知摘要 |
 | `/v1/workshops`, `/v1/services` | 工坊目录、服务详情与启动模板 |
@@ -60,7 +60,7 @@ This component depends on internal `workspace:*` packages. The standalone backen
 | `src/app/create-server.ts` | Fastify 装配、路由注册、CORS、错误处理与关闭钩子 |
 | `src/app/database.ts` | 数据库连接、迁移与 repository 装配 |
 | `src/app/runtime.ts` | Embedded/BullMQ 运行调度选择与生命周期 |
-| `src/modules/auth/` | 身份认证、工作区上下文、成员与邀请 |
+| `src/modules/auth/` | 邮箱与微信小程序身份认证、外部身份映射、工作区上下文、成员与邀请 |
 | `src/modules/runs/` | Run 聚合、消息、审批、文件、状态与编排 |
 | `src/modules/uploads/` | 上传、对象存储、文件安全、保留与下载票据 |
 | `src/modules/bridge/` | Runtime 注册、命令队列、回调账本和诊断 |
@@ -78,6 +78,7 @@ This component depends on internal `workspace:*` packages. The standalone backen
 | `src/modules/realtime/` | WebSocket/SSE 事件分发 |
 | `src/modules/admin/` | 独立 Admin 会话、平台读模型、治理状态、影响预检、操作执行、审计与系统设置 |
 | `migrations/0031_creator_source_runs.sql` | Session Project、Task Version、幂等记录与 Run 身份字段 |
+| `migrations/0033_wechat_mini_program_identities.sql` | 微信小程序外部身份与内部用户映射 |
 
 ## 数据与运行模式 / Data and Runtime Modes
 
@@ -96,6 +97,22 @@ This component depends on internal `workspace:*` packages. The standalone backen
 3. Run Worker 准备 target path 和 Runtime 物料，随后启动 Bridge。
 4. Bridge 托管 Codex CLI 并通过 `/internal` 回传消息、状态、文件和诊断。
 5. API 持久化事件并通过 WebSocket/SSE 推送给当前会话。
+
+## Run 生命周期 / Run Lifecycle
+
+| 接口 | 作用 |
+| --- | --- |
+| `GET /v1/runs/:runId/lifecycle` | 读取 Runtime 与记录生命周期状态 |
+| `POST /v1/runs/:runId/stop` | 用户优雅停止并释放 Runtime |
+| `POST /v1/runs/:runId/archive` | 归档已结束且已释放的实例 |
+| `POST /v1/runs/:runId/restore` | 恢复归档记录 |
+| `DELETE /v1/runs/:runId` | 永久销毁实例数据，要求 Owner/Admin 和 Run ID 确认词 |
+
+Runtime 状态包括 `NOT_STARTED / ACTIVE / STOP_REQUESTED / STOPPING / RELEASED / RELEASE_FAILED / ORPHANED`；记录状态包括 `ACTIVE / ARCHIVED / DELETION_PENDING / DELETED`。同一 Run 的并发停止请求共享单次释放操作。API 启动时会重新协调处于终态且尚未确认释放的 Runtime。
+
+永久销毁会清理工作目录、Run File 托管对象、Upload、Download Ticket、Agent Runtime 事件和 Realtime 事件，并将聚合压缩为最小脱敏墓碑。未完成的 Session Capture 返回 `RUN_DELETE_CAPTURE_PENDING`。Capture、Session Version、Billing、MCP Audit 和 Admin Audit 继续按资产与审计策略保留。
+
+Run lifecycle operations are idempotent where applicable. Cleanup failures restore list visibility, persist `deletionFailure`, and allow a later retry.
 
 Creator Source Run 使用 `runPurpose=creator_source`、`sessionBootstrapMode=blank` 和空 `sessionVersionId`。首个 Codex Turn 等待 Creator 第一条消息；Capture 完成后进入 Draft、Replay、Seal、Package、Catalog 和 Release 链。
 
@@ -117,6 +134,8 @@ LINGBAN_REDIS_URL=redis://127.0.0.1:6379/0
 LINGBAN_ADMIN_CSRF_SECRET=<long-random-secret>
 LINGBAN_ADMIN_COOKIE_SECURE=true
 LINGBAN_RELEASE=<immutable-release-id>
+LINGBAN_WECHAT_MINI_PROGRAM_APP_ID=<wechat-app-id>
+LINGBAN_WECHAT_MINI_PROGRAM_APP_SECRET=<wechat-app-secret>
 ```
 
 Admin 账号使用统一认证存储；账户需要具备 `platform_admin` 标记。账号与密码不通过进程环境变量旁路配置。
@@ -136,6 +155,8 @@ pnpm -C app/api build
 pnpm -C app/api test:admin
 pnpm -C app/api test:creator-source
 pnpm -C app/api test:catalog-write
+pnpm -C app/api test:wechat-auth
+pnpm -C app/api test:run-lifecycle
 pnpm -C app/api test:smoke:compiled
 pnpm -C app/api migrate
 pnpm -C app/api start
@@ -154,6 +175,7 @@ Local verification uses native Node.js and pnpm. Runtime-isolation integration t
 - 文件链执行路径归一化、target path 边界、下载票据和安全扫描。
 - Provider 管理接口要求平台管理员角色，工作区仅访问自身绑定。
 - Credential 返回值仅包含元数据、引用和脱敏摘要。
+- 微信 AppSecret 仅由后端读取；`jscode2session` 返回的 `session_key` 不持久化、不进入客户端响应。
 - Admin Access 与 Refresh Token 仅存于 `HttpOnly`、`SameSite=Strict` Cookie，写请求执行签名双提交 CSRF 校验。
 - 高影响治理操作执行影响预检、确认词、原因、资源版本和审计校验；Credential 明文只写入 Broker，不进入读模型。
 
@@ -186,10 +208,16 @@ Session Control verification: Session Pack `24/24`, DB `27/27`, Session Control 
 
 ## 当前状态 / Current Status
 
-截至 2026-07-17，核心控制面、独立 Admin API、Provider 多路由、API Key 加密绑定、模型测试、认证、文件链、结构化 Agent 事件、Capture、Draft、Replay、签名密封、显式绑定、Legacy 迁移、治理域、Realtime 与 Runtime 回调均已实现。当前 Admin 同源入口为 `http://192.168.31.20:38140/admin/v1`，线上版本由 `/admin/v1/system` 返回。
+截至 2026-07-21，核心控制面、独立 Admin API、Provider 多路由、API Key 加密绑定、模型测试、邮箱与微信小程序认证、文件链、结构化 Agent 事件、Capture、Draft、Replay、签名密封、显式绑定、Run 生命周期、Realtime 与 Runtime 回调均已实现。当前 Admin 同源入口为 `http://192.168.31.20:38140/admin/v1`，线上版本由 `/admin/v1/system` 返回。
 
-As of 2026-07-17, the API includes the core control plane, independent Admin APIs, provider routing, encrypted credentials, authentication, file handling, structured agent events, Capture, Draft, Replay, signed immutable versions, explicit bindings, legacy migration, governance, realtime transport, and runtime callbacks.
+As of 2026-07-19, the API also includes WeChat Mini Program code exchange, external identity persistence, personal workspace provisioning, and reusable platform sessions.
 
 生产扩展仍需要外部 PostgreSQL、Redis、对象存储、集中 Secret Manager、备份策略、告警通道和多节点容量验证。
 
 Production scale-out requires external PostgreSQL, Redis, object storage, centralized secret management, backup policies, alert delivery, and multi-node capacity validation.
+
+## 2026-07-20 Verification / 2026-07-20 验收
+
+API Release Gates 已完成 `65/65`。真实 HZ01 链路已经覆盖第三方 OpenAI-compatible Provider、Codex App Server、Playwright MCP、文件写入、Source Capture、Replay、Seal、Package、Release、Activation、Consumer Run 与 Consumer Capture。Creator 和 Workshop Catalog 的 PostgreSQL 写入采用实体级 UPSERT 与事务边界，普通更新不会删除其他实体。
+
+API Release Gates pass `65/65`. The HZ01 system test covers a real provider, Codex App Server, Playwright MCP, target files, source capture, sealing, publication, activation, consumer execution, and consumer capture.

@@ -301,6 +301,7 @@ async function seedMeState(storageRoot) {
           en: "Brand Lab",
         },
         workspaceContextKeys: ["brand-lab"],
+        workspaceIds: [workspaceId],
         linkedWorkshopIds: ["brand-poster-suite"],
         linkedServiceIds: ["poster-batch"],
         session: {
@@ -1011,9 +1012,9 @@ test("me summary surfaces formal profile, assets, and authorization aggregates",
     const authorizations = await requestJson(`${baseUrl}/v1/me/authorizations?limit=8`, {
       headers: authHeaders,
     });
-    assert.equal(authorizations.totalCount, 6);
-    assert.equal(authorizations.attentionCount, 1);
-    assert.equal(authorizations.entries.length, 6);
+    assert.equal(authorizations.totalCount, 7);
+    assert.equal(authorizations.attentionCount, 2);
+    assert.equal(authorizations.entries.length, 7);
 
     const entryByCategory = new Map(
       authorizations.entries.map((item) => [item.category, item])
@@ -1021,7 +1022,16 @@ test("me summary surfaces formal profile, assets, and authorization aggregates",
     assert.equal(entryByCategory.get("account")?.statusLabel.en, "Signed in");
     assert.equal(entryByCategory.get("workspace")?.statusLabel.en, "Owner");
     assert.equal(entryByCategory.get("credential")?.title.zh, "Seedance Production Key");
-    assert.equal(entryByCategory.get("mcp")?.statusLabel.en, "Bound 1");
+    const mcpEntries = authorizations.entries.filter((item) => item.category === "mcp");
+    assert.equal(mcpEntries.length, 2);
+    assert.equal(
+      mcpEntries.find((item) => item.provider === "workspace:seedance-api")?.statusLabel.en,
+      "Bound 1"
+    );
+    assert.equal(
+      mcpEntries.find((item) => item.provider === "mcp.browser.playwright")?.statusLabel.en,
+      "Unbound"
+    );
     assert.equal(entryByCategory.get("quota")?.tone, "warn");
     assert.equal(entryByCategory.get("billing")?.statusLabel.en, "Recorded");
   } finally {

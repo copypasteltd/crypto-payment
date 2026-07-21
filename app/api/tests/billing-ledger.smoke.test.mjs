@@ -45,7 +45,7 @@ async function requestJson(url, init = {}) {
 async function seedBillingLedgerAuthState(storageRoot) {
   const { hashPassword } = await import("../dist/modules/auth/crypto.js");
   const createdAt = "2026-07-09T00:00:00.000Z";
-  const workspaceId = "wsp_billing_brand";
+  const workspaceId = "wsp_brand_content";
 
   const authState = {
     users: [

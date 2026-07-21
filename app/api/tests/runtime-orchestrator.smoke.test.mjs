@@ -360,6 +360,51 @@ test("EmbeddedRunOrchestrator bullmq mode enqueues start and delayed cleanup job
   assert.equal(cleanupQueue.closed, true);
 });
 
+test("EmbeddedRunOrchestrator dispatches immediate bullmq cleanup through Worker Ops", async () => {
+  const previousBaseUrl = process.env.LINGBAN_WORKER_OPS_BASE_URL;
+  const previousToken = process.env.LINGBAN_WORKER_OPS_TOKEN;
+  const previousFetch = globalThis.fetch;
+  process.env.LINGBAN_WORKER_OPS_BASE_URL = "http://worker-ops.test:3901";
+  process.env.LINGBAN_WORKER_OPS_TOKEN = "ops-test-token";
+  const [{ EmbeddedRunOrchestrator }, { resetApiRuntimeConfigForTests }] = await Promise.all([
+    importRuntimeOrchestrator(),
+    import(new URL("../dist/app/runtime.js", import.meta.url)),
+  ]);
+  resetApiRuntimeConfigForTests();
+  const requests = [];
+  globalThis.fetch = async (url, init) => {
+    requests.push({ url: String(url), init });
+    return new Response(JSON.stringify({ completed: true }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+
+  const snapshots = createSnapshots({ run_cleanup: "CANCELLED" });
+  const orchestrator = new EmbeddedRunOrchestrator(createHooks(snapshots, []), {
+    runWorker: createFakeRunWorker(),
+    runtimeDispatchMode: "bullmq",
+    runStartQueue: createFakeQueue(),
+    runCleanupQueue: createFakeQueue(),
+  });
+
+  try {
+    await orchestrator.requestWorkspaceCleanup("run_cleanup");
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].url, "http://worker-ops.test:3901/runs/cleanup");
+    assert.equal(requests[0].init.headers["x-lingban-worker-ops-token"], "ops-test-token");
+    assert.deepEqual(JSON.parse(requests[0].init.body), { runId: "run_cleanup" });
+  } finally {
+    await orchestrator.shutdown();
+    globalThis.fetch = previousFetch;
+    if (previousBaseUrl === undefined) delete process.env.LINGBAN_WORKER_OPS_BASE_URL;
+    else process.env.LINGBAN_WORKER_OPS_BASE_URL = previousBaseUrl;
+    if (previousToken === undefined) delete process.env.LINGBAN_WORKER_OPS_TOKEN;
+    else process.env.LINGBAN_WORKER_OPS_TOKEN = previousToken;
+    resetApiRuntimeConfigForTests();
+  }
+});
+
 test("EmbeddedRunOrchestrator re-enqueues an active run whose previous runtime finished", async () => {
   const { EmbeddedRunOrchestrator } = await importRuntimeOrchestrator();
   const snapshots = createSnapshots({

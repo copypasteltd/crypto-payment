@@ -181,7 +181,7 @@ export class EmbeddedRunOrchestrator {
     return pending;
   }
 
-  async requestStop(runId: string) {
+  async requestStop(runId: string, options: { force?: boolean } = {}) {
     this.#stopRequested.add(runId);
     this.#clearOrphanRecovery(runId);
 
@@ -189,6 +189,9 @@ export class EmbeddedRunOrchestrator {
       const queuedJob = await this.#runStartQueue?.getJob(runId);
       await Promise.resolve(queuedJob?.remove()).catch(() => undefined);
       const config = getApiRuntimeConfig();
+      if (!config.workerOpsBaseUrl) {
+        throw new Error("Worker runtime stop endpoint is not configured.");
+      }
       if (config.workerOpsBaseUrl) {
         await fetch(`${config.workerOpsBaseUrl.replace(/\/$/, "")}/runs/stop`, {
           method: "POST",
@@ -196,7 +199,7 @@ export class EmbeddedRunOrchestrator {
             "content-type": "application/json",
             ...(config.workerOpsToken ? { "x-lingban-worker-ops-token": config.workerOpsToken } : {}),
           },
-          body: JSON.stringify({ runId }),
+          body: JSON.stringify({ runId, force: options.force === true }),
         }).then(async (response) => {
           if (!response.ok && response.status !== 404) {
             throw new Error(`Worker runtime stop failed (${response.status}): ${await response.text()}`);
@@ -211,7 +214,30 @@ export class EmbeddedRunOrchestrator {
       return;
     }
 
-    await this.#cleanup(runId, handle);
+    await this.#cleanup(runId, handle, options);
+  }
+
+  async requestWorkspaceCleanup(runId: string) {
+    this.#clearWorkspaceCleanup(runId);
+    if (this.#runtimeDispatchMode === "bullmq") {
+      const config = getApiRuntimeConfig();
+      if (!config.workerOpsBaseUrl) {
+        throw new Error("Worker runtime cleanup endpoint is not configured.");
+      }
+      const response = await fetch(`${config.workerOpsBaseUrl.replace(/\/$/, "")}/runs/cleanup`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(config.workerOpsToken ? { "x-lingban-worker-ops-token": config.workerOpsToken } : {}),
+        },
+        body: JSON.stringify({ runId }),
+      });
+      if (!response.ok) {
+        throw new Error(`Worker runtime cleanup failed (${response.status}): ${await response.text()}`);
+      }
+      return;
+    }
+    await Promise.resolve(this.#runWorker.cleanupRunWorkspace({ runId }));
   }
 
   async requestSessionCapture(runId: string, captureId: string) {
@@ -557,7 +583,7 @@ export class EmbeddedRunOrchestrator {
     });
   }
 
-  async #cleanup(runId: string, handle: ActiveRuntimeHandle) {
+  async #cleanup(runId: string, handle: ActiveRuntimeHandle, options: { force?: boolean } = {}) {
     if (this.#active.get(runId) !== handle) {
       return;
     }
@@ -580,7 +606,7 @@ export class EmbeddedRunOrchestrator {
         // ignore control errors during shutdown
       }
 
-      await handle.stop();
+      await handle.stop(options);
       completion = await handle.completion.catch(() => null);
     } finally {
       completion = completion ?? (await handle.completion.catch(() => null));

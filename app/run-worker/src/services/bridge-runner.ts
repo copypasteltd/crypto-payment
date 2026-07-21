@@ -47,7 +47,7 @@ export type ManagedBridgeRuntimeHandle = {
   getDiagnostics: () => ManagedBridgeRuntimeDiagnostics;
   waitUntilReady: () => Promise<void>;
   completion: Promise<{ exitCode: number | null; signal: NodeJS.Signals | null }>;
-  stop: () => Promise<void>;
+  stop: (options?: { force?: boolean }) => Promise<void>;
 };
 
 export type ManagedBridgeRuntimeDiagnostics = {
@@ -477,6 +477,8 @@ function buildDockerRuntimeEnv(input: {
     CODEX_RUNTIME_PROTOCOL: process.env.CODEX_RUNTIME_PROTOCOL ?? "app-server",
     CODEX_APP_SERVER_REQUEST_TIMEOUT_MS:
       process.env.CODEX_APP_SERVER_REQUEST_TIMEOUT_MS ?? "30000",
+    CODEX_APP_SERVER_INCLUDE_DEFAULT_ARGS:
+      process.env.CODEX_APP_SERVER_INCLUDE_DEFAULT_ARGS ?? "true",
     ...(input.codex?.command ? { CODEX_BIN: input.codex.command } : {}),
     ...(input.codex?.args ? { CODEX_ARGS_JSON: JSON.stringify(input.codex.args) } : {}),
   };
@@ -791,6 +793,8 @@ export async function startLocalBridgeProcess(
         CODEX_RUNTIME_PROTOCOL: process.env.CODEX_RUNTIME_PROTOCOL ?? "app-server",
         CODEX_APP_SERVER_REQUEST_TIMEOUT_MS:
           process.env.CODEX_APP_SERVER_REQUEST_TIMEOUT_MS ?? "30000",
+        CODEX_APP_SERVER_INCLUDE_DEFAULT_ARGS:
+          process.env.CODEX_APP_SERVER_INCLUDE_DEFAULT_ARGS ?? "true",
         ...(options.codex?.args ? { CODEX_ARGS_JSON: JSON.stringify(options.codex.args) } : {}),
       },
       stdio: "pipe",
@@ -831,22 +835,24 @@ export async function startLocalBridgeProcess(
       );
     },
     completion,
-    stop: async () => {
+    stop: async (stopOptions = {}) => {
       try {
         if (child.exitCode != null || child.killed) {
           await completion.catch(() => undefined);
           return;
         }
 
-        const gracefulResult = await waitForCompletionGracefully(
-          completion,
-          LOCAL_BRIDGE_STOP_GRACE_MS
-        );
-        if (gracefulResult) {
-          return;
+        if (!stopOptions.force) {
+          const gracefulResult = await waitForCompletionGracefully(
+            completion,
+            LOCAL_BRIDGE_STOP_GRACE_MS
+          );
+          if (gracefulResult) {
+            return;
+          }
         }
 
-        child.kill("SIGTERM");
+        child.kill(stopOptions.force ? "SIGKILL" : "SIGTERM");
         await completion.catch(() => undefined);
       } finally {
         await egressProxy?.stop();
@@ -980,10 +986,10 @@ export async function startDockerBridgeProcess(
       }
     },
     completion,
-    stop: async () => {
+    stop: async (stopOptions = {}) => {
       try {
         try {
-          if (child.exitCode == null && !child.killed) {
+          if (!stopOptions.force && child.exitCode == null && !child.killed) {
             await runSubprocessImpl(
               workerConfig.dockerBin,
               ["stop", "--time", "10", options.job.containerLaunchPlan.containerName],

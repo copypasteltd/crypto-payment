@@ -17,7 +17,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "start:daemon": "node dist/daemon.js",
     "test:blank-bootstrap": "node --test tests/blank-session-bootstrap.test.mjs",
-    "test:compiled": "node --test tests/blank-session-bootstrap.test.mjs tests/daemon-processor.test.mjs tests/bridge-runner.test.mjs tests/container-runtime.test.mjs tests/egress-proxy.test.mjs tests/ops-http.test.mjs tests/queue-event-telemetry.test.mjs tests/queue-reenqueue.test.mjs tests/session-capture-orchestrator.test.mjs tests/session-pack-materializer.test.mjs",
+    "test:compiled": "node --test tests/blank-session-bootstrap.test.mjs tests/daemon-processor.test.mjs tests/bridge-runner.test.mjs tests/container-runtime.test.mjs tests/egress-proxy.test.mjs tests/ops-http.test.mjs tests/queue-event-telemetry.test.mjs tests/queue-reenqueue.test.mjs tests/session-capture-orchestrator.test.mjs tests/session-pack-materializer.test.mjs tests/worker-api-boundaries.test.mjs",
     "test": "pnpm build && pnpm test:compiled"
   },
   "dependencies": {

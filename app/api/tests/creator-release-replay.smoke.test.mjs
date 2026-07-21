@@ -463,12 +463,6 @@ test("creator release and replay smoke: create, update, list, and project into p
     const boundCredentialIds = [];
     for (const spec of [
       {
-        mcpId: "mcp.image.gpt-image-2",
-        displayName: "Replay image API key",
-        provider: "openai-image",
-        approvalRequired: false,
-      },
-      {
         mcpId: "workspace:seedance-api",
         displayName: "Replay Seedance API key",
         provider: "seedance",
@@ -518,6 +512,7 @@ test("creator release and replay smoke: create, update, list, and project into p
         initialMessage: "请开始整理短剧分镜并告诉我还缺什么信息。",
         bindings: {
           ...launchTemplate.createRunInput.bindings,
+          firstPartyMcpIds: ["mcp.browser.playwright"],
           credentialIds: boundCredentialIds,
         },
       }),
@@ -641,7 +636,7 @@ test("creator release and replay smoke: create, update, list, and project into p
       authorization: `Bearer ${switchedWorkspace.tokens.accessToken}`,
     };
 
-    const personalMembersSummary = await requestJson(
+    const personalMembersSummary = await requestFailure(
       `${baseUrl}/v1/packages/${encodeURIComponent("creator-drama-suite")}/governance/members/summary?workspaceContextKey=${encodeURIComponent("personal")}`,
       {
         headers: {
@@ -650,14 +645,8 @@ test("creator release and replay smoke: create, update, list, and project into p
       }
     );
 
-    assert.equal(personalMembersSummary.packageId, "creator-drama-suite");
-    assert.equal(personalMembersSummary.section, "members");
-    assert.equal(personalMembersSummary.workspaceContextKey, "personal");
-    assert.equal(personalMembersSummary.rows.length >= 1, true);
-    assert.equal(
-      personalMembersSummary.rows.some((row) => row.cells[0].en.includes("Smoke Creator Release")),
-      true
-    );
+    assert.equal(personalMembersSummary.status, 404);
+    assert.equal(personalMembersSummary.body.error.code, "CREATOR_PACKAGE_NOT_FOUND");
   } finally {
     if (app) {
       await app.close().catch(() => undefined);

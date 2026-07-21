@@ -6,12 +6,27 @@ import {
   listWorkshopsQuerySchema,
   type WorkspaceRole,
 } from "@lingban/contracts";
-import { requireCurrentWorkspaceAccess } from "../auth/request-auth.js";
+import {
+  isAuthRequired,
+  requireCurrentWorkspaceAccess,
+  requireWorkspaceAccess,
+  resolveOptionalRequestAuth,
+} from "../auth/request-auth.js";
 import { executeIdempotent, readIdempotencyKey } from "../idempotency/service.js";
 import { serviceIdParamsSchema, workshopIdParamsSchema } from "./storage-schema.js";
 import { workshopCatalogService } from "./service.js";
 
 const catalogWriteRoles: WorkspaceRole[] = ["owner", "admin", "creator"];
+
+function authorizeCatalogQuery<T extends { workspaceId?: string }>(request: Parameters<typeof resolveOptionalRequestAuth>[0], query: T): T {
+  const authContext = resolveOptionalRequestAuth(request);
+  if (!authContext) {
+    return isAuthRequired() ? { ...query, workspaceId: undefined } : query;
+  }
+  const workspaceId = query.workspaceId ?? authContext.currentWorkspace.workspaceId;
+  requireWorkspaceAccess(request, workspaceId);
+  return { ...query, workspaceId };
+}
 
 function toCatalogWriteActor(
   authContext: NonNullable<ReturnType<typeof requireCurrentWorkspaceAccess>>
@@ -25,7 +40,7 @@ function toCatalogWriteActor(
 
 export async function registerWorkshopRoutes(server: FastifyInstance) {
   server.get("/", async (request) => {
-    const query = listWorkshopsQuerySchema.parse(request.query);
+    const query = authorizeCatalogQuery(request, listWorkshopsQuerySchema.parse(request.query));
     return workshopCatalogService.listWorkshops(query);
   });
 
@@ -51,29 +66,29 @@ export async function registerWorkshopRoutes(server: FastifyInstance) {
 
   server.get("/:workshopId", async (request) => {
     const params = workshopIdParamsSchema.parse(request.params);
-    const query = listWorkshopsQuerySchema.parse(request.query);
+    const query = authorizeCatalogQuery(request, listWorkshopsQuerySchema.parse(request.query));
     return workshopCatalogService.getWorkshop(params.workshopId, query);
   });
 
   server.get("/:workshopId/services", async (request) => {
     const params = workshopIdParamsSchema.parse(request.params);
-    const query = listServicesQuerySchema.parse({
+    const query = authorizeCatalogQuery(request, listServicesQuerySchema.parse({
       ...(request.query as Record<string, unknown>),
       workshopId: params.workshopId,
-    });
+    }));
     return workshopCatalogService.listServices(query);
   });
 }
 
 export async function registerServiceCatalogRoutes(server: FastifyInstance) {
   server.get("/", async (request) => {
-    const query = listServicesQuerySchema.parse(request.query);
+    const query = authorizeCatalogQuery(request, listServicesQuerySchema.parse(request.query));
     return workshopCatalogService.listServices(query);
   });
 
   server.get("/:serviceId", async (request) => {
     const params = serviceIdParamsSchema.parse(request.params);
-    const query = listServicesQuerySchema.parse(request.query);
+    const query = authorizeCatalogQuery(request, listServicesQuerySchema.parse(request.query));
     return workshopCatalogService.getService(params.serviceId, query);
   });
 
@@ -89,7 +104,7 @@ export async function registerServiceCatalogRoutes(server: FastifyInstance) {
 
   server.post("/:serviceId/launch-template", async (request) => {
     const params = serviceIdParamsSchema.parse(request.params);
-    const body = createServiceLaunchTemplateInputSchema.parse(request.body);
+    const body = authorizeCatalogQuery(request, createServiceLaunchTemplateInputSchema.parse(request.body));
     return workshopCatalogService.createLaunchTemplate(params.serviceId, body);
   });
 }

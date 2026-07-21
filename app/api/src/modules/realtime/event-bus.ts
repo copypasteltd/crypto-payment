@@ -3,6 +3,7 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  unlinkSync,
 } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -67,6 +68,16 @@ class InMemoryRunEventBus extends CachedRunEventBus {
 
   protected async persist(envelope: RunEventEnvelope) {
     appendFileSync(this.#getEventLogPath(envelope.runId), `${JSON.stringify(envelope)}\n`, "utf8");
+  }
+
+  protected async deletePersisted(runId: string) {
+    try {
+      unlinkSync(this.#getEventLogPath(runId));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+        throw error;
+      }
+    }
   }
 }
 

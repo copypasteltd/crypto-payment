@@ -28,6 +28,7 @@ The standalone worker export includes all internal workspace packages required b
 - 启动 Bridge，采集心跳、状态、诊断与退出原因。
 - 执行重试、退避、DLQ、孤儿 Run 恢复、终态清理与 TTL 回收。
 - 暴露 Worker 运维 HTTP、健康信息和 Prometheus 指标。
+- 接收受鉴权的 Runtime 停止、强制终止与即时工作目录清理请求。
 
 ## 工程结构 / Code Structure
 
@@ -66,6 +67,17 @@ The standalone worker export includes all internal workspace packages required b
 | `run.cleanup` | 终态清理与资源回收 | 5 次尝试 |
 | `run.start.dlq` | 启动失败留档 | 保留原任务与失败上下文 |
 | `run.cleanup.dlq` | 清理失败留档 | 供运维重放与审计 |
+
+## Runtime 释放接口 / Runtime Release Operations
+
+| Endpoint | 语义 |
+| --- | --- |
+| `POST /runs/stop` | 等待目标 Run 的 Runtime 停止；`force=true` 跳过优雅等待 |
+| `POST /runs/cleanup` | 执行 Capture Cleanup Gate 后立即清理目标 Run 工作目录 |
+
+两个接口均由 `LINGBAN_WORKER_OPS_TOKEN` 保护。BullMQ 模式下，API 通过 Worker Ops 命中实际持有运行目录的 Worker，等待清理完成后再写入永久删除终态。
+
+Both operations are authenticated. Immediate cleanup evaluates the Session Capture gate and returns only after workspace cleanup completes.
 
 ## 配置 / Configuration
 
@@ -125,10 +137,16 @@ Capture uploads use expected SHA-256 values and lease generations. Retryable fai
 
 As of 2026-07-17, the worker includes persistent queue consumption, runtime materialization, provider injection, bridge startup, Session Capture barriers and snapshots, egress governance, diagnostics, recovery, dead-letter queues, and cleanup.
 
-最新原生测试结果：29/29 通过。
+最新原生测试结果：33/33 通过。
 
-Latest native test result: 29/29 passed.
+Latest native test result: 33/33 passed.
 
 生产运行需要 Redis 高可用、Worker 多副本抢占验证、Runner 版本固定、容量上限、告警规则和资源回收演练。
 
 Production operation requires Redis high availability, multi-worker contention tests, pinned runner versions, capacity limits, alert rules, and resource-reclamation drills.
+
+## 2026-07-20 Verification / 2026-07-20 验收
+
+Worker 原生测试 `32/32` 通过。宿主机 Session Pack 下载固定使用 `LINGBAN_API_BASE_URL`，容器 Bridge 回调固定使用 `LINGBAN_RUNTIME_API_BASE_URL`；连接错误日志包含请求方法、脱敏 URL 和底层原因。HZ01 已完成真实 Source Run、Consumer Run 和双 Capture 验收。
+
+Native worker tests pass `32/32`. Host-side package downloads and container-side callbacks use separate API boundaries, and the isolated HZ01 runtime completed both source and consumer capture flows.

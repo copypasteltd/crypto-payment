@@ -8,7 +8,7 @@ The `app/` directory contains six deployable applications. Each application has 
 
 | 路径 | 仓库 | 技术 | 职责 |
 | --- | --- | --- | --- |
-| `app/mobile` | `agent-workshop-app` | Taro + React | H5 首发端、任务对话、文件与个人工作区 |
+| `app/mobile` | `agent-workshop-app` | Taro + React | H5 与微信小程序、任务对话、文件与个人工作区 |
 | `app/dashboard` | `agent-workshop-dashboard` | React + Vite | Workspace 与 Creator 用户控制台 |
 | `app/admin` | `agent-workshop-admin` | React + Vite | 独立 Platform Admin 控制面、治理与审计 |
 | `app/api` | `agent-workshop-backend` | Fastify + TypeScript | 公共 API、控制面、Realtime 与 Runtime 回调 |
@@ -50,9 +50,10 @@ pnpm typecheck:frontend
 pnpm -C app/dashboard lint
 pnpm -C app/admin lint
 pnpm -C app/mobile build:h5
+pnpm -C app/mobile build:weapp
 pnpm test:runtime:compiled
 ```
 
-截至 2026-07-15，六个应用均已具备正式代码主链；Admin 已完成独立工程、后端控制面、Dashboard 拆离和发布接入。
+截至 2026-07-21，六个应用均已具备正式代码主链；移动端已完成微信小程序构建与登录主链，Admin 已完成独立工程、后端控制面、Dashboard 拆离和发布接入。Mobile、Dashboard 与 Admin 已接入实例停止、释放、归档、恢复和永久销毁生命周期。
 
-As of 2026-07-15, all six applications have production-oriented main paths. Admin now has an independent frontend, backend control plane, Dashboard separation, and release integration.
+As of 2026-07-21, all six applications have production-oriented main paths. Mobile includes the WeChat Mini Program build and login flow, Admin remains independently deployed from Dashboard, and every client surface exposes the run lifecycle actions allowed by its permission boundary.

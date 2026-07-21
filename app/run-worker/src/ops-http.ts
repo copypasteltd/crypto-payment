@@ -15,7 +15,8 @@ type WorkerOpsHttpServerOptions = {
   getDiagnostics: () => WorkerDaemonDiagnostics | Promise<WorkerDaemonDiagnostics>;
   getMetricsText: () => string | Promise<string>;
   processCapture?: (runId: string, captureId: string) => unknown | Promise<unknown>;
-  stopRun?: (runId: string) => unknown | Promise<unknown>;
+  stopRun?: (runId: string, options?: { force?: boolean }) => unknown | Promise<unknown>;
+  cleanupRun?: (runId: string) => unknown | Promise<unknown>;
 };
 
 function sendJson(response: http.ServerResponse, statusCode: number, payload: unknown) {
@@ -47,7 +48,8 @@ export class WorkerOpsHttpServer {
   #getDiagnostics: () => WorkerDaemonDiagnostics | Promise<WorkerDaemonDiagnostics>;
   #getMetricsText: () => string | Promise<string>;
   #processCapture?: (runId: string, captureId: string) => unknown | Promise<unknown>;
-  #stopRun?: (runId: string) => unknown | Promise<unknown>;
+  #stopRun?: (runId: string, options?: { force?: boolean }) => unknown | Promise<unknown>;
+  #cleanupRun?: (runId: string) => unknown | Promise<unknown>;
   #startedAt: string | null = null;
   #inFlightRequests = 0;
   #requestsTotal = 0;
@@ -69,6 +71,7 @@ export class WorkerOpsHttpServer {
     this.#getMetricsText = options.getMetricsText;
     this.#processCapture = options.processCapture;
     this.#stopRun = options.stopRun;
+    this.#cleanupRun = options.cleanupRun;
     this.#server = http.createServer(async (request, response) => {
       const route = this.#resolveRoute(request);
       const respondJson = (statusCode: number, payload: unknown) => {
@@ -167,8 +170,28 @@ export class WorkerOpsHttpServer {
             respondJson(400, { error: "runId is required" });
             return;
           }
-          const result = await this.#stopRun(runId);
+          const result = await this.#stopRun(runId, { force: body.force === true });
           respondJson(202, { accepted: true, result });
+          return;
+        }
+
+        if (request.method === "POST" && request.url === "/runs/cleanup") {
+          if (!this.#isAuthorized(request)) {
+            respondJson(401, { error: "invalid ops token" });
+            return;
+          }
+          if (!this.#cleanupRun) {
+            respondJson(503, { error: "run cleanup controller unavailable" });
+            return;
+          }
+          const body = await this.#readJsonBody(request);
+          const runId = typeof body.runId === "string" ? body.runId.trim() : "";
+          if (!runId) {
+            respondJson(400, { error: "runId is required" });
+            return;
+          }
+          const result = await this.#cleanupRun(runId);
+          respondJson(200, { completed: true, result });
           return;
         }
 
@@ -270,6 +293,9 @@ export class WorkerOpsHttpServer {
     }
     if (request.method === "POST" && pathname === "/runs/stop") {
       return "runs.stop";
+    }
+    if (request.method === "POST" && pathname === "/runs/cleanup") {
+      return "runs.cleanup";
     }
     return "unknown";
   }

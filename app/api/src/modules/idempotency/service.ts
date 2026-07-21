@@ -28,6 +28,12 @@ export function readIdempotencyKey(request: FastifyRequest) {
   return normalizeKey(request.headers["idempotency-key"]);
 }
 
+export function readOptionalIdempotencyKey(request: FastifyRequest) {
+  const raw = request.headers["idempotency-key"];
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  return value?.trim() ? normalizeKey(raw) : null;
+}
+
 export async function executeIdempotent<T>(input: {
   scope: string;
   key: string;

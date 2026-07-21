@@ -35,8 +35,10 @@ import { quotaService } from "../quotas/service.js";
 import { runFileLifecycleManager } from "../runs/file-lifecycle.js";
 import { runsRepository } from "../runs/repository.js";
 import { runsService } from "../runs/service.js";
+import { sessionCaptureRepository } from "../session-captures/repository.js";
 import { sessionArchiveRepository } from "../sessions/repository.js";
 import { sessionCatalogService } from "../sessions/service.js";
+import { uploadRepository } from "../uploads/repository.js";
 import { workshopCatalogRepository } from "../workshops/repository.js";
 import { adminRepository } from "./repository.js";
 
@@ -188,6 +190,8 @@ function actionStatus(action: AdminAction): AdminResourceStatus | null {
       return "revoked";
     case "drain":
       return "draining";
+    case "delete":
+      return "deleted";
     default:
       return null;
   }
@@ -553,8 +557,8 @@ export class AdminService {
   listRuns(rawQuery: unknown) {
     const query = adminListQuerySchema.parse(rawQuery ?? {});
     const q = normalizeQuery(query.q);
-    const items = runsService
-      .listRuns()
+    const items = (["ACTIVE", "ARCHIVED", "DELETION_PENDING", "DELETED"] as const)
+      .flatMap((recordStatus) => runsService.listRuns({ recordStatus }))
       .map((item) => ({
         ...item,
         governanceStatus: stateStatus("run", item.run.runId, item.run.status),
@@ -564,7 +568,7 @@ export class AdminService {
       }))
       .filter(
         (item) =>
-          (!query.status || item.run.status === query.status) &&
+          (!query.status || item.run.status === query.status || item.lifecycle.recordStatus === query.status || item.lifecycle.runtimeStatus === query.status) &&
           (!query.workspaceId || item.run.workspaceId === query.workspaceId) &&
           matchesQuery(item, q)
       )
@@ -573,7 +577,7 @@ export class AdminService {
   }
 
   getRun(runId: string) {
-    const snapshot = runsService.getRun(runId);
+    const snapshot = runsService.getRunIncludingDeleted(runId);
     const aggregate = runsRepository.get(runId);
     return {
       ...snapshot,
@@ -1199,15 +1203,47 @@ export class AdminService {
         };
       }
       case "run": {
-        const run = runsService.getRun(input.resourceId);
+        const run = runsService.getRunIncludingDeleted(input.resourceId);
+        const sessionCaptures = await sessionCaptureRepository.listByRunId(input.resourceId);
+        const uploads = uploadRepository.listUploadsByRun(input.resourceId);
+        const downloadTickets = uploadRepository
+          .listDownloadTickets()
+          .filter((item) => item.runId === input.resourceId);
         return {
           resourceName: run.run.title,
           workspaceId: run.run.workspaceId,
           currentStatus: run.run.status,
-          targetStatus: input.action === "cancel" || input.action === "terminate" ? "CANCELLED" : "CREATED",
+          targetStatus:
+            input.action === "cancel" || input.action === "terminate"
+              ? "CANCELLED"
+              : input.action === "archive"
+                ? "ARCHIVED"
+                : input.action === "delete"
+                  ? "DELETED"
+                  : input.action === "restore"
+                    ? "ACTIVE"
+                    : run.lifecycle.runtimeStatus,
+          runtimeStatus: run.lifecycle.runtimeStatus,
+          recordStatus: run.lifecycle.recordStatus,
           files: run.files.length,
           artifacts: run.artifacts.length,
           pendingApprovals: run.approvals.filter((item) => item.state === "pending").length,
+          deletionScope: {
+            workspace: true,
+            messages: run.messages.length,
+            indexedFiles: run.files.length,
+            uploads: uploads.length,
+            downloadTickets: downloadTickets.length,
+            agentEvents: true,
+            realtimeEvents: true,
+          },
+          retainedScope: {
+            sessionCaptures: sessionCaptures.length,
+            billingEntries: billingRepository.listEntries().filter((item) => item.runId === input.resourceId).length,
+            mcpCallAudits: mcpCallAuditRepository.list().filter((item) => item.runId === input.resourceId).length,
+            runTombstone: true,
+            adminAudit: true,
+          },
           version: currentState?.version ?? 0,
         };
       }
@@ -1387,8 +1423,37 @@ export class AdminService {
         );
       }
       case "run": {
-        if (operation.action === "cancel" || operation.action === "terminate") {
-          return (await runsService.cancel(operation.resourceId, reason)) as unknown as JsonRecord;
+        if (operation.action === "cancel") {
+          return (await runsService.cancel(operation.resourceId, reason, {
+            requestedByUserId: actor.user.userId,
+          })) as unknown as JsonRecord;
+        }
+        if (operation.action === "terminate") {
+          return (await runsService.forceTerminate(
+            operation.resourceId,
+            reason,
+            actor.user.userId
+          )) as unknown as JsonRecord;
+        }
+        if (operation.action === "reconcile") {
+          return (await runsService.reconcileRuntime(operation.resourceId)) as unknown as JsonRecord;
+        }
+        if (operation.action === "archive") {
+          return (await runsService.archiveRun(operation.resourceId, {
+            requestedByUserId: actor.user.userId,
+          })) as unknown as JsonRecord;
+        }
+        if (operation.action === "restore") {
+          return (await runsService.restoreRun(operation.resourceId, {
+            requestedByUserId: actor.user.userId,
+          })) as unknown as JsonRecord;
+        }
+        if (operation.action === "delete") {
+          return (await runsService.deleteRun(operation.resourceId, {
+            reason,
+            confirmation: operation.resourceId,
+            requestedByUserId: actor.user.userId,
+          })) as unknown as JsonRecord;
         }
         if (operation.action === "retry") {
           const aggregate = runsRepository.get(operation.resourceId);

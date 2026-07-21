@@ -75,12 +75,14 @@ import { taskVersionsRepository } from "../workshops/task-versions-repository.js
 import { creatorRepository } from "./repository.js";
 
 type CreatorScopeActor = {
+  workspaceId?: string | null;
   workspaceContextKey?: string | null;
 };
 
 type CreatorActor = CreatorScopeActor & {
   userId: string;
   role: WorkspaceRole;
+  workspaceId: string;
 };
 
 type CreatorGovernanceActor = CreatorActor & {
@@ -151,6 +153,7 @@ export class CreatorService {
   listPackages(query: ListCreatorPackagesQuery, actor?: CreatorScopeActor) {
     const parsed = listCreatorPackagesQuerySchema.parse(query);
     const currentWorkspaceContextKey = actor?.workspaceContextKey?.trim() || null;
+    const currentWorkspaceId = actor?.workspaceId?.trim() || null;
 
     if (currentWorkspaceContextKey && parsed.workspaceContextKey?.trim()) {
       this.assertActorWorkspaceContext(actor, parsed.workspaceContextKey.trim());
@@ -162,6 +165,8 @@ export class CreatorService {
         (item) =>
           (!currentWorkspaceContextKey ||
             item.workspaceContextKeys.includes(currentWorkspaceContextKey)) &&
+          (!currentWorkspaceId ||
+            item.workspaceIds.includes(currentWorkspaceId)) &&
           (!parsed.workspaceContextKey || item.workspaceContextKeys.includes(parsed.workspaceContextKey)) &&
           (!parsed.state || item.state === parsed.state) &&
           matchesSearchQuery(parsed.q ?? "", [
@@ -200,6 +205,7 @@ export class CreatorService {
       updatedAt: at,
       releaseChannel: l("私有", "Private"),
       workspaceContextKeys: [parsed.workspaceContextKey],
+      workspaceIds: [actor.workspaceId],
       linkedWorkshopIds: parsed.linkedWorkshopIds,
       linkedServiceIds: parsed.linkedServiceIds,
       session: {
@@ -896,12 +902,16 @@ export class CreatorService {
   }
 
   private assertPackageVisibleToActor(pkg: CreatorPackageDetail, actor?: CreatorScopeActor) {
+    const workspaceId = actor?.workspaceId?.trim();
     const workspaceContextKey = actor?.workspaceContextKey?.trim();
-    if (!workspaceContextKey) {
+    if (!workspaceId && !workspaceContextKey) {
       return;
     }
 
-    if (pkg.workspaceContextKeys.includes(workspaceContextKey)) {
+    if (
+      (!workspaceId || pkg.workspaceIds.includes(workspaceId)) &&
+      (!workspaceContextKey || pkg.workspaceContextKeys.includes(workspaceContextKey))
+    ) {
       return;
     }
 

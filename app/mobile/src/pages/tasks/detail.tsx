@@ -8,9 +8,10 @@ import type {
   SessionCaptureRecord,
   SendRunMessageInput,
 } from "@lingban/contracts";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button, Image, Input, Switch, Textarea, View } from "@tarojs/components";
-import Taro, { getCurrentInstance } from "@tarojs/taro";
+import Taro from "@tarojs/taro";
+import { useMobileQuery as useQuery } from "../../lib/useMobileQuery";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { MobileTaskMessage } from "../../data/mobileData";
 import { formatAttachmentSize, pickBrowserAttachments, type BrowserAttachmentDraft } from "../../lib/attachments";
@@ -23,6 +24,8 @@ import {
 } from "../../lib/billing";
 import { mobileBillingApi, mobileQuotaApi, mobileRunsApi, mobileSessionCapturesApi } from "../../lib/api";
 import archiveIcon from "../../assets/archive.svg";
+import chevronDownIcon from "../../assets/chevron-down.svg";
+import moreHorizontalIcon from "../../assets/more-horizontal.svg";
 import { isLiveTaskId, mapRunSnapshotToMobileTask } from "../../lib/liveTaskAdapters";
 import {
   formatQuotaValue,
@@ -38,6 +41,8 @@ import { mobileRunDetailQueryKey, mobileRunFilesQueryKey } from "../../lib/runQu
 import { useMobileRecentRecorder } from "../../lib/recent";
 import { useMobileRunStream } from "../../lib/runStream";
 import { useResolvedMobileWorkspace } from "../../lib/useMobileWorkspace";
+import { useMobileRouteParams } from "../../lib/useMobileRouteParams";
+import { useMobilePageShellClass } from "../../components/MobilePageShell";
 import {
   useMobileUiStore,
   type MobileOutgoingMessageRecord,
@@ -371,16 +376,6 @@ function formatCaptureBytes(value: number) {
   return `${value} B`;
 }
 
-function openCreatorDashboard() {
-  if (typeof window === "undefined") return;
-  const url = new URL(window.location.href);
-  if (url.port === "38120") url.port = "38110";
-  url.pathname = "/workspace/creator";
-  url.search = "";
-  url.hash = "";
-  window.location.assign(url.toString());
-}
-
 function attachmentsEqual(
   left: RunConversationAttachment[] | Array<{ label: string; path: string }>,
   right: Array<{ label: string; path: string }>
@@ -437,8 +432,17 @@ function mapOutgoingMessageToDisplay(
 }
 
 export default function TaskDetailPage() {
+  const params = useMobileRouteParams<{ id?: string }>();
+  const pageShellClass = useMobilePageShellClass("task-detail-page");
+  if (!params) {
+    return <View className={pageShellClass}><View className="section-copy">正在加载实例路由</View></View>;
+  }
+  return <TaskDetailContent id={params.id} />;
+}
+
+function TaskDetailContent({ id }: { id?: string }) {
+  const pageShellClass = useMobilePageShellClass("task-detail-page");
   const queryClient = useQueryClient();
-  const id = getCurrentInstance().router?.params?.id;
   const liveTaskId = isLiveTaskId(id);
   const taskDrafts = useMobileUiStore((state) => state.taskDrafts);
   const taskOutbox = useMobileUiStore((state) => state.taskOutbox);
@@ -712,7 +716,8 @@ export default function TaskDetailPage() {
     mappedLiveTask,
   ]);
 
-  const [summaryOpen, setSummaryOpen] = useState(true);
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [composerExpanded, setComposerExpanded] = useState(false);
   const [reviewError, setReviewError] = useState("");
   const [reviewFormsByAnswerId, setReviewFormsByAnswerId] = useState<
     Record<string, ReviewFormState>
@@ -726,9 +731,17 @@ export default function TaskDetailPage() {
   const hasInFlightOutgoing = outgoingMessages.some((item) => item.status !== "failed");
 
   const liveMode = Boolean(task);
+  const runTerminal = Boolean(
+    liveSnapshot && ["SUCCEEDED", "FAILED", "CANCELLED"].includes(liveSnapshot.run.status)
+  );
+  const runtimeTransitioning = Boolean(
+    liveSnapshot && ["STOP_REQUESTED", "STOPPING"].includes(liveSnapshot.lifecycle.runtimeStatus)
+  );
+  const runInteractive = Boolean(liveSnapshot && !runTerminal && !runtimeTransitioning);
   const activeCapture =
     capturesQuery.data?.find((capture) => capture.captureId === submittedCaptureId) ??
     capturesQuery.data?.find((capture) => !["CAPTURED", "FAILED", "CANCELLED"].includes(capture.status)) ??
+    capturesQuery.data?.[0] ??
     null;
   const captureReady =
     liveSnapshot?.agentThread?.currentTurnState === "completed" &&
@@ -758,7 +771,7 @@ export default function TaskDetailPage() {
         },
         destinationSessionId: null,
         createDraft: true,
-        idempotencyKey: `h5:${task.id}:${Date.now()}`,
+        idempotencyKey: `mobile:${task.id}:${liveSnapshot.agentThread?.currentTurnId ?? "terminal"}`,
       });
     },
     onSuccess: async (result) => {
@@ -766,12 +779,108 @@ export default function TaskDetailPage() {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["mobile", "session-captures", id] }),
         queryClient.invalidateQueries({ queryKey: id ? mobileRunDetailQueryKey(id) : ["mobile", "runs"] }),
+        queryClient.invalidateQueries({ queryKey: ["mobile", "creator"] }),
       ]);
     },
     onError: (error) => {
       Taro.showToast({ title: error instanceof Error ? error.message : "固化提交失败", icon: "none" });
     },
   });
+  const refreshLifecycleQueries = async (runId: string) => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["mobile", "runs"] }),
+      queryClient.invalidateQueries({ queryKey: mobileRunDetailQueryKey(runId) }),
+      queryClient.invalidateQueries({ queryKey: mobileRunFilesQueryKey(runId) }),
+      queryClient.invalidateQueries({ queryKey: ["mobile", "billing"] }),
+    ]);
+  };
+  const stopMutation = useMutation({
+    mutationFn: async (runId: string) =>
+      mobileRunsApi.stopRun(runId, "用户从移动端结束当前实例"),
+    onSuccess: async (snapshot) => {
+      queryClient.setQueryData(mobileRunDetailQueryKey(snapshot.run.runId), snapshot);
+      setComposerExpanded(false);
+      await refreshLifecycleQueries(snapshot.run.runId);
+      Taro.showToast({
+        title: snapshot.lifecycle.runtimeStatus === "RELEASED" ? "运行环境已释放" : "停止请求已提交",
+        icon: "success",
+      });
+    },
+    onError: (error) => {
+      Taro.showToast({ title: error instanceof Error ? error.message : "停止实例失败", icon: "none" });
+    },
+  });
+  const archiveMutation = useMutation({
+    mutationFn: async (runId: string) => mobileRunsApi.archiveRun(runId, "用户从移动端归档实例"),
+    onSuccess: async (snapshot) => {
+      queryClient.setQueryData(mobileRunDetailQueryKey(snapshot.run.runId), snapshot);
+      await refreshLifecycleQueries(snapshot.run.runId);
+      Taro.showToast({ title: "实例已归档", icon: "success" });
+    },
+    onError: (error) => Taro.showToast({ title: error instanceof Error ? error.message : "归档失败", icon: "none" }),
+  });
+  const restoreMutation = useMutation({
+    mutationFn: async (runId: string) => mobileRunsApi.restoreRun(runId),
+    onSuccess: async (snapshot) => {
+      queryClient.setQueryData(mobileRunDetailQueryKey(snapshot.run.runId), snapshot);
+      await refreshLifecycleQueries(snapshot.run.runId);
+      Taro.showToast({ title: "实例已恢复", icon: "success" });
+    },
+    onError: (error) => Taro.showToast({ title: error instanceof Error ? error.message : "恢复失败", icon: "none" }),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: async (runId: string) => mobileRunsApi.deleteRun(runId, "用户确认永久删除当前实例"),
+    onSuccess: async (_, runId) => {
+      await queryClient.invalidateQueries({ queryKey: ["mobile", "runs"] });
+      queryClient.removeQueries({ queryKey: mobileRunDetailQueryKey(runId) });
+      Taro.showToast({ title: "实例已删除", icon: "success" });
+      setTimeout(() => Taro.navigateBack(), 400);
+    },
+    onError: (error) => Taro.showToast({ title: error instanceof Error ? error.message : "删除失败", icon: "none" }),
+  });
+  const confirmStop = async () => {
+    if (!task) return;
+    const result = await Taro.showModal({
+      title: "立即停止实例",
+      content: "当前执行将被中断，已写入工作目录的文件会保留。运行环境释放后仍可查看消息和结果。",
+      confirmText: "停止并释放",
+      confirmColor: "#d84b4b",
+    });
+    if (result.confirm) stopMutation.mutate(task.id);
+  };
+  const confirmDelete = async () => {
+    if (!task) return;
+    const result = await Taro.showModal({
+      title: "永久删除实例",
+      content: `将清理实例 ${task.runRef} 的消息、工作目录和运行记录。该操作无法撤销。`,
+      confirmText: "永久删除",
+      confirmColor: "#d84b4b",
+    });
+    if (result.confirm) deleteMutation.mutate(task.id);
+  };
+  const openLifecycleActions = async () => {
+    if (!task || !liveSnapshot) return;
+    const actions: Array<{ label: string; run: () => void | Promise<void> }> = [];
+    if (liveSnapshot.lifecycle.recordStatus === "ARCHIVED") {
+      actions.push({ label: "恢复到任务列表", run: () => restoreMutation.mutate(task.id) });
+      actions.push({ label: "永久删除实例", run: confirmDelete });
+    } else if (runInteractive) {
+      actions.push({ label: "固化并结束", run: () => setCaptureSheetOpen(true) });
+      actions.push({ label: "立即停止并释放", run: confirmStop });
+    } else if (liveSnapshot.lifecycle.runtimeStatus === "RELEASE_FAILED" || liveSnapshot.lifecycle.runtimeStatus === "ORPHANED") {
+      actions.push({ label: "重试释放运行环境", run: confirmStop });
+    } else if (liveSnapshot.lifecycle.runtimeStatus === "RELEASED") {
+      actions.push({ label: "归档实例", run: () => archiveMutation.mutate(task.id) });
+      actions.push({ label: "永久删除实例", run: confirmDelete });
+    }
+    if (actions.length === 0) return;
+    try {
+      const result = await Taro.showActionSheet({ itemList: actions.map((item) => item.label) });
+      await actions[result.tapIndex]?.run();
+    } catch {
+      // The user dismissed the action sheet.
+    }
+  };
   useMobileRecentRecorder(
     task && liveMode && currentWorkspace.source === "auth"
       ? {
@@ -790,6 +899,7 @@ export default function TaskDetailPage() {
     }
 
     setTaskDraft(task.id, value);
+    setComposerExpanded(true);
   };
   const setTaskAttachments = (taskId: string, next: BrowserAttachmentDraft[]) => {
     setAttachmentDraftsByTask((current) => ({
@@ -872,6 +982,7 @@ export default function TaskDetailPage() {
   useEffect(() => {
     setReviewError("");
     setReviewFormsByAnswerId({});
+    setComposerExpanded(false);
   }, [task?.id]);
 
   const displayedMessages = useMemo<DisplayedTaskMessage[]>(() => {
@@ -962,6 +1073,7 @@ export default function TaskDetailPage() {
         clearTaskDraft(variables.taskId);
       }
       clearTaskAttachments(variables.taskId);
+      setComposerExpanded(false);
 
       if (!variables.taskId) {
         return;
@@ -1252,7 +1364,7 @@ export default function TaskDetailPage() {
 
   if (!task && routeTaskOutOfScope) {
     return (
-      <View className="page-shell">
+      <View className={pageShellClass}>
         <View className="hero-card">
           <View className="section-title">当前任务不属于这个工作区</View>
           <View className="section-copy">
@@ -1273,7 +1385,7 @@ export default function TaskDetailPage() {
 
   if (!task && liveTaskId && liveTaskQuery.isPending) {
     return (
-      <View className="page-shell">
+      <View className={pageShellClass}>
         <View className="hero-card">
           <View className="section-title">正在加载实例对话</View>
           <View className="section-copy">正在同步当前 run 的消息、状态和文件摘要。</View>
@@ -1284,7 +1396,7 @@ export default function TaskDetailPage() {
 
   if (!task) {
     return (
-      <View className="page-shell">
+      <View className={pageShellClass}>
         <View className="hero-card">
           <View className="section-title">当前工作区暂无可查看任务</View>
           <View className="section-copy">先回到工坊启动一个实例，或者切换到有任务的工作区。</View>
@@ -1297,7 +1409,10 @@ export default function TaskDetailPage() {
   }
 
   return (
-    <View className="page-shell task-detail-page" data-testid="mobile-task-detail-page">
+    <View
+      className={`${pageShellClass} ${composerExpanded ? "composer-expanded" : "composer-collapsed"}`}
+      data-testid="mobile-task-detail-page"
+    >
       <View className="crumb-row">
         <Button className="crumb-btn" onClick={() => Taro.navigateBack()}>
           返回任务列表
@@ -1313,15 +1428,59 @@ export default function TaskDetailPage() {
         <Button
           className="tab-btn capture-tab-btn"
           data-testid="mobile-task-capture-session"
+          disabled={!runInteractive}
           onClick={() => setCaptureSheetOpen(true)}
         >
           <Image className="inline-action-icon" src={archiveIcon} mode="aspectFit" />
           固化
         </Button>
+        <Button
+          className="tab-btn lifecycle-menu-btn"
+          data-testid="mobile-task-lifecycle-menu"
+          disabled={stopMutation.isPending || archiveMutation.isPending || restoreMutation.isPending || deleteMutation.isPending}
+          onClick={openLifecycleActions}
+        >
+          <Image className="inline-action-icon" src={moreHorizontalIcon} mode="aspectFit" />
+          管理
+        </Button>
       </View>
 
+      {liveSnapshot && liveSnapshot.lifecycle.runtimeStatus !== "ACTIVE" && liveSnapshot.lifecycle.runtimeStatus !== "NOT_STARTED" ? (
+        <View
+          className={`lifecycle-banner ${liveSnapshot.lifecycle.deletionFailure || ["RELEASE_FAILED", "ORPHANED"].includes(liveSnapshot.lifecycle.runtimeStatus) ? "warn" : liveSnapshot.lifecycle.runtimeStatus === "RELEASED" ? "success" : "active"}`}
+          data-testid="mobile-task-lifecycle-status"
+        >
+          <View>
+            <View className="lifecycle-banner-title">
+              {liveSnapshot.lifecycle.deletionFailure
+                ? "实例销毁未完成"
+                : liveSnapshot.lifecycle.runtimeStatus === "RELEASED"
+                ? "运行环境已释放"
+                : ["RELEASE_FAILED", "ORPHANED"].includes(liveSnapshot.lifecycle.runtimeStatus)
+                  ? "运行环境释放失败"
+                  : "正在停止并释放运行环境"}
+            </View>
+            <View className="lifecycle-banner-copy">
+              {liveSnapshot.lifecycle.deletionFailure
+                ? liveSnapshot.lifecycle.deletionFailure
+                : liveSnapshot.lifecycle.releaseFailure
+                ? liveSnapshot.lifecycle.releaseFailure
+                : liveSnapshot.lifecycle.runtimeStatus === "RELEASED"
+                  ? "当前实例不再占用运行资源，消息和结果文件继续保留。"
+                  : "停止期间已锁定消息发送和审批操作。"}
+            </View>
+          </View>
+          <View className="pill">{liveSnapshot.lifecycle.runtimeStatus}</View>
+        </View>
+      ) : null}
+
       <View className={`task-shell ${summaryOpen ? "is-open" : ""}`}>
-        <Button className="card-hit task-shell-toggle" onClick={() => setSummaryOpen((value) => !value)}>
+        <Button
+          className="card-hit task-shell-toggle"
+          data-testid="mobile-task-summary-toggle"
+          aria-expanded={summaryOpen}
+          onClick={() => setSummaryOpen((value) => !value)}
+        >
           <View className="task-top">
             <View className="task-main">
               <View className="task-shell-title">{task.title}</View>
@@ -1636,7 +1795,7 @@ export default function TaskDetailPage() {
         </View>
       ) : null}
 
-      {liveMode ? (
+      {liveMode && summaryOpen ? (
         <View className="module-card">
           <View className="section-head">
             <View>
@@ -1712,7 +1871,7 @@ export default function TaskDetailPage() {
         </View>
       ) : null}
 
-      {liveMode ? (
+      {liveMode && summaryOpen ? (
         <View className="module-card">
           <View className="section-head">
             <View>
@@ -2006,24 +2165,53 @@ export default function TaskDetailPage() {
         ))}
       </View>
 
-      <View className="composer task-composer" data-testid="mobile-task-composer">
-        <>
-            <View className="task-composer-head">
-              <View className="task-composer-title">继续对话</View>
-              <View
-                className={`task-connection-state ${runStream.connected ? "online" : ""}`}
-                data-testid="mobile-task-connection-state"
-              >
-                <View className="task-connection-dot" />
-                {runStream.connected ? "实时连接" : "正在连接"}
+      {runInteractive ? (
+        <View
+          className={`composer task-composer ${composerExpanded ? "expanded" : "collapsed"}`}
+          data-testid="mobile-task-composer"
+        >
+        <Button
+          className="task-composer-toggle"
+          data-testid="mobile-task-composer-toggle"
+          aria-expanded={composerExpanded}
+          onClick={() => setComposerExpanded((current) => !current)}
+        >
+          <View className="task-composer-title-group">
+            <View className="task-composer-title">继续对话</View>
+            {!composerExpanded ? (
+              <View className="task-composer-preview">
+                {draft.trim()
+                  ? draft.trim()
+                  : attachmentDrafts.length > 0
+                    ? `已选择 ${attachmentDrafts.length} 个附件`
+                    : "点按展开输入"}
               </View>
+            ) : null}
+          </View>
+          <View className="task-composer-head-actions">
+            <View
+              className={`task-connection-state ${runStream.connected ? "online" : ""}`}
+              data-testid="mobile-task-connection-state"
+            >
+              <View className="task-connection-dot" />
+              {runStream.connected ? "实时连接" : "正在连接"}
             </View>
+            <Image
+              className={`task-composer-chevron ${composerExpanded ? "expanded" : "collapsed"}`}
+              src={chevronDownIcon}
+              mode="aspectFit"
+            />
+          </View>
+        </Button>
+        {composerExpanded ? (
+          <>
             <Textarea
               className="composer-box composer-input task-composer-input"
               data-testid="mobile-task-composer-input"
               value={draft}
               maxlength={2000}
               placeholder="继续提问、补充材料说明，或者告诉 Codex 下一步要做什么"
+              onFocus={() => setComposerExpanded(true)}
               onInput={(event) => {
                 if (!task) {
                   return;
@@ -2139,7 +2327,30 @@ export default function TaskDetailPage() {
               </Button>
             </View>
           </>
-      </View>
+        ) : null}
+        </View>
+      ) : (
+        <View className="composer task-composer lifecycle-composer" data-testid="mobile-task-terminal-actions">
+          <View>
+            <View className="task-composer-title">
+              {runtimeTransitioning
+                ? "正在停止实例"
+                : liveSnapshot && ["RELEASE_FAILED", "ORPHANED"].includes(liveSnapshot.lifecycle.runtimeStatus)
+                  ? "运行环境释放失败"
+                  : "实例已结束"}
+            </View>
+            <View className="task-composer-preview terminal">
+              {runtimeTransitioning
+                ? "完成释放后可继续查看文件和归档实例"
+                : "当前会话已锁定，可查看结果、归档或删除"}
+            </View>
+          </View>
+          <View className="lifecycle-composer-actions">
+            <Button className="pill" onClick={() => Taro.navigateTo({ url: `/pages/tasks/files?id=${task.id}` })}>查看文件</Button>
+            <Button className="pill active" onClick={openLifecycleActions}>管理实例</Button>
+          </View>
+        </View>
+      )}
 
       {captureSheetOpen ? (
         <View className="capture-sheet-layer">
@@ -2182,8 +2393,20 @@ export default function TaskDetailPage() {
                 ) : null}
                 {activeCapture.status === "CAPTURED" ? (
                   <>
-                    <View className="capture-mobile-success">Capture 已验证，Draft 已进入 Creator 工作台。</View>
-                    <Button className="send-btn" onClick={openCreatorDashboard}>前往 Dashboard 审核</Button>
+                    <View className="capture-mobile-success">Capture 已验证，Draft 已进入当前项目的固化流程。</View>
+                    <Button
+                      className="send-btn"
+                      onClick={() => {
+                        const projectId = liveSnapshot?.run.sessionProjectId;
+                        Taro.navigateTo({
+                          url: projectId
+                            ? `/pages/creator/project?id=${encodeURIComponent(projectId)}`
+                            : "/pages/creator/projects",
+                        });
+                      }}
+                    >
+                      审核并固化
+                    </Button>
                   </>
                 ) : null}
               </View>
