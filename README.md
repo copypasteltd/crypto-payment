@@ -13,7 +13,7 @@ Lingban Workshop is a cloud agent-workshop platform for organizations and indivi
 | Platform Admin | 已独立部署，`http://192.168.31.20:38140/` |
 | Backend API | 已部署，`http://192.168.31.20:38130` |
 | Session Control v2 | 已部署，Migration `0030_session_control` 已应用 |
-| Frontend E2E | 33/33 通过 |
+| Frontend E2E | 34/34 通过 |
 | Backend smoke | 62/62 通过 |
 | Run Worker tests | 33/33 通过 |
 | Runtime Bridge tests | 25/25 通过 |
