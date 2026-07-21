@@ -265,6 +265,36 @@ function createRunSnapshot(extraMessages = []) {
   };
 }
 
+function createReleasedRunSnapshot(extraMessages = []) {
+  const snapshot = createRunSnapshot(extraMessages);
+  const releasedAt = "2026-07-21T10:27:49.009Z";
+  return {
+    ...snapshot,
+    run: {
+      ...snapshot.run,
+      status: "CANCELLED",
+      statusReason: "User stopped the run from Mobile H5.",
+      updatedAt: releasedAt,
+    },
+    runtime: {
+      ...snapshot.runtime,
+      finishedAt: releasedAt,
+      exitCode: 0,
+      exitSignal: null,
+    },
+    lifecycle: {
+      runtimeStatus: "RELEASED",
+      recordStatus: "ACTIVE",
+      stopMode: "graceful",
+      stopReason: "User stopped the run from Mobile H5.",
+      stopRequestedAt: releasedAt,
+      releasedAt,
+      billingStoppedAt: releasedAt,
+      cleanupAttemptCount: 1,
+    },
+  };
+}
+
 function createApprovalRunFiles() {
   return [
     {
@@ -667,6 +697,7 @@ function fulfillJson(route, body, status = 200) {
 test.beforeEach(async ({ page }) => {
   let messagePostAttempts = 0;
   let currentMessages = createRunMessages();
+  let runReleased = false;
 
   await page.route("**/v1/auth/session", async (route) => {
     await fulfillJson(route, disabledAuthBootstrap);
@@ -677,7 +708,9 @@ test.beforeEach(async ({ page }) => {
     const url = new URL(request.url());
 
     if (request.method() === "GET" && url.pathname === "/v1/runs") {
-      await fulfillJson(route, [createRunSnapshot(currentMessages.slice(2))]);
+      await fulfillJson(route, [runReleased
+        ? createReleasedRunSnapshot(currentMessages.slice(2))
+        : createRunSnapshot(currentMessages.slice(2))]);
       return;
     }
 
@@ -687,7 +720,15 @@ test.beforeEach(async ({ page }) => {
     }
 
     if (request.method() === "GET" && url.pathname === `/v1/runs/${runId}`) {
-      await fulfillJson(route, createRunSnapshot(currentMessages.slice(2)));
+      await fulfillJson(route, runReleased
+        ? createReleasedRunSnapshot(currentMessages.slice(2))
+        : createRunSnapshot(currentMessages.slice(2)));
+      return;
+    }
+
+    if (request.method() === "POST" && url.pathname === `/v1/runs/${runId}/stop`) {
+      runReleased = true;
+      await fulfillJson(route, createReleasedRunSnapshot(currentMessages.slice(2)));
       return;
     }
 
@@ -753,6 +794,28 @@ test.describe("mobile h5 smoke", () => {
 
     await page.getByTestId("mobile-task-detail-open-files").click();
     await expect(page.getByTestId("mobile-task-files-page")).toBeVisible();
+  });
+
+  test("stops and releases an active run from task detail", async ({ page }) => {
+    await page.goto("/");
+    await page.getByTestId("mobile-workshops-to-tasks").click();
+    await page.getByTestId(`mobile-task-open-${runId}`).click();
+    await expect(page.getByTestId("mobile-task-detail-page")).toBeVisible();
+
+    await page.getByTestId("mobile-task-lifecycle-menu").click();
+    await page.getByText("立即停止并释放", { exact: true }).click();
+    await expect(page.getByText("确认停止", { exact: true })).toBeVisible();
+
+    const stopRequest = page.waitForRequest((request) => {
+      const url = new URL(request.url());
+      return request.method() === "POST" && url.pathname === `/v1/runs/${runId}/stop`;
+    });
+    await page.getByText("确认停止", { exact: true }).click();
+    const request = await stopRequest;
+
+    expect(JSON.parse(request.postData() ?? "{}")).toMatchObject({ mode: "graceful" });
+    await expect(page.getByTestId("mobile-task-lifecycle-status")).toContainText("运行环境已释放");
+    await expect(page.getByTestId("mobile-task-terminal-actions")).toBeVisible();
   });
 
   test("keeps the task conversation composer visually consistent on mobile", async ({ page }) => {
