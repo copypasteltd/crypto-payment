@@ -4,6 +4,11 @@
   "version": "0.1.0",
   "type": "module",
   "packageManager": "pnpm@10.0.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "node-pty"
+    ]
+  },
   "scripts": {
     "build:config": "tsc -p packages/config/tsconfig.json",
     "build:credential": "tsc -p packages/credential/tsconfig.json",
@@ -19,7 +24,7 @@
     "build:shared": "pnpm --filter @lingban/config --filter @lingban/contracts --filter @lingban/credential --filter @lingban/db --filter @lingban/files --filter @lingban/shared --filter @lingban/mcp --filter @lingban/domain-models --filter @lingban/api-sdk --filter @lingban/session-pack --filter @lingban/realtime --filter @lingban/ui-tokens build",
     "build:backend:deps": "pnpm --filter @lingban/config --filter @lingban/contracts --filter @lingban/credential --filter @lingban/db --filter @lingban/files --filter @lingban/shared --filter @lingban/mcp --filter @lingban/domain-models --filter @lingban/session-pack build",
     "build:backend": "pnpm build:backend:deps && pnpm -C app/container-bridge build:local && pnpm -C app/run-worker build:local && pnpm -C app/api build:local",
-    "build:frontend": "pnpm -C app/dashboard build && pnpm -C app/admin build && pnpm -C app/mobile build:h5",
+    "build:frontend": "pnpm -C app/dashboard build && pnpm -C app/admin build && pnpm -C app/mobile build:h5 && pnpm -C app/mobile build:weapp",
     "typecheck:backend": "pnpm --filter @lingban/files --filter @lingban/shared build && pnpm --filter @lingban/config --filter @lingban/contracts --filter @lingban/credential --filter @lingban/db --filter @lingban/shared --filter @lingban/mcp --filter @lingban/domain-models --filter @lingban/session-pack --filter @lingban/api --filter @lingban/run-worker --filter @lingban/container-bridge typecheck",
     "typecheck:frontend": "pnpm --filter @lingban/realtime build && pnpm -C app/dashboard typecheck && pnpm -C app/admin typecheck && pnpm -C app/mobile typecheck",
     "lint:frontend": "pnpm -C app/dashboard lint",
@@ -37,7 +42,7 @@
     "test:runtime:compiled": "pnpm -C app/run-worker test:compiled && pnpm -C app/container-bridge test:compiled",
     "ci:backend": "pnpm build:backend && pnpm test:db:compiled && pnpm test:files:compiled && pnpm test:shared:compiled && pnpm test:session-pack:compiled && pnpm test:backend:smoke:compiled",
     "ci:runtime": "pnpm test:runtime:compiled",
-    "ci:frontend": "pnpm lint:frontend && pnpm test:e2e",
+    "ci:frontend": "pnpm lint:frontend && pnpm typecheck:frontend && pnpm -C app/mobile build:weapp && pnpm test:e2e",
     "ci:verify": "pnpm ci:backend && pnpm ci:runtime && pnpm ci:frontend",
     "infra:runner:build": "docker build -f infra/docker/runner.Dockerfile -t lingban/runner:local .",
     "infra:api:build": "docker build -f infra/docker/api.Dockerfile -t lingban/api:local .",
