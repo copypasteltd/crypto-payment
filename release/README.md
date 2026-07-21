@@ -11,8 +11,8 @@ This directory is the HZ01 server release snapshot generated on 2026-07-21. It c
 | `static/dashboard` | Dashboard 生产构建 |
 | `static/mobile-h5` | Taro H5 生产构建 |
 | `static/admin` | 独立 Admin 生产构建 |
-| `mini-program/lingban-weapp-20260721` | 可直接导入微信开发者工具的小程序目录 |
-| `mini-program/lingban-weapp-20260721.zip` | 微信小程序压缩交付包 |
+| `mini-program/lingban-weapp-20260721-r2` | 最新可直接导入微信开发者工具的小程序目录 |
+| `mini-program/lingban-weapp-20260721-r2.zip` | 最新微信小程序压缩交付包 |
 | `workspaces/backend` | Backend 独立工作区 |
 | `workspaces/run-worker` | Run Worker 独立工作区 |
 | `workspaces/dashboard` | Dashboard 独立工作区 |
@@ -36,14 +36,14 @@ The release adds end-to-end run stop, runtime release, archive, restore, and gua
 
 | 范围 | 结果 |
 | --- | --- |
-| Frontend E2E | 33/33 通过 |
+| Frontend E2E | 34/34 通过 |
 | Run lifecycle API | 6/6 通过 |
 | Run Worker | 33/33 通过 |
 | Shared DB | 29/29 通过 |
 | API SDK | 28/28 通过 |
 | Mobile H5 / WeChat Mini Program build | 通过 |
-| WeChat artifact verification | 60 个文件，`1,223,636 Byte`，关键入口与项目配置校验通过 |
-| WeChat Developer Tools Preview | 官方 CLI 预览通过，AppID 权限有效，预览包 `1,225,492 Byte` |
+| WeChat artifact verification | `r2`，60 个文件，`1,223,977 Byte`，确认按钮长度、关键入口与项目配置校验通过 |
+| WeChat Developer Tools Preview | 官方 CLI 预览通过，AppID 权限有效，预览包 `1,225,833 Byte` |
 
 正式 Secret 通过部署环境注入。该快照不包含有效 API Key、Token、服务器密码或用户凭证。
 
