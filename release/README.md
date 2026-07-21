@@ -43,6 +43,7 @@ The release adds end-to-end run stop, runtime release, archive, restore, and gua
 | API SDK | 28/28 通过 |
 | Mobile H5 / WeChat Mini Program build | 通过 |
 | WeChat artifact verification | 60 个文件，`1,223,636 Byte`，关键入口与项目配置校验通过 |
+| WeChat Developer Tools Preview | 官方 CLI 预览通过，AppID 权限有效，预览包 `1,225,492 Byte` |
 
 正式 Secret 通过部署环境注入。该快照不包含有效 API Key、Token、服务器密码或用户凭证。
 
