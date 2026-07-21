@@ -3,6 +3,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 const dashboardPort = 43173;
 const mobilePort = 43174;
+const adminPort = 43175;
 const resolvedChannel = process.env.PLAYWRIGHT_CHANNEL?.trim() || undefined;
 
 export default defineConfig({
@@ -30,6 +31,12 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 60_000,
     },
+    {
+      command: "node ./serve-static.mjs --root ../../app/admin/dist --port 43175",
+      url: `http://127.0.0.1:${adminPort}`,
+      reuseExistingServer: false,
+      timeout: 60_000,
+    },
   ],
   projects: [
     {
@@ -39,6 +46,16 @@ export default defineConfig({
         ...devices["Desktop Chrome"],
         ...(resolvedChannel ? { channel: resolvedChannel } : {}),
         baseURL: `http://127.0.0.1:${dashboardPort}`,
+      },
+    },
+    {
+      name: "admin",
+      testMatch: /admin\.spec\.mjs$/,
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1440, height: 900 },
+        ...(resolvedChannel ? { channel: resolvedChannel } : {}),
+        baseURL: `http://127.0.0.1:${adminPort}`,
       },
     },
     {

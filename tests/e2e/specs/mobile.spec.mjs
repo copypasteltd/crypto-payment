@@ -759,6 +759,7 @@ test.describe("mobile h5 smoke", () => {
     await page.goto("/");
     await page.getByTestId("mobile-workshops-to-tasks").click();
     await page.getByTestId(`mobile-task-open-${runId}`).click();
+    await page.getByTestId("mobile-task-composer-toggle").click();
 
     const detailPage = page.getByTestId("mobile-task-detail-page");
     const composer = page.getByTestId("mobile-task-composer");
@@ -767,8 +768,20 @@ test.describe("mobile h5 smoke", () => {
     );
     const approvalControl = page.getByTestId("mobile-approval-mode-control");
     const sendButton = page.getByTestId("mobile-task-send-button");
+    const summaryToggle = page.getByTestId("mobile-task-summary-toggle");
+    const firstMessage = detailPage.locator(".thread .message-card").first();
 
     await expect(detailPage).toBeVisible();
+    await expect(summaryToggle).toHaveAttribute("aria-expanded", "false");
+    await expect(firstMessage).toBeVisible();
+    await expect(detailPage.getByText("计费明细")).toHaveCount(0);
+
+    await summaryToggle.click();
+    await expect(summaryToggle).toHaveAttribute("aria-expanded", "true");
+    await expect(detailPage.getByText("计费明细")).toBeVisible();
+    await summaryToggle.click();
+    await expect(summaryToggle).toHaveAttribute("aria-expanded", "false");
+
     await composer.scrollIntoViewIfNeeded();
     await expect(composer).toBeVisible();
     await expect(approvalControl).toBeVisible();
@@ -1292,6 +1305,7 @@ test.describe("mobile h5 smoke", () => {
     await page.getByTestId("mobile-workshops-to-tasks").click();
     await page.getByTestId(`mobile-task-open-${runId}`).click();
     await expect(page.getByTestId("mobile-task-detail-page")).toBeVisible();
+    await page.getByTestId("mobile-task-composer-toggle").click();
 
     await page.locator('[data-testid="mobile-task-composer-input"] textarea').fill(
       "Please review the attached ledger and continue."
@@ -1350,6 +1364,7 @@ test.describe("mobile h5 smoke", () => {
     await page.getByTestId("mobile-workshops-to-tasks").click();
     await page.getByTestId(`mobile-task-open-${runId}`).click();
     await expect(page.getByTestId("mobile-task-detail-page")).toBeVisible();
+    await page.getByTestId("mobile-task-composer-toggle").click();
 
     await page.locator("textarea").first().fill("请继续读取当前报税材料");
     await page.getByTestId("mobile-task-send-button").click();
@@ -1367,7 +1382,15 @@ test.describe("mobile h5 smoke", () => {
   test("loads me page with workspace summary modules", async ({ page }) => {
     await page.goto("/");
     await page.getByTestId("mobile-workshops-to-me").click();
-    await expect(page.getByTestId("mobile-me-page")).toBeVisible();
+    const mePage = page.getByTestId("mobile-me-page");
+    const themeToggle = page.getByTestId("mobile-theme-toggle");
+    const pageShell = page.locator(".page-shell").filter({ has: mePage });
+
+    await expect(mePage).toBeVisible();
+    await expect(pageShell).toHaveClass(/theme-dark/);
+    await themeToggle.click();
+    await expect(pageShell).toHaveClass(/theme-light/);
+    await expect(themeToggle).toContainText("切换深色");
     await expect(page.getByText("用量与支出")).toBeVisible();
   });
 

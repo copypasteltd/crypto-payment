@@ -11,9 +11,9 @@ The `tests/` directory contains cross-application E2E orchestration, browser acc
 | `e2e/playwright.config.mjs` | Playwright 项目、浏览器和服务配置 |
 | `e2e/build-frontends.mjs` | 使用正式认证配置构建双前端 |
 | `e2e/serve-static.mjs` | Dashboard 与 Mobile 静态服务 |
-| `e2e/specs/dashboard.spec.mjs` | Workspace、Creator、Admin、Provider 与批量任务 |
-| `e2e/specs/mobile.spec.mjs` | 工坊、任务、对话、文件、Provider 与个人中心 |
-| `e2e/specs/admin.spec.mjs` | 独立 Admin、Provider 创建与测活、模型同步、表单边界、结构化 API 和网络错误反馈 |
+| `e2e/specs/dashboard.spec.mjs` | Workspace、Creator、实例生命周期、Provider 与批量任务 |
+| `e2e/specs/mobile.spec.mjs` | 工坊、实例创建、任务对话、文件、生命周期与个人中心 |
+| `e2e/specs/admin.spec.mjs` | 独立 Admin、Provider 运维、实例生命周期治理与错误反馈 |
 | `evidence/` | 报告、截图和最近执行证据 |
 
 ## 认证与数据策略 / Auth and Data Strategy
@@ -34,12 +34,12 @@ pnpm exec playwright show-report
 
 | 日期 | 范围 | 结果 |
 | --- | --- | --- |
-| 2026-07-14 | Dashboard + Mobile H5 E2E | 23/23 通过 |
-| 2026-07-16 | Independent Admin E2E | 9/9 通过 |
-| 2026-07-14 | Backend smoke | 62/62 通过 |
-| 2026-07-14 | Run Worker | 27/27 通过 |
-| 2026-07-14 | Runtime Bridge | 23/23 通过 |
-| 2026-07-14 | Dashboard 生产页面状态 | 52/52 通过 |
-| 2026-07-14 | Mobile H5 生产页面状态 | 14/14 通过 |
+| 2026-07-21 | Dashboard + Mobile H5 + Admin E2E | 33/33 通过 |
+| 2026-07-21 | Run lifecycle API | 6/6 通过 |
+| 2026-07-21 | Run Worker | 33/33 通过 |
+| 2026-07-21 | Shared DB | 29/29 通过 |
+| 2026-07-21 | API SDK | 28/28 通过 |
+| 2026-07-21 | Dashboard 响应式视觉状态 | 1440x1000、1024x768、390x844 通过 |
+| 2026-07-21 | Mobile H5 与微信小程序生产构建 | 通过 |
 
 Visual acceptance also checks text overflow, responsive layout, theme switching, navigation state, and production API host resolution.
