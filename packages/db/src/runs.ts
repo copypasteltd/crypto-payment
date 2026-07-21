@@ -24,6 +24,7 @@ export const runAggregateSchema = runSnapshotSchema.extend({
 export type RunAggregate = {
   run: RunRecord;
   runtime?: RunSnapshot["runtime"];
+  lifecycle?: RunSnapshot["lifecycle"];
   provider?: RunSnapshot["provider"];
   informationCollection?: RunSnapshot["informationCollection"];
   input: CreateRunInput;
@@ -39,6 +40,7 @@ export type RunAggregate = {
 export function projectRunSnapshot(aggregate: {
   run: RunSnapshot["run"];
   runtime?: RunSnapshot["runtime"];
+  lifecycle?: RunSnapshot["lifecycle"];
   provider?: RunSnapshot["provider"];
   informationCollection?: RunSnapshot["informationCollection"];
   messages: RunConversationMessage[];
@@ -73,6 +75,7 @@ export interface RunEventBus {
   init(): Promise<void>;
   append(event: BridgeEvent): Promise<RunEventEnvelope>;
   appendMany(events: BridgeEvent[]): Promise<RunEventEnvelope[]>;
+  deleteRun(runId: string): Promise<void>;
   list(runId: string): RunEventEnvelope[];
   subscribe(runId: string, listener: RunEventListener): () => void;
 }

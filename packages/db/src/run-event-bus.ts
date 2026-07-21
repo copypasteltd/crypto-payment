@@ -98,6 +98,12 @@ export abstract class CachedRunEventBus implements RunEventBus {
     return envelopes;
   }
 
+  async deleteRun(runId: string) {
+    this.#events.delete(runId);
+    this.#listeners.delete(runId);
+    await this.deletePersisted(runId);
+  }
+
   list(runId: string) {
     return [...(this.#events.get(runId) ?? [])];
   }
@@ -122,6 +128,7 @@ export abstract class CachedRunEventBus implements RunEventBus {
 
   protected abstract loadAll(): Promise<RunEventEnvelope[]>;
   protected abstract persist(envelope: RunEventEnvelope): Promise<void>;
+  protected abstract deletePersisted(runId: string): Promise<void>;
 }
 
 export class PostgresRunEventBus extends CachedRunEventBus {
@@ -176,5 +183,10 @@ export class PostgresRunEventBus extends CachedRunEventBus {
         JSON.stringify(envelope.event),
       ]
     );
+  }
+
+  protected async deletePersisted(runId: string) {
+    const queryable = await this.#getQueryable();
+    await queryable.query("DELETE FROM lingban_run_events WHERE run_id = $1", [runId]);
   }
 }

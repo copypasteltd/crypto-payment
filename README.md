@@ -21,6 +21,15 @@ The `packages/` directory contains contracts, domain models, persistence, sessio
 | `shared` | `@lingban/shared` | 通用工具、日志与基础辅助 |
 | `ui-tokens` | `@lingban/ui-tokens` | Dashboard/Mobile 共享视觉 Token |
 
+## Run 生命周期契约 / Run Lifecycle Contracts
+
+- `@lingban/contracts` 定义 Runtime 生命周期、记录生命周期、停止模式和永久删除响应。
+- `@lingban/db` 提供按 Run 删除 Agent Runtime 事件与实时事件历史的仓储能力。
+- `@lingban/api-sdk` 提供 `stopRun`、`archiveRun`、`restoreRun` 和 `deleteRun` 客户端方法。
+- 永久删除响应包含已删除 Upload、Download Ticket 与保留 Session Capture 数量。
+
+The shared contract layer defines runtime release, record archival, deletion state, cleanup diagnostics, and typed SDK operations across H5, Dashboard, Admin, API, and Worker.
+
 ## 依赖原则 / Dependency Rules
 
 1. `contracts` 保持可序列化、可验证并独立于应用实现。

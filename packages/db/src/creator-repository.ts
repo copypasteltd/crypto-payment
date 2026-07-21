@@ -251,10 +251,13 @@ export abstract class CachedCreatorRepository implements CreatorRepository {
     return this.#state;
   }
 
+  protected updateCachedState(mutator: (state: CreatorState) => CreatorState) {
+    this.#state = creatorStateSchema.parse(mutator(this.#state));
+  }
+
   protected async updateState(mutator: (state: CreatorState) => CreatorState) {
-    const nextState = creatorStateSchema.parse(mutator(this.#state));
-    this.#state = nextState;
-    await this.writeState(nextState);
+    this.updateCachedState(mutator);
+    await this.writeState(this.#state);
   }
 
   protected abstract loadState(): Promise<CreatorState>;
@@ -276,6 +279,130 @@ export class PostgresCreatorRepository extends CachedCreatorRepository {
   async #getQueryable() {
     await this.#options.ensureReady?.();
     return this.#options.getQueryable();
+  }
+
+  override async savePackage(pkg: CreatorPackageDetail) {
+    await this.init();
+    const parsed = creatorPackageDetailSchema.parse(pkg);
+    const queryable = await this.#getQueryable();
+    await queryable.query(
+      `INSERT INTO lingban_creator_packages (package_id, state, package_json)
+       VALUES ($1, $2, $3::jsonb)
+       ON CONFLICT (package_id) DO UPDATE
+       SET state = EXCLUDED.state, package_json = EXCLUDED.package_json`,
+      [parsed.packageId, parsed.state, JSON.stringify(parsed)]
+    );
+    this.updateCachedState((state) => ({
+      ...state,
+      packages: replaceByKey(state.packages, parsed, (item) => item.packageId),
+    }));
+  }
+
+  override async saveRelease(release: CreatorReleaseSummary) {
+    await this.init();
+    const parsed = creatorReleaseSummarySchema.parse(release);
+    const queryable = await this.#getQueryable();
+    await queryable.query(
+      `INSERT INTO lingban_creator_releases (release_id, package_id, state, release_json)
+       VALUES ($1, $2, $3, $4::jsonb)
+       ON CONFLICT (release_id) DO UPDATE
+       SET package_id = EXCLUDED.package_id, state = EXCLUDED.state, release_json = EXCLUDED.release_json`,
+      [parsed.releaseId, parsed.packageId, parsed.state, JSON.stringify(parsed)]
+    );
+    this.updateCachedState((state) => ({
+      ...state,
+      releases: replaceByKey(state.releases, parsed, (item) => item.releaseId),
+    }));
+  }
+
+  override async saveReplay(replay: CreatorReplaySummary) {
+    await this.init();
+    const parsed = creatorReplaySummarySchema.parse(replay);
+    const queryable = await this.#getQueryable();
+    await queryable.query(
+      `INSERT INTO lingban_creator_replays (replay_id, package_id, state, replay_json)
+       VALUES ($1, $2, $3, $4::jsonb)
+       ON CONFLICT (replay_id) DO UPDATE
+       SET package_id = EXCLUDED.package_id, state = EXCLUDED.state, replay_json = EXCLUDED.replay_json`,
+      [parsed.replayId, parsed.packageId, parsed.state, JSON.stringify(parsed)]
+    );
+    this.updateCachedState((state) => ({
+      ...state,
+      replays: replaceByKey(state.replays, parsed, (item) => item.replayId),
+    }));
+  }
+
+  override async saveReleaseGate(gate: CreatorReleaseGate) {
+    await this.init();
+    const parsed = creatorReleaseGateSchema.parse(gate);
+    const queryable = await this.#getQueryable();
+    await queryable.query(
+      `INSERT INTO lingban_creator_release_gates (gate_id, release_id, package_id, status, gate_json)
+       VALUES ($1, $2, $3, $4, $5::jsonb)
+       ON CONFLICT (gate_id) DO UPDATE
+       SET release_id = EXCLUDED.release_id, package_id = EXCLUDED.package_id,
+           status = EXCLUDED.status, gate_json = EXCLUDED.gate_json`,
+      [parsed.gateId, parsed.releaseId, parsed.packageId, parsed.status, JSON.stringify(parsed)]
+    );
+    this.updateCachedState((state) => ({
+      ...state,
+      releaseGates: replaceByKey(state.releaseGates, parsed, (item) => item.gateId),
+    }));
+  }
+
+  override async saveReleaseActivation(activation: CreatorReleaseActivation) {
+    await this.init();
+    const parsed = creatorReleaseActivationSchema.parse(activation);
+    const queryable = await this.#getQueryable();
+    await queryable.query(
+      `INSERT INTO lingban_creator_release_activations (activation_id, release_id, package_id, state, activation_json)
+       VALUES ($1, $2, $3, $4, $5::jsonb)
+       ON CONFLICT (activation_id) DO UPDATE
+       SET release_id = EXCLUDED.release_id, package_id = EXCLUDED.package_id,
+           state = EXCLUDED.state, activation_json = EXCLUDED.activation_json`,
+      [
+        parsed.activationId,
+        parsed.releaseId,
+        parsed.packageId,
+        parsed.state,
+        JSON.stringify(parsed),
+      ]
+    );
+    this.updateCachedState((state) => ({
+      ...state,
+      activations: replaceByKey(state.activations, parsed, (item) => item.activationId),
+    }));
+  }
+
+  override async saveAuditExport(record: CreatorAuditExportRecord) {
+    await this.init();
+    const parsed = creatorAuditExportRecordSchema.parse(record);
+    const queryable = await this.#getQueryable();
+    await queryable.query(
+      `INSERT INTO lingban_creator_audit_exports (
+         export_id, package_id, workspace_context_key, export_format, status, created_at, export_json
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
+       ON CONFLICT (export_id) DO UPDATE
+       SET package_id = EXCLUDED.package_id,
+           workspace_context_key = EXCLUDED.workspace_context_key,
+           export_format = EXCLUDED.export_format,
+           status = EXCLUDED.status,
+           created_at = EXCLUDED.created_at,
+           export_json = EXCLUDED.export_json`,
+      [
+        parsed.exportId,
+        parsed.packageId,
+        parsed.workspaceContextKey,
+        parsed.format,
+        parsed.status,
+        parsed.createdAt,
+        JSON.stringify(parsed),
+      ]
+    );
+    this.updateCachedState((state) => ({
+      ...state,
+      auditExports: replaceByKey(state.auditExports, parsed, (item) => item.exportId),
+    }));
   }
 
   protected async loadState() {
@@ -314,18 +441,13 @@ export class PostgresCreatorRepository extends CachedCreatorRepository {
   protected async writeState(state: CreatorState) {
     const parsed = creatorStateSchema.parse(state);
     await this.#options.withTransaction(async (queryable) => {
-      await queryable.query("DELETE FROM lingban_creator_release_activations");
-      await queryable.query("DELETE FROM lingban_creator_release_gates");
-      await queryable.query("DELETE FROM lingban_creator_replays");
-      await queryable.query("DELETE FROM lingban_creator_releases");
-      await queryable.query("DELETE FROM lingban_creator_packages");
-      await queryable.query("DELETE FROM lingban_creator_audit_exports");
-
       for (const pkg of parsed.packages) {
         await queryable.query(
           `
           INSERT INTO lingban_creator_packages (package_id, state, package_json)
           VALUES ($1, $2, $3::jsonb)
+          ON CONFLICT (package_id) DO UPDATE
+          SET state = EXCLUDED.state, package_json = EXCLUDED.package_json
           `,
           [pkg.packageId, pkg.state, JSON.stringify(pkg)]
         );
@@ -336,6 +458,8 @@ export class PostgresCreatorRepository extends CachedCreatorRepository {
           `
           INSERT INTO lingban_creator_releases (release_id, package_id, state, release_json)
           VALUES ($1, $2, $3, $4::jsonb)
+          ON CONFLICT (release_id) DO UPDATE
+          SET package_id = EXCLUDED.package_id, state = EXCLUDED.state, release_json = EXCLUDED.release_json
           `,
           [release.releaseId, release.packageId, release.state, JSON.stringify(release)]
         );
@@ -346,6 +470,8 @@ export class PostgresCreatorRepository extends CachedCreatorRepository {
           `
           INSERT INTO lingban_creator_replays (replay_id, package_id, state, replay_json)
           VALUES ($1, $2, $3, $4::jsonb)
+          ON CONFLICT (replay_id) DO UPDATE
+          SET package_id = EXCLUDED.package_id, state = EXCLUDED.state, replay_json = EXCLUDED.replay_json
           `,
           [replay.replayId, replay.packageId, replay.state, JSON.stringify(replay)]
         );
@@ -356,6 +482,9 @@ export class PostgresCreatorRepository extends CachedCreatorRepository {
           `
           INSERT INTO lingban_creator_release_gates (gate_id, release_id, package_id, status, gate_json)
           VALUES ($1, $2, $3, $4, $5::jsonb)
+          ON CONFLICT (gate_id) DO UPDATE
+          SET release_id = EXCLUDED.release_id, package_id = EXCLUDED.package_id,
+              status = EXCLUDED.status, gate_json = EXCLUDED.gate_json
           `,
           [gate.gateId, gate.releaseId, gate.packageId, gate.status, JSON.stringify(gate)]
         );
@@ -366,6 +495,9 @@ export class PostgresCreatorRepository extends CachedCreatorRepository {
           `
           INSERT INTO lingban_creator_release_activations (activation_id, release_id, package_id, state, activation_json)
           VALUES ($1, $2, $3, $4, $5::jsonb)
+          ON CONFLICT (activation_id) DO UPDATE
+          SET release_id = EXCLUDED.release_id, package_id = EXCLUDED.package_id,
+              state = EXCLUDED.state, activation_json = EXCLUDED.activation_json
           `,
           [
             activation.activationId,
@@ -390,6 +522,13 @@ export class PostgresCreatorRepository extends CachedCreatorRepository {
             export_json
           )
           VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
+          ON CONFLICT (export_id) DO UPDATE
+          SET package_id = EXCLUDED.package_id,
+              workspace_context_key = EXCLUDED.workspace_context_key,
+              export_format = EXCLUDED.export_format,
+              status = EXCLUDED.status,
+              created_at = EXCLUDED.created_at,
+              export_json = EXCLUDED.export_json
           `,
           [
             record.exportId,
