@@ -159,6 +159,7 @@ export class SessionProjectsService {
       targetPath:
         parsed.targetPath ?? buildDefaultTargetPath(actor, project.sessionProjectId),
       entrySurface: parsed.entrySurface,
+      approvalMode: parsed.approvalMode,
       initialMessage: null,
       bindings: parsed.bindings,
       providerSelection: parsed.providerSelection,

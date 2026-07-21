@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "./zod.js";
 import { sessionVersionIdSchema } from "./common.js";
 
 const sha256Schema = z.string().regex(/^[a-f0-9]{64}$/i, "Expected a SHA-256 hex digest");

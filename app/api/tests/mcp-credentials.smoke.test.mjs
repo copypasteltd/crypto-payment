@@ -127,14 +127,14 @@ test("credentials and MCP governance smoke: create metadata, bind, and resolve i
       "content-type": "application/json",
     };
 
-    const missingBrowserCredentialRun = await requestError(`${baseUrl}/v1/runs`, {
+    const browserRun = await requestJson(`${baseUrl}/v1/runs`, {
       method: "POST",
       headers: authHeaders,
       body: JSON.stringify({
         workspaceId: register.currentWorkspace.workspaceId,
         taskVersionId: "tsv_00000000_missing_browser_state",
         sessionVersionId: "sev_00000000_missing_browser_state",
-        title: "Missing browser storage state",
+        title: "Credential-free isolated browser",
         targetPath: path.join(smokeRoot, "target-missing-browser-state"),
         entrySurface: "dashboard",
         initialMessage: null,
@@ -145,12 +145,17 @@ test("credentials and MCP governance smoke: create metadata, bind, and resolve i
         },
       }),
     });
-    assert.equal(missingBrowserCredentialRun.status, 409);
-    assert.equal(missingBrowserCredentialRun.body.error.code, "CREDENTIAL_REQUIREMENT_UNMET");
-    assert.deepEqual(
-      missingBrowserCredentialRun.body.error.details.missingCredentialIds,
-      ["cred_browser_storage_state"]
+    assert.equal(browserRun.run.status, "WAITING_APPROVAL");
+    const browserAggregate = JSON.parse(
+      await readFile(path.join(runStorageDir, `${browserRun.run.runId}.json`), "utf8")
     );
+    assert.deepEqual(browserAggregate.startJob.bindings.credentialIds, []);
+    assert.equal(browserAggregate.startJob.mcpBindings.length, 1);
+    assert.equal(
+      browserAggregate.startJob.mcpBindings[0].ref,
+      "/usr/local/bin/lingban-playwright-mcp"
+    );
+    assert.equal(browserAggregate.startJob.mcpBindings[0].credentialId, null);
 
     const createdCredential = await requestJson(`${baseUrl}/v1/credentials`, {
       method: "POST",

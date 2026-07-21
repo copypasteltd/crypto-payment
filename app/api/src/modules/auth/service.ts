@@ -11,6 +11,7 @@ import type {
   CreateWorkspaceInvitationInput,
   CreateWorkspaceInvitationResponse,
   LoginAuthInput,
+  WechatMiniProgramLoginInput,
   RefreshAuthInput,
   RegisterAuthInput,
   SwitchWorkspaceInput,
@@ -32,6 +33,7 @@ import {
   createWorkspaceInvitationInputSchema,
   createWorkspaceInvitationResponseSchema,
   loginAuthInputSchema,
+  wechatMiniProgramLoginInputSchema,
   refreshAuthInputSchema,
   registerAuthInputSchema,
   switchWorkspaceInputSchema,
@@ -59,6 +61,8 @@ import { workshopCatalogRepository } from "../workshops/repository.js";
 import { creatorRepository } from "../creator/repository.js";
 import { runsRepository } from "../runs/repository.js";
 import { adminRepository } from "../admin/repository.js";
+import { exchangeWechatMiniProgramCode } from "./wechat-mini-program-client.js";
+import { wechatIdentityRepository } from "./wechat-identity-repository.js";
 
 type AuthContext = {
   user: AuthUser;
@@ -402,6 +406,44 @@ async function rotateSessionTokens(record: AuthSessionRecord, currentWorkspaceId
   };
 }
 
+async function createPersonalAccount(input: {
+  email: string;
+  password: string;
+  displayName: string;
+  workspaceName: string;
+}) {
+  const createdAt = nowIso();
+  const user: AuthUserRecord = {
+    userId: nextUserId(),
+    email: normalizeEmail(input.email),
+    displayName: input.displayName.trim(),
+    passwordHash: hashPassword(input.password),
+    createdAt,
+    updatedAt: createdAt,
+  };
+  const workspace: Workspace = {
+    workspaceId: nextWorkspaceId(),
+    slug: ensureUniqueWorkspaceSlug(input.workspaceName),
+    name: input.workspaceName.trim(),
+    type: "personal",
+    createdAt,
+    updatedAt: createdAt,
+  };
+  const membership: WorkspaceMembership = {
+    workspaceId: workspace.workspaceId,
+    userId: user.userId,
+    role: "owner",
+    status: "active",
+    createdAt,
+    updatedAt: createdAt,
+  };
+
+  await authRepository.createUser(user);
+  await authRepository.createWorkspace(workspace);
+  await authRepository.addMembership(membership);
+  return { user, workspace };
+}
+
 export class AuthService {
   getDisabledSessionBootstrap(): AuthDisabledSessionBootstrap {
     return buildDisabledSessionBootstrap();
@@ -415,41 +457,120 @@ export class AuthService {
       throw new AppError(409, "AUTH_EMAIL_EXISTS", `Email already exists: ${email}`);
     }
 
-    const createdAt = nowIso();
-    const user: AuthUserRecord = {
-      userId: nextUserId(),
+    const { user, workspace } = await createPersonalAccount({
       email,
-      displayName: parsed.displayName.trim(),
-      passwordHash: hashPassword(parsed.password),
-      createdAt,
-      updatedAt: createdAt,
-    };
-    const workspace: Workspace = {
-      workspaceId: nextWorkspaceId(),
-      slug: ensureUniqueWorkspaceSlug(parsed.workspaceName ?? `${parsed.displayName}-workspace`),
-      name: (parsed.workspaceName ?? `${parsed.displayName} Workspace`).trim(),
-      type: "personal",
-      createdAt,
-      updatedAt: createdAt,
-    };
-    const membership: WorkspaceMembership = {
-      workspaceId: workspace.workspaceId,
-      userId: user.userId,
-      role: "owner",
-      status: "active",
-      createdAt,
-      updatedAt: createdAt,
-    };
-
-    await authRepository.createUser(user);
-    await authRepository.createWorkspace(workspace);
-    await authRepository.addMembership(membership);
+      password: parsed.password,
+      displayName: parsed.displayName,
+      workspaceName: parsed.workspaceName ?? `${parsed.displayName} Workspace`,
+    });
 
     const session = await createSessionRecord({
       user,
       currentWorkspace: workspace,
     });
 
+    return this.#buildSessionResponse(user, session.record, session.tokens);
+  }
+
+  async loginWithWechatMiniProgram(
+    input: WechatMiniProgramLoginInput
+  ): Promise<AuthSessionResponse> {
+    const parsed = wechatMiniProgramLoginInputSchema.parse(input);
+    const config = getApiRuntimeConfig();
+    const appId = config.wechatMiniProgramAppId;
+    const exchanged = await exchangeWechatMiniProgramCode({
+      code: parsed.code,
+      appId,
+      appSecret: config.wechatMiniProgramAppSecret,
+      apiBaseUrl: config.wechatMiniProgramApiBaseUrl,
+      timeoutMs: config.wechatMiniProgramRequestTimeoutMs,
+    });
+
+    if (!appId) {
+      throw new AppError(
+        503,
+        "AUTH_WECHAT_NOT_CONFIGURED",
+        "WeChat Mini Program login is not configured"
+      );
+    }
+
+    const existingIdentity = await wechatIdentityRepository.findBySubject(
+      appId,
+      exchanged.openId
+    );
+    let user = existingIdentity
+      ? authRepository.getUserById(existingIdentity.userId)
+      : null;
+
+    if (existingIdentity && !user) {
+      throw new AppError(
+        401,
+        "AUTH_WECHAT_IDENTITY_INVALID",
+        "The WeChat identity is not linked to an active account"
+      );
+    }
+
+    if (!user) {
+      const identityHash = hashOpaqueToken(`${appId}:${exchanged.openId}`);
+      const generatedEmail = `wx-${identityHash.slice(0, 32)}@wechat.copypaste.hk`;
+      user = authRepository.findUserByEmail(generatedEmail);
+
+      if (!user) {
+        const displayName = parsed.displayName ?? `微信用户-${identityHash.slice(0, 6)}`;
+        const created = await createPersonalAccount({
+          email: generatedEmail,
+          password: generateOpaqueToken(48),
+          displayName,
+          workspaceName: `${displayName}的工作区`,
+        });
+        user = created.user;
+      }
+
+      const identityCreatedAt = nowIso();
+      await wechatIdentityRepository.save({
+        provider: "wechat_mini_program",
+        appId,
+        providerSubject: exchanged.openId,
+        unionId: exchanged.unionId,
+        userId: user.userId,
+        createdAt: identityCreatedAt,
+        updatedAt: identityCreatedAt,
+      });
+    } else if (
+      existingIdentity &&
+      existingIdentity.unionId !== exchanged.unionId
+    ) {
+      await wechatIdentityRepository.save({
+        ...existingIdentity,
+        unionId: exchanged.unionId,
+        updatedAt: nowIso(),
+      });
+    }
+
+    if (adminRepository.isSuspended("user", user.userId)) {
+      throw new AppError(403, "AUTH_USER_SUSPENDED", "This user account is suspended");
+    }
+
+    const primary = authRepository
+      .listMembershipsByUser(user.userId)
+      .find(
+        (item) =>
+          item.membership.status === "active" &&
+          !adminRepository.isSuspended("workspace", item.workspace.workspaceId)
+      );
+
+    if (!primary) {
+      throw new AppError(
+        403,
+        "WORKSPACE_ACCESS_DENIED",
+        `No active workspace for user ${user.userId}`
+      );
+    }
+
+    const session = await createSessionRecord({
+      user,
+      currentWorkspace: primary.workspace,
+    });
     return this.#buildSessionResponse(user, session.record, session.tokens);
   }
 
@@ -984,7 +1105,11 @@ export class AuthService {
         visibleRunsCount: runs.length,
         visiblePackagesCount: creatorRepository
           .listPackages()
-          .filter((item) => item.workspaceContextKeys.includes(contextKey)).length,
+          .filter(
+            (item) =>
+              item.workspaceContextKeys.includes(contextKey) &&
+              item.workspaceIds.includes(workspace.workspaceId)
+          ).length,
         pendingApprovalsCount,
         recentAssetsCount: recentAssetPaths.size,
       },

@@ -347,6 +347,10 @@ export type ApiRuntimeConfig = {
   authMode: "disabled" | "required";
   authAccessTokenTtlSeconds: number;
   authRefreshTokenTtlSeconds: number;
+  wechatMiniProgramAppId?: string;
+  wechatMiniProgramAppSecret?: string;
+  wechatMiniProgramApiBaseUrl: string;
+  wechatMiniProgramRequestTimeoutMs: number;
   platformAdminEmails: string[];
   objectStorageDriver: "filesystem" | "s3";
   objectStorageRoot: string;
@@ -933,6 +937,19 @@ export function loadApiRuntimeConfig(env: EnvSource = process.env): ApiRuntimeCo
       "LINGBAN_AUTH_REFRESH_TTL_SECONDS",
       60 * 60 * 24 * 30
     ),
+    wechatMiniProgramAppId: readTrimmed(env, "LINGBAN_WECHAT_MINI_PROGRAM_APP_ID"),
+    wechatMiniProgramAppSecret: readTrimmed(
+      env,
+      "LINGBAN_WECHAT_MINI_PROGRAM_APP_SECRET"
+    ),
+    wechatMiniProgramApiBaseUrl:
+      readTrimmed(env, "LINGBAN_WECHAT_MINI_PROGRAM_API_BASE_URL") ??
+      "https://api.weixin.qq.com",
+    wechatMiniProgramRequestTimeoutMs: readPositiveInteger(
+      env,
+      "LINGBAN_WECHAT_MINI_PROGRAM_REQUEST_TIMEOUT_MS",
+      5_000
+    ),
     platformAdminEmails: readStringList(env, "LINGBAN_PLATFORM_ADMIN_EMAILS", []).map((item) =>
       item.trim().toLowerCase()
     ),
@@ -1354,6 +1371,7 @@ export type BridgeCliRuntimeConfig = {
   codexArgs?: string[];
   codexRuntimeProtocol: "legacy-pty" | "app-server";
   codexAppServerRequestTimeoutMs: number;
+  codexAppServerIncludeDefaultArgs: boolean;
   mcpStdioAllowedPathPrefixes: string[];
 };
 
@@ -1408,6 +1426,11 @@ export function loadBridgeCliRuntimeConfig(
       env,
       "CODEX_APP_SERVER_REQUEST_TIMEOUT_MS",
       30_000
+    ),
+    codexAppServerIncludeDefaultArgs: readBoolean(
+      env,
+      "CODEX_APP_SERVER_INCLUDE_DEFAULT_ARGS",
+      true
     ),
     mcpStdioAllowedPathPrefixes: readStringList(
       env,

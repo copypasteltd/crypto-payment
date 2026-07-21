@@ -161,6 +161,7 @@ async function seedBatchState(storageRoot) {
           en: "Brand content workshop / production",
         },
         workspaceContextKeys: ["brand-lab"],
+        workspaceIds: ["wsp_brand_content"],
         linkedWorkshopIds: ["brand-poster-suite"],
         linkedServiceIds: ["poster-batch"],
         session: {

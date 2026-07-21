@@ -152,8 +152,11 @@ export async function processSessionCapture(input: ProcessSessionCaptureInput) {
       120
     );
     const selectedTarget = lease.workspaceSelection.targetPath.replace(/\\/g, "/").replace(/\/$/, "");
+    const resolvedSelectedTarget = path.resolve(lease.workspaceSelection.targetPath)
+      .replace(/\\/g, "/")
+      .replace(/\/$/, "");
     const workerTarget = path.resolve(input.targetPath).replace(/\\/g, "/").replace(/\/$/, "");
-    if (selectedTarget !== workerTarget && selectedTarget !== "/workspace/target") {
+    if (resolvedSelectedTarget !== workerTarget && selectedTarget !== "/workspace/target") {
       throw new Error(`RUN_CAPTURE_PATH_INVALID: target path does not match the active runtime target`);
     }
     await Promise.resolve(input.handle.controller.handle({ type: "syncFiles" }));

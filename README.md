@@ -13,13 +13,14 @@ Lingban Workshop is a cloud agent-workshop platform for organizations and indivi
 | Platform Admin | 已独立部署，`http://192.168.31.20:38140/` |
 | Backend API | 已部署，`http://192.168.31.20:38130` |
 | Session Control v2 | 已部署，Migration `0030_session_control` 已应用 |
-| Frontend E2E | 32/32 通过 |
+| Frontend E2E | 33/33 通过 |
 | Backend smoke | 62/62 通过 |
-| Run Worker tests | 28/28 通过 |
+| Run Worker tests | 33/33 通过 |
 | Runtime Bridge tests | 25/25 通过 |
 | Session Pack tests | 24/24 通过 |
 | Dashboard 视觉状态 | 1440×1000、1024×768、390×844 通过 |
-| 最近验证日期 | 2026-07-17 |
+| Run lifecycle API | 关闭、释放、归档、恢复与永久销毁已完成 |
+| 最近验证日期 | 2026-07-21 |
 
 当前地址属于 HZ01 验收环境。生产扩容仍需完成外部 PostgreSQL、Redis、对象存储、集中密钥管理、告警、备份和多节点容量验证。
 
@@ -72,6 +73,21 @@ These URLs point to the HZ01 acceptance environment. Production scale-out still 
 5. 用户持续对话、上传附件、处理审批并查看实时状态。
 6. Bridge 回传事件、文件、Artifact 和诊断；API 通过 WebSocket/SSE 分发。
 7. 用户在任务内浏览 target path、预览或下载结果。
+
+## 实例生命周期 / Run Lifecycle
+
+| 阶段 | 平台行为 |
+| --- | --- |
+| 停止 / Stop | 锁定消息与审批，向 Runtime 发送优雅停止请求，停止运行计费 |
+| 强制终止 / Force terminate | Admin 强制终止失联或释放失败的 Runtime |
+| 释放 / Release | 销毁运行进程或隔离实例，记录释放时间、失败原因和清理次数 |
+| 归档 / Archive | 将已结束实例移入归档视图，继续保留消息、文件与审计 |
+| 恢复归档 / Restore | 将归档记录恢复到当前实例列表，不重新启动 Runtime |
+| 永久销毁 / Delete | 清理工作目录、上传对象、下载票据、Agent 事件和实时事件，并保留最小脱敏墓碑 |
+
+未完成的 Session Capture 会阻止永久销毁。已固化的 Capture、Session Version、计费账本、MCP 审计和 Admin 审计按长期资产与合规策略保留。H5、小程序、Dashboard 与 Admin 均提供与权限相符的生命周期入口。
+
+Stopping a run locks conversation mutations, releases the runtime, and closes runtime billing. Permanent deletion removes runtime-owned files and event data after all Session Captures reach a terminal state, while preserving reusable Session assets and compliance records.
 
 ## 技术栈 / Technology
 

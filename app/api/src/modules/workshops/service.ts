@@ -46,6 +46,19 @@ function deriveTargetRoot(root: string, serviceId: string) {
   return `${ensureTrailingSlash(root)}runs/${serviceId}`;
 }
 
+function isWorkspaceOwnedVisible(
+  ownerWorkspaceId: string | null,
+  visibility: "private" | "workspace" | "public" | "marketplace",
+  workspaceId?: string
+) {
+  return (
+    visibility === "public" ||
+    visibility === "marketplace" ||
+    !ownerWorkspaceId ||
+    ownerWorkspaceId === workspaceId
+  );
+}
+
 export class WorkshopCatalogService {
   async createWorkshopServiceBundle(
     input: CreateWorkshopServiceBundleInput,
@@ -110,6 +123,7 @@ export class WorkshopCatalogService {
       tagList: parsed.tagList,
       defaultServiceId: serviceId,
       visibleInContexts: [actor.workspaceContextKey],
+      ownerWorkspaceId: actor.workspaceId,
     });
     const serviceRecord = serviceCatalogRecordSchema.parse({
       serviceId,
@@ -125,6 +139,7 @@ export class WorkshopCatalogService {
       requiredBindings,
       linkedInstanceHint: parsed.service.linkedInstanceHint,
       visibleInContexts: [actor.workspaceContextKey],
+      ownerWorkspaceId: actor.workspaceId,
     });
     const immutableContent = {
       serviceId,
@@ -220,7 +235,12 @@ export class WorkshopCatalogService {
     }
 
     const workshop = workshopCatalogRepository.getWorkshopById(workshopId);
-    if (!workshop || !workshop.visibleInContexts.includes(context.contextKey) || workshop.status !== "active") {
+    if (
+      !workshop ||
+      !workshop.visibleInContexts.includes(context.contextKey) ||
+      workshop.status !== "active" ||
+      !isWorkspaceOwnedVisible(workshop.ownerWorkspaceId, workshop.visibility, query.workspaceId)
+    ) {
       throw new AppError(404, "WORKSHOP_NOT_FOUND", `Workshop not found: ${workshopId}`);
     }
 
@@ -245,15 +265,22 @@ export class WorkshopCatalogService {
     }
 
     const service = workshopCatalogRepository.getServiceById(serviceId);
-    if (!service || !service.visibleInContexts.includes(context.contextKey) || service.status !== "active") {
+    if (!service) {
       throw new AppError(404, "SERVICE_NOT_FOUND", `Service not found: ${serviceId}`);
     }
-
     const workshop = workshopCatalogRepository.getWorkshopById(service.workshopId);
-    if (!workshop || !workshop.visibleInContexts.includes(context.contextKey) || workshop.status !== "active") {
-      throw new AppError(404, "WORKSHOP_NOT_FOUND", `Workshop not found: ${service.workshopId}`);
+    if (
+      !service ||
+      !workshop ||
+      !service.visibleInContexts.includes(context.contextKey) ||
+      !workshop.visibleInContexts.includes(context.contextKey) ||
+      service.status !== "active" ||
+      workshop.status !== "active" ||
+      !isWorkspaceOwnedVisible(workshop.ownerWorkspaceId, workshop.visibility, query.workspaceId) ||
+      !isWorkspaceOwnedVisible(service.ownerWorkspaceId, workshop.visibility, query.workspaceId)
+    ) {
+      throw new AppError(404, "SERVICE_NOT_FOUND", `Service not found: ${serviceId}`);
     }
-
     return {
       context,
       workshop,
@@ -278,6 +305,7 @@ export class WorkshopCatalogService {
         (item) =>
           item.status === "active" &&
           item.visibleInContexts.includes(context.contextKey) &&
+          isWorkspaceOwnedVisible(item.ownerWorkspaceId, item.visibility, parsed.workspaceId) &&
           (!parsed.scope || item.scope === parsed.scope) &&
           (!parsed.tag || item.tagList.includes(parsed.tag)) &&
           matchesSearchQuery(parsed.q ?? "", [
@@ -298,7 +326,7 @@ export class WorkshopCatalogService {
             ...item.tagList,
           ])
       )
-      .map(({ visibleInContexts, ...item }) => item);
+      .map(({ visibleInContexts, ownerWorkspaceId, ...item }) => item);
   }
 
   getWorkshop(workshopId: string, query: Pick<ListWorkshopsQuery, "workspaceContextKey" | "workspaceId" | "entrySurface">) {
@@ -309,9 +337,10 @@ export class WorkshopCatalogService {
         (item) =>
           item.workshopId === workshop.workshopId &&
           item.status === "active" &&
-          item.visibleInContexts.includes(context.contextKey)
+          item.visibleInContexts.includes(context.contextKey) &&
+          isWorkspaceOwnedVisible(item.ownerWorkspaceId, workshop.visibility, query.workspaceId)
       )
-      .map(({ visibleInContexts, ...item }) => item);
+      .map(({ visibleInContexts, ownerWorkspaceId, ...item }) => item);
 
     return workshopDetailSchema.parse({
       ...workshop,
@@ -333,9 +362,15 @@ export class WorkshopCatalogService {
     return workshopCatalogRepository
       .listServices()
       .filter(
-        (item) =>
-          item.status === "active" &&
+        (item) => {
+          const workshop = workshopCatalogRepository.getWorkshopById(item.workshopId);
+          return item.status === "active" &&
           item.visibleInContexts.includes(context.contextKey) &&
+          Boolean(workshop) &&
+          workshop!.status === "active" &&
+          workshop!.visibleInContexts.includes(context.contextKey) &&
+          isWorkspaceOwnedVisible(workshop!.ownerWorkspaceId, workshop!.visibility, parsed.workspaceId) &&
+          isWorkspaceOwnedVisible(item.ownerWorkspaceId, workshop!.visibility, parsed.workspaceId) &&
           (!parsed.workshopId || item.workshopId === parsed.workshopId) &&
           matchesSearchQuery(parsed.q ?? "", [
             item.serviceId,
@@ -350,9 +385,10 @@ export class WorkshopCatalogService {
             item.authRequirementText.en,
             item.outputContractSummary.zh,
             item.outputContractSummary.en,
-          ])
+          ]);
+        }
       )
-      .map(({ visibleInContexts, ...item }) => item);
+      .map(({ visibleInContexts, ownerWorkspaceId, ...item }) => item);
   }
 
   getService(serviceId: string, query: Pick<ListServicesQuery, "workspaceContextKey" | "workspaceId" | "entrySurface">) {

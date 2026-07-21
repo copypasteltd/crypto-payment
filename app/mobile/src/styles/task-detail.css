@@ -49,8 +49,15 @@ button::after {
   --task-panel: color-mix(in srgb, var(--surface) 94%, var(--bg));
   --task-panel-raised: color-mix(in srgb, var(--surface-2) 88%, var(--surface));
   --task-divider: color-mix(in srgb, var(--line) 82%, transparent);
-  padding: 14px 14px calc(96px + env(safe-area-inset-bottom));
+  --task-composer-reserve: 82px;
+  --task-composer-expanded-reserve: min(54vh, 420px);
+  padding: 14px 14px calc(var(--task-composer-reserve) + 24px + env(safe-area-inset-bottom));
   gap: 10px;
+  scroll-padding-bottom: calc(var(--task-composer-reserve) + 24px + env(safe-area-inset-bottom));
+}
+
+.task-detail-page.composer-expanded {
+  --task-composer-reserve: var(--task-composer-expanded-reserve);
 }
 
 .task-detail-page .hero-card,
@@ -85,6 +92,46 @@ button::after {
   border-radius: 6px;
   font-size: 11px;
   font-weight: 600;
+}
+
+.task-detail-page .lifecycle-menu-btn .inline-action-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.task-detail-page .lifecycle-banner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+  background: var(--task-panel);
+}
+
+.task-detail-page .lifecycle-banner.warn {
+  border-left-color: var(--warn);
+}
+
+.task-detail-page .lifecycle-banner.success {
+  border-left-color: var(--success);
+}
+
+.task-detail-page .lifecycle-banner-title {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.task-detail-page .lifecycle-banner-copy {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .task-detail-page .inline-action-icon,
@@ -362,9 +409,15 @@ body[data-theme="light"] .task-detail-page .capture-sheet-icon {
 }
 
 .task-detail-page .task-composer {
-  position: sticky;
+  position: fixed;
+  left: 50%;
   bottom: max(8px, env(safe-area-inset-bottom));
   z-index: 30;
+  width: min(calc(100vw - 28px), 452px);
+  max-height: var(--task-composer-expanded-reserve);
+  box-sizing: border-box;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: 10px;
   gap: 8px;
   border: 1px solid var(--line-strong);
@@ -372,15 +425,69 @@ body[data-theme="light"] .task-detail-page .capture-sheet-icon {
   background: color-mix(in srgb, var(--surface) 96%, transparent);
   box-shadow: 0 14px 34px rgba(0, 0, 0, 0.32);
   backdrop-filter: blur(16px);
+  transform: translateX(-50%);
 }
 
-.task-composer-head {
+.task-detail-page .task-composer.collapsed {
+  overflow: hidden;
+  padding: 8px 10px;
+  gap: 0;
+}
+
+.task-detail-page .lifecycle-composer {
+  min-height: 68px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  overflow: hidden;
+}
+
+.task-detail-page .task-composer-preview.terminal {
+  max-width: 245px;
+  white-space: normal;
+}
+
+.task-detail-page .lifecycle-composer-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.task-detail-page .lifecycle-composer-actions taro-button-core {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 10px;
+}
+
+.task-detail-page .task-composer-toggle {
+  width: 100%;
+  min-height: 36px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  min-height: 22px;
   padding: 0 2px;
+  border: 0;
+  border-radius: 4px;
+  color: var(--text);
+  background: transparent;
+  font-family: var(--font-body);
+  line-height: 1;
+  text-align: left;
+}
+
+.task-composer-title-group {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.task-composer-head-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .task-composer-title {
@@ -388,6 +495,34 @@ body[data-theme="light"] .task-detail-page .capture-sheet-icon {
   font-size: 12px;
   font-weight: 700;
   line-height: 1.3;
+}
+
+.task-composer-preview {
+  max-width: 220px;
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-composer-chevron {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  opacity: 0.9;
+  transition: transform 160ms ease;
+}
+
+.task-composer-chevron.collapsed {
+  transform: rotate(180deg);
+}
+
+.task-composer-chevron.expanded {
+  transform: rotate(0deg);
 }
 
 .task-connection-state {
@@ -417,7 +552,11 @@ body[data-theme="light"] .task-detail-page .capture-sheet-icon {
 
 .task-detail-page .task-composer-input {
   width: 100%;
-  min-height: 72px;
+  height: 88px !important;
+  min-height: 88px;
+  max-height: 88px;
+  box-sizing: border-box;
+  flex: 0 0 88px;
   padding: 10px 12px;
   border: 1px solid var(--task-divider);
   border-radius: 6px;
@@ -430,8 +569,9 @@ body[data-theme="light"] .task-detail-page .capture-sheet-icon {
 
 .task-detail-page .task-composer-input .taro-textarea {
   width: 100%;
-  height: 100%;
-  min-height: 50px;
+  height: 66px !important;
+  min-height: 66px;
+  max-height: 66px;
   color: var(--text) !important;
   background: transparent !important;
   font-family: var(--font-body);
@@ -441,6 +581,9 @@ body[data-theme="light"] .task-detail-page .capture-sheet-icon {
 }
 
 .task-detail-page taro-textarea-core.task-composer-input > .taro-textarea {
+  height: 66px !important;
+  min-height: 66px !important;
+  max-height: 66px !important;
   color: var(--text) !important;
   background-color: transparent !important;
   font-family: var(--font-body) !important;
@@ -526,7 +669,7 @@ body[data-theme="light"] .task-detail-page .capture-sheet-icon {
   line-height: 1;
 }
 
-.task-detail-page .composer-send-button[disabled] {
+.task-detail-page .composer-send-button[disabled]:not([disabled="false"]) {
   border-color: var(--task-divider);
   color: var(--muted);
   background: var(--surface-3);
@@ -553,8 +696,32 @@ body[data-theme="light"] .task-detail-page .task-composer {
   }
 }
 
+@media (max-height: 700px) {
+  .task-detail-page {
+    --task-composer-expanded-reserve: min(50vh, 330px);
+  }
+
+  .task-detail-page .task-composer-input {
+    height: 72px !important;
+    min-height: 72px;
+    max-height: 72px;
+    flex-basis: 72px;
+  }
+
+  .task-detail-page .task-composer-input .taro-textarea,
+  .task-detail-page taro-textarea-core.task-composer-input > .taro-textarea {
+    height: 50px !important;
+    min-height: 50px !important;
+    max-height: 50px !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .task-detail-page .task-composer {
     backdrop-filter: none;
+  }
+
+  .task-composer-chevron {
+    transition: none;
   }
 }

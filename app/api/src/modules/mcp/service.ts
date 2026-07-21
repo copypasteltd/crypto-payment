@@ -54,7 +54,7 @@ const knownFirstPartyMcpIds = new Set([
   "mcp.image.gpt-image-2",
 ]);
 const knownFirstPartyDefaultCredentialIds: Record<string, string | null> = {
-  "mcp.browser.playwright": "cred_browser_storage_state",
+  "mcp.browser.playwright": null,
   "mcp.image.gpt-image-2": "cred_openai_image_api_key",
 };
 

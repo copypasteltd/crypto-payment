@@ -7,6 +7,7 @@ import {
   runApprovalSchema,
   runArtifactSchema,
   runConversationMessageSchema,
+  runLifecycleSchema,
   runRuntimeMetadataSchema,
   runRuntimeUpdateSchema,
   runFileEntrySchema,
@@ -27,6 +28,7 @@ import {
   type RunFileRecord,
   type RunInformationCollection,
   type RunInformationCollectionAnswer,
+  type RunStopMode,
   type RunRuntimeMetadata,
   type RunRuntimeRecoveryCandidate,
   type RunRuntimeUpdate,
@@ -78,6 +80,9 @@ import { runQueryRepository } from "./query-repository.js";
 import { runsRepository } from "./repository.js";
 import { EmbeddedRunOrchestrator } from "./runtime-orchestrator.js";
 import { agentRuntimeRepository } from "../agent-runtime/repository.js";
+import { sessionCaptureRepository } from "../session-captures/repository.js";
+import { objectStore } from "../uploads/object-store.js";
+import { uploadRepository } from "../uploads/repository.js";
 import {
   ensureSealedSessionVersionVerified,
   getSealedSessionVersion,
@@ -100,11 +105,19 @@ type RunsRepositoryLike = Pick<
   "init" | "get" | "list" | "save" | "update" | "clear"
 >;
 
-type RunEventBusLike = Pick<typeof runEventBus, "init" | "append" | "appendMany">;
+type RunEventBusLike = Pick<typeof runEventBus, "init" | "append" | "appendMany" | "deleteRun">;
 type AgentRuntimeRepositoryLike = Pick<
   AgentRuntimeRepository,
-  "getThreadByRunId" | "upsertThread" | "appendEvent" | "listEvents"
+  "getThreadByRunId" | "upsertThread" | "appendEvent" | "listEvents" | "deleteRun"
 >;
+
+type UploadRepositoryLike = Pick<
+  typeof uploadRepository,
+  "listUploadsByRun" | "listDownloadTickets" | "deleteUpload" | "deleteDownloadTicket"
+>;
+
+type ObjectStoreLike = Pick<typeof objectStore, "deleteObject">;
+type SessionCaptureRepositoryLike = Pick<typeof sessionCaptureRepository, "listByRunId">;
 
 type RunFileIndexServiceLike = Pick<
   typeof runFileIndexService,
@@ -122,7 +135,7 @@ type BridgeRegistryLike = Pick<typeof bridgeRegistry, "get" | "dispatch" | "getD
 
 type RunRuntimeControl = Pick<
   EmbeddedRunOrchestrator,
-  "startRun" | "requestStop" | "requestSessionCapture" | "getDiagnostics" | "recover" | "shutdown"
+  "startRun" | "requestStop" | "requestWorkspaceCleanup" | "requestSessionCapture" | "getDiagnostics" | "recover" | "shutdown"
 >;
 
 export type RunsServiceDependencies = {
@@ -134,6 +147,9 @@ export type RunsServiceDependencies = {
   bridgeRegistry: BridgeRegistryLike;
   runtimeControl: RunRuntimeControl;
   agentRuntimeRepository?: AgentRuntimeRepositoryLike;
+  uploadRepository?: UploadRepositoryLike;
+  objectStore?: ObjectStoreLike;
+  sessionCaptureRepository?: SessionCaptureRepositoryLike;
 };
 
 function dispatchBridgeCommandDetached(
@@ -527,6 +543,10 @@ export class RunsService {
   #bridgeRegistry: BridgeRegistryLike;
   #runtimeControl: RunRuntimeControl;
   #agentRuntimeRepository: AgentRuntimeRepositoryLike;
+  #uploadRepository: UploadRepositoryLike;
+  #objectStore: ObjectStoreLike;
+  #sessionCaptureRepository: SessionCaptureRepositoryLike;
+  #releaseOperations = new Map<string, Promise<RunSnapshot>>();
 
   constructor(dependencies: RunsServiceDependencies) {
     this.#runsRepository = dependencies.runsRepository;
@@ -537,6 +557,9 @@ export class RunsService {
     this.#bridgeRegistry = dependencies.bridgeRegistry;
     this.#runtimeControl = dependencies.runtimeControl;
     this.#agentRuntimeRepository = dependencies.agentRuntimeRepository ?? agentRuntimeRepository;
+    this.#uploadRepository = dependencies.uploadRepository ?? uploadRepository;
+    this.#objectStore = dependencies.objectStore ?? objectStore;
+    this.#sessionCaptureRepository = dependencies.sessionCaptureRepository ?? sessionCaptureRepository;
   }
 
   #requireAggregate(runId: string) {
@@ -568,6 +591,7 @@ export class RunsService {
   #buildSnapshot(aggregate: {
     run: RunSnapshot["run"];
     runtime?: RunSnapshot["runtime"];
+    lifecycle?: RunSnapshot["lifecycle"];
     provider?: RunSnapshot["provider"];
     informationCollection?: RunSnapshot["informationCollection"];
     messages: RunConversationMessage[];
@@ -575,12 +599,31 @@ export class RunsService {
     artifacts: RunArtifact[];
     approvals: RunApproval[];
   }): RunSnapshot {
-    return this.#decorateSnapshot(runSnapshotSchema.parse(aggregate));
+    const parsed = runSnapshotSchema.parse(aggregate);
+    if (parsed.lifecycle.runtimeStatus === "NOT_STARTED") {
+      if (isTerminalStatus(parsed.run.status)) {
+        const released = Boolean(parsed.runtime.finishedAt) || !parsed.runtime.startedAt;
+        parsed.lifecycle = runLifecycleSchema.parse({
+          ...parsed.lifecycle,
+          runtimeStatus: released ? "RELEASED" : "ORPHANED",
+          releasedAt: released ? parsed.runtime.finishedAt ?? parsed.run.updatedAt : null,
+          billingStoppedAt: released ? parsed.runtime.finishedAt ?? parsed.run.updatedAt : null,
+          releaseFailure: released ? null : "Historical terminal run has no verified runtime release timestamp.",
+        });
+      } else if (parsed.runtime.startedAt || parsed.runtime.readyAt) {
+        parsed.lifecycle = runLifecycleSchema.parse({
+          ...parsed.lifecycle,
+          runtimeStatus: "ACTIVE",
+        });
+      }
+    }
+    return this.#decorateSnapshot(parsed);
   }
 
   async #upsertQuerySnapshot(aggregate: {
     run: RunSnapshot["run"];
     runtime?: RunSnapshot["runtime"];
+    lifecycle?: RunSnapshot["lifecycle"];
     provider?: RunSnapshot["provider"];
     informationCollection?: RunSnapshot["informationCollection"];
     messages: RunConversationMessage[];
@@ -621,7 +664,10 @@ export class RunsService {
     let reason: string | null = null;
     let startJob: StartRunJobPayload | null = null;
 
-    if (isTerminalStatus(snapshot.run.status)) {
+    if (snapshot.lifecycle.recordStatus === "DELETED") {
+      action = "ignore";
+      reason = "run record has been permanently deleted";
+    } else if (isTerminalStatus(snapshot.run.status)) {
       action = "schedule-cleanup";
       reason = `run is already terminal (${snapshot.run.status})`;
     } else if (RECOVERABLE_QUEUE_STATUSES.has(snapshot.run.status)) {
@@ -683,6 +729,109 @@ export class RunsService {
       at,
       reason: reason ?? null,
     });
+  }
+
+  #assertRunInteractive(snapshot: RunSnapshot, operation: string) {
+    if (isTerminalStatus(snapshot.run.status) || snapshot.lifecycle.runtimeStatus === "STOP_REQUESTED" || snapshot.lifecycle.runtimeStatus === "STOPPING") {
+      throw new AppError(
+        409,
+        "RUN_NOT_ACTIVE",
+        `${operation} is unavailable while run ${snapshot.run.runId} is ${snapshot.run.status}/${snapshot.lifecycle.runtimeStatus}.`
+      );
+    }
+    if (snapshot.lifecycle.recordStatus !== "ACTIVE") {
+      throw new AppError(
+        409,
+        "RUN_RECORD_NOT_ACTIVE",
+        `${operation} is unavailable while run record ${snapshot.run.runId} is ${snapshot.lifecycle.recordStatus}.`
+      );
+    }
+  }
+
+  async #releaseRuntime(runId: string, mode: RunStopMode) {
+    const current = this.#buildSnapshot(this.#requireAggregate(runId));
+    if (current.lifecycle.runtimeStatus === "RELEASED") {
+      return current;
+    }
+    const inFlight = this.#releaseOperations.get(runId);
+    if (inFlight) {
+      return await inFlight;
+    }
+
+    const operation = this.#performRuntimeRelease(runId, mode).finally(() => {
+      if (this.#releaseOperations.get(runId) === operation) {
+        this.#releaseOperations.delete(runId);
+      }
+    });
+    this.#releaseOperations.set(runId, operation);
+    return await operation;
+  }
+
+  async #performRuntimeRelease(runId: string, mode: RunStopMode) {
+    const stoppingAt = nowIso();
+    const stopping = await this.#runsRepository.update(runId, (current) => ({
+      ...current,
+      lifecycle: runLifecycleSchema.parse({
+        ...current.lifecycle,
+        runtimeStatus: "STOPPING",
+        stopMode: mode,
+        stopReason: current.lifecycle?.stopReason ?? current.run.statusReason ?? "Runtime release requested",
+        stopRequestedAt: current.lifecycle?.stopRequestedAt ?? stoppingAt,
+        releaseOperationId: current.lifecycle?.releaseOperationId ?? `rop_${randomUUID()}`,
+        cleanupAttemptCount: (current.lifecycle?.cleanupAttemptCount ?? 0) + 1,
+        releaseFailure: null,
+      }),
+      run: {
+        ...current.run,
+        updatedAt: stoppingAt,
+      },
+    }));
+    if (!stopping) throw new AppError(404, "RUN_NOT_FOUND", `Run not found: ${runId}`);
+    await this.#upsertQuerySnapshot(stopping);
+
+    try {
+      await this.#runtimeControl.requestStop(runId, { force: mode === "force" });
+      const releasedAt = nowIso();
+      const released = await this.#runsRepository.update(runId, (current) => ({
+        ...current,
+        runtime: mergeRuntimeMetadata(current.runtime, {
+          finishedAt: current.runtime?.finishedAt ?? releasedAt,
+        }),
+        lifecycle: runLifecycleSchema.parse({
+          ...current.lifecycle,
+          runtimeStatus: "RELEASED",
+          releasedAt,
+          billingStoppedAt: current.lifecycle?.billingStoppedAt ?? releasedAt,
+          releaseFailure: null,
+        }),
+        run: {
+          ...current.run,
+          updatedAt: releasedAt,
+        },
+      }));
+      if (!released) throw new AppError(404, "RUN_NOT_FOUND", `Run not found: ${runId}`);
+      await this.#upsertQuerySnapshot(released);
+      await billingService.recordRunRuntimeEstimate(released).catch(() => undefined);
+      return this.#buildSnapshot(released);
+    } catch (error) {
+      const failedAt = nowIso();
+      const failed = await this.#runsRepository.update(runId, (current) => ({
+        ...current,
+        lifecycle: runLifecycleSchema.parse({
+          ...current.lifecycle,
+          runtimeStatus: "RELEASE_FAILED",
+          releaseFailure: toErrorMessage(error),
+          billingStoppedAt: current.lifecycle?.billingStoppedAt ?? current.lifecycle?.stopRequestedAt ?? failedAt,
+        }),
+        run: {
+          ...current.run,
+          updatedAt: failedAt,
+        },
+      }));
+      if (!failed) throw new AppError(404, "RUN_NOT_FOUND", `Run not found: ${runId}`);
+      await this.#upsertQuerySnapshot(failed);
+      return this.#buildSnapshot(failed);
+    }
   }
 
   async #emitEvent(event: BridgeEvent) {
@@ -863,6 +1012,7 @@ export class RunsService {
 
     const aggregate = await this.#runsRepository.save({
       run,
+      lifecycle: runLifecycleSchema.parse({}),
       provider: resolvedProvider,
       informationCollection,
       input: effectiveInput,
@@ -935,6 +1085,14 @@ export class RunsService {
   }
 
   getRun(runId: string): RunSnapshot {
+    const snapshot = this.getRunIncludingDeleted(runId);
+    if (snapshot.lifecycle.recordStatus === "DELETED") {
+      throw new AppError(410, "RUN_DELETED", `Run has been deleted: ${runId}`);
+    }
+    return snapshot;
+  }
+
+  getRunIncludingDeleted(runId: string): RunSnapshot {
     return this.#buildSnapshot(this.#requireAggregate(runId));
   }
 
@@ -983,6 +1141,11 @@ export class RunsService {
   ): RunSnapshot[] {
     return this.#listReadSnapshots()
       .filter((snapshot) => {
+        if (query.recordStatus) {
+          if (snapshot.lifecycle.recordStatus !== query.recordStatus) return false;
+        } else if (snapshot.lifecycle.recordStatus !== "ACTIVE") {
+          return false;
+        }
         if (options.workspaceId && snapshot.run.workspaceId !== options.workspaceId) {
           return false;
         }
@@ -1017,6 +1180,7 @@ export class RunsService {
   ): Promise<RunSnapshot> {
     const parsed = sendRunMessageInputSchema.parse(input);
     const aggregate = this.#requireAggregate(runId);
+    this.#assertRunInteractive(this.#buildSnapshot(aggregate), "Sending a message");
     await Promise.all(
       parsed.attachments.map(async (attachment) => {
         await this.#runFileAccessService.statRunFile(runId, attachment.path);
@@ -1205,6 +1369,7 @@ export class RunsService {
   ): Promise<RunSnapshot> {
     const parsed = reviewRunInformationAnswerInputSchema.parse(input);
     const aggregate = this.#requireAggregate(runId);
+    this.#assertRunInteractive(this.#buildSnapshot(aggregate), "Reviewing collected information");
     const currentCollection =
       aggregate.informationCollection ??
       createRunInformationCollection({
@@ -1436,6 +1601,7 @@ export class RunsService {
   ): Promise<RunSnapshot> {
     const parsed = approveRunInputSchema.parse(input);
     const currentBeforeDecision = this.#requireAggregate(runId);
+    this.#assertRunInteractive(this.#buildSnapshot(currentBeforeDecision), "Approving a request");
     const pendingBeforeDecision = parsed.approvalId
       ? currentBeforeDecision.approvals.find(
           (approval) => approval.approvalId === parsed.approvalId && approval.state === "pending"
@@ -1701,7 +1867,33 @@ export class RunsService {
     return this.#buildSnapshot(updated);
   }
 
-  async cancel(runId: string, reason?: string): Promise<RunSnapshot> {
+  async stop(
+    runId: string,
+    options: {
+      reason?: string;
+      mode?: RunStopMode;
+      requestedByUserId?: string | null;
+    } = {}
+  ): Promise<RunSnapshot> {
+    const mode = options.mode ?? "graceful";
+    const reason = options.reason ?? (mode === "force" ? "Run force-terminated by an administrator" : "Run cancelled by user");
+    const currentSnapshot = this.#buildSnapshot(this.#requireAggregate(runId));
+    if (currentSnapshot.lifecycle.recordStatus === "DELETED") {
+      throw new AppError(410, "RUN_DELETED", `Run has been deleted: ${runId}`);
+    }
+    if (
+      isTerminalStatus(currentSnapshot.run.status) &&
+      currentSnapshot.lifecycle.runtimeStatus === "RELEASED"
+    ) {
+      return currentSnapshot;
+    }
+    if (
+      isTerminalStatus(currentSnapshot.run.status) &&
+      ["STOP_REQUESTED", "STOPPING"].includes(currentSnapshot.lifecycle.runtimeStatus)
+    ) {
+      return await this.#releaseRuntime(runId, currentSnapshot.lifecycle.stopMode ?? mode);
+    }
+
     const updated = await this.#runsRepository.update(runId, (current) => {
       const at = nowIso();
       const shouldFinalizePreStartRuntime =
@@ -1723,11 +1915,23 @@ export class RunsService {
               updatedAt: at,
               statusReason: reason ?? current.run.statusReason,
             }
-          : this.#applyRunStatus(current.run, "CANCELLED", at, reason ?? "Run cancelled by user");
+          : this.#applyRunStatus(current.run, "CANCELLED", at, reason);
+
+      const lifecycle = runLifecycleSchema.parse({
+        ...current.lifecycle,
+        runtimeStatus: "STOP_REQUESTED",
+        stopMode: mode,
+        stopReason: reason,
+        stopRequestedAt: current.lifecycle?.stopRequestedAt ?? at,
+        stopRequestedByUserId: options.requestedByUserId ?? current.lifecycle?.stopRequestedByUserId ?? null,
+        releaseOperationId: current.lifecycle?.releaseOperationId ?? `rop_${randomUUID()}`,
+        releaseFailure: null,
+      });
 
       return {
         ...current,
         run,
+        lifecycle,
         runtime: shouldFinalizePreStartRuntime
           ? mergeRuntimeMetadata(current.runtime, {
               finishedAt: at,
@@ -1737,7 +1941,7 @@ export class RunsService {
           : current.runtime,
         messages: [
           ...current.messages,
-          createMessage(runId, "system", "status", reason ?? "Run cancelled."),
+          createMessage(runId, "system", "status", reason),
         ],
       };
     });
@@ -1762,19 +1966,46 @@ export class RunsService {
       },
     ]);
 
-    dispatchBridgeCommandDetached(this.#bridgeRegistry, runId, {
-      type: "cancel",
-      reason,
-    });
-    await billingService.recordRunRuntimeEstimate(updated).catch(() => undefined);
-    await this.#runtimeControl.requestStop(runId).catch(() => undefined);
+    if (mode === "graceful") {
+      dispatchBridgeCommandDetached(this.#bridgeRegistry, runId, {
+        type: "cancel",
+        reason,
+      });
+    }
 
-    return this.#buildSnapshot(updated);
+    return await this.#releaseRuntime(runId, mode);
+  }
+
+  async cancel(
+    runId: string,
+    reason?: string,
+    options: { requestedByUserId?: string | null } = {}
+  ): Promise<RunSnapshot> {
+    return await this.stop(runId, {
+      reason,
+      mode: "graceful",
+      requestedByUserId: options.requestedByUserId,
+    });
+  }
+
+  async forceTerminate(
+    runId: string,
+    reason: string,
+    requestedByUserId?: string | null
+  ): Promise<RunSnapshot> {
+    return await this.stop(runId, {
+      reason,
+      mode: "force",
+      requestedByUserId,
+    });
   }
 
   async finalizeAfterSessionCapture(runId: string, captureId: string): Promise<RunSnapshot> {
     const currentSnapshot = this.getRun(runId);
-    if (TERMINAL_STATUSES.has(currentSnapshot.run.status)) return currentSnapshot;
+    if (
+      TERMINAL_STATUSES.has(currentSnapshot.run.status) &&
+      currentSnapshot.lifecycle.runtimeStatus === "RELEASED"
+    ) return currentSnapshot;
     const at = nowIso();
     const updated = await this.#runsRepository.update(runId, (current) => {
       if (current.run.status !== "RUNNING" && current.run.status !== "WAITING_APPROVAL") {
@@ -1794,6 +2025,15 @@ export class RunsService {
           at,
           `Verified terminal session capture: ${captureId}`
         ),
+        lifecycle: runLifecycleSchema.parse({
+          ...current.lifecycle,
+          runtimeStatus: "STOP_REQUESTED",
+          stopMode: "graceful",
+          stopReason: `Verified terminal session capture: ${captureId}`,
+          stopRequestedAt: current.lifecycle?.stopRequestedAt ?? at,
+          releaseOperationId: current.lifecycle?.releaseOperationId ?? `rop_${randomUUID()}`,
+          releaseFailure: null,
+        }),
         messages: [...current.messages, message],
       };
     });
@@ -1812,11 +2052,248 @@ export class RunsService {
         message: updated.messages.at(-1)!,
       },
     ]);
-    await billingService.recordRunRuntimeEstimate(updated).catch(() => undefined);
-    await this.#runtimeControl.requestStop(runId).catch((error) => {
-      console.error(`[lingban-runs-service] failed to stop finalized runtime ${runId}: ${toErrorMessage(error)}`);
-    });
+    return await this.#releaseRuntime(runId, "graceful");
+  }
+
+  async archiveRun(
+    runId: string,
+    options: { requestedByUserId?: string | null } = {}
+  ): Promise<RunSnapshot> {
+    const snapshot = this.getRun(runId);
+    if (!isTerminalStatus(snapshot.run.status) || snapshot.lifecycle.runtimeStatus !== "RELEASED") {
+      throw new AppError(
+        409,
+        "RUN_ARCHIVE_NOT_READY",
+        `Run ${runId} must be terminal and released before it can be archived.`
+      );
+    }
+    if (snapshot.lifecycle.recordStatus === "ARCHIVED") return snapshot;
+    const at = nowIso();
+    const updated = await this.#runsRepository.update(runId, (current) => ({
+      ...current,
+      lifecycle: runLifecycleSchema.parse({
+        ...current.lifecycle,
+        recordStatus: "ARCHIVED",
+        archivedAt: at,
+        archivedByUserId: options.requestedByUserId ?? null,
+      }),
+      run: { ...current.run, updatedAt: at },
+    }));
+    if (!updated) throw new AppError(404, "RUN_NOT_FOUND", `Run not found: ${runId}`);
+    await this.#upsertQuerySnapshot(updated);
     return this.#buildSnapshot(updated);
+  }
+
+  async restoreRun(
+    runId: string,
+    options: { requestedByUserId?: string | null } = {}
+  ): Promise<RunSnapshot> {
+    const snapshot = this.#buildSnapshot(this.#requireAggregate(runId));
+    if (snapshot.lifecycle.recordStatus !== "ARCHIVED") {
+      throw new AppError(409, "RUN_RESTORE_NOT_ALLOWED", `Run ${runId} is not archived.`);
+    }
+    const at = nowIso();
+    const updated = await this.#runsRepository.update(runId, (current) => ({
+      ...current,
+      lifecycle: runLifecycleSchema.parse({
+        ...current.lifecycle,
+        recordStatus: "ACTIVE",
+        archivedAt: null,
+        archivedByUserId: null,
+      }),
+      run: { ...current.run, updatedAt: at },
+    }));
+    if (!updated) throw new AppError(404, "RUN_NOT_FOUND", `Run not found: ${runId}`);
+    await this.#upsertQuerySnapshot(updated);
+    return this.#buildSnapshot(updated);
+  }
+
+  async deleteRun(
+    runId: string,
+    options: {
+      reason: string;
+      confirmation: string;
+      requestedByUserId?: string | null;
+    }
+  ): Promise<{
+    runId: string;
+    deletedAt: string;
+    deletedUploads: number;
+    deletedDownloadTickets: number;
+    retainedSessionCaptures: number;
+  }> {
+    if (options.confirmation !== runId) {
+      throw new AppError(400, "RUN_DELETE_CONFIRMATION_MISMATCH", "Run deletion confirmation does not match the run ID.");
+    }
+    const snapshot = this.#buildSnapshot(this.#requireAggregate(runId));
+    if (!isTerminalStatus(snapshot.run.status) || snapshot.lifecycle.runtimeStatus !== "RELEASED") {
+      throw new AppError(
+        409,
+        "RUN_DELETE_NOT_READY",
+        `Run ${runId} must be terminal and released before deletion.`
+      );
+    }
+    if (snapshot.lifecycle.recordStatus === "DELETED") {
+      return {
+        runId,
+        deletedAt: snapshot.lifecycle.deletedAt ?? snapshot.run.updatedAt,
+        deletedUploads: 0,
+        deletedDownloadTickets: 0,
+        retainedSessionCaptures: snapshot.sessionCaptures.length,
+      };
+    }
+
+    const persistedSessionCaptures = await this.#sessionCaptureRepository.listByRunId(runId);
+    const blockingCaptureIds = persistedSessionCaptures
+      .filter((capture) => !["CAPTURED", "FAILED", "CANCELLED"].includes(capture.status))
+      .map((capture) => capture.captureId);
+    if (blockingCaptureIds.length > 0) {
+      throw new AppError(
+        409,
+        "RUN_DELETE_CAPTURE_PENDING",
+        `Run ${runId} has unfinished Session Captures: ${blockingCaptureIds.join(", ")}.`
+      );
+    }
+    const retainedSessionCaptures = Math.max(
+      snapshot.sessionCaptures.length,
+      persistedSessionCaptures.length
+    );
+    const uploads = this.#uploadRepository.listUploadsByRun(runId);
+    const downloadTickets = this.#uploadRepository
+      .listDownloadTickets()
+      .filter((ticket) => ticket.runId === runId);
+
+    const requestedAt = nowIso();
+    const pending = await this.#runsRepository.update(runId, (current) => ({
+      ...current,
+      lifecycle: runLifecycleSchema.parse({
+        ...current.lifecycle,
+        recordStatus: "DELETION_PENDING",
+        deletionRequestedAt: requestedAt,
+        deletionRequestedByUserId: options.requestedByUserId ?? null,
+        deletionFailure: null,
+      }),
+      run: { ...current.run, updatedAt: requestedAt, statusReason: options.reason },
+    }));
+    if (!pending) throw new AppError(404, "RUN_NOT_FOUND", `Run not found: ${runId}`);
+    await this.#upsertQuerySnapshot(pending);
+
+    try {
+      await this.#runtimeControl.requestWorkspaceCleanup(runId);
+      await this.#runFileIndexService.replaceFromEntries(
+        {
+          runId,
+          workspaceId: pending.run.workspaceId,
+          targetPath: pending.run.targetPath,
+        },
+        []
+      );
+      for (const upload of uploads) {
+        await this.#objectStore.deleteObject(upload.objectKey);
+        await this.#uploadRepository.deleteUpload(upload.uploadId);
+      }
+      for (const ticket of downloadTickets) {
+        await this.#uploadRepository.deleteDownloadTicket(ticket.ticketId);
+      }
+      await this.#agentRuntimeRepository.deleteRun(runId);
+      await this.#runEventBus.deleteRun(runId);
+    } catch (error) {
+      const failed = await this.#runsRepository.update(runId, (current) => ({
+        ...current,
+        lifecycle: runLifecycleSchema.parse({
+          ...current.lifecycle,
+          recordStatus: snapshot.lifecycle.recordStatus,
+          deletionFailure: toErrorMessage(error),
+        }),
+      }));
+      if (failed) await this.#upsertQuerySnapshot(failed);
+      throw new AppError(503, "RUN_DELETE_CLEANUP_FAILED", `Run deletion cleanup failed: ${toErrorMessage(error)}`);
+    }
+
+    const deletedAt = nowIso();
+    const deleted = await this.#runsRepository.update(runId, (current) => {
+      const deletedRun = {
+        ...current.run,
+        requestedByUserId: null,
+        title: "Deleted run",
+        targetPath: `/deleted/${runId}`,
+        approvalModeUpdatedAt: null,
+        approvalModeUpdatedByUserId: null,
+        catalogMetadata: null,
+        statusReason: "Run data permanently deleted",
+        updatedAt: deletedAt,
+      };
+      const emptyBindings = {
+        firstPartyMcpIds: [],
+        externalConnectorRefs: [],
+        credentialIds: [],
+      };
+      const deletedInput = createRunInputSchema.parse({
+        ...current.input,
+        requestedByUserId: undefined,
+        title: deletedRun.title,
+        targetPath: deletedRun.targetPath,
+        initialMessage: null,
+        bindings: emptyBindings,
+        providerSelection: null,
+        catalogMetadata: null,
+      });
+
+      return {
+        ...current,
+        lifecycle: runLifecycleSchema.parse({
+          ...current.lifecycle,
+          recordStatus: "DELETED",
+          stopReason: null,
+          stopRequestedByUserId: null,
+          releaseFailure: null,
+          archivedByUserId: null,
+          deletionRequestedByUserId: null,
+          deletedAt,
+          deletionFailure: null,
+        }),
+        run: deletedRun,
+        runtime: runRuntimeMetadataSchema.parse({}),
+        provider: null,
+        informationCollection: createRunInformationCollection({ prompt: "Run data deleted." }),
+        input: deletedInput,
+        startJob: startRunJobPayloadSchema.parse({
+          ...current.startJob,
+          run: deletedRun,
+          initialPrompt: "Run data deleted.",
+          requestedInitialMessage: null,
+          bindings: emptyBindings,
+          credentialMounts: [],
+          mcpBindings: [],
+          mcpNetworkPolicies: [],
+          provider: null,
+        }),
+        messages: [],
+        files: [],
+        artifacts: [],
+        approvals: [],
+        agentThread: null,
+        sessionCaptures: [],
+      };
+    });
+    if (!deleted) throw new AppError(404, "RUN_NOT_FOUND", `Run not found: ${runId}`);
+    await this.#upsertQuerySnapshot(deleted);
+    return {
+      runId,
+      deletedAt,
+      deletedUploads: uploads.length,
+      deletedDownloadTickets: downloadTickets.length,
+      retainedSessionCaptures,
+    };
+  }
+
+  async reconcileRuntime(runId: string): Promise<RunSnapshot> {
+    const snapshot = this.#buildSnapshot(this.#requireAggregate(runId));
+    if (!isTerminalStatus(snapshot.run.status)) {
+      throw new AppError(409, "RUN_RECONCILE_NOT_TERMINAL", `Run ${runId} is still active.`);
+    }
+    if (snapshot.lifecycle.runtimeStatus === "RELEASED") return snapshot;
+    return await this.#releaseRuntime(runId, snapshot.lifecycle.stopMode ?? "force");
   }
 
   async syncRunStatus(runId: string, status: RunStatus, reason?: string | null, occurredAt?: string) {
@@ -1841,8 +2318,7 @@ export class RunsService {
     });
 
     if (isTerminalStatus(status)) {
-      await billingService.recordRunRuntimeEstimate(updated).catch(() => undefined);
-      void this.#runtimeControl.requestStop(runId).catch(() => undefined);
+      return await this.#releaseRuntime(runId, "graceful");
     }
 
     return this.#buildSnapshot(updated);
@@ -1879,6 +2355,17 @@ export class RunsService {
     const updated = await this.#runsRepository.update(runId, (current) => ({
       ...current,
       runtime: mergeRuntimeMetadata(current.runtime, parsedRuntime),
+      lifecycle: runLifecycleSchema.parse({
+        ...current.lifecycle,
+        runtimeStatus: parsedRuntime.finishedAt
+          ? "RELEASED"
+          : parsedRuntime.startedAt || parsedRuntime.readyAt
+            ? "ACTIVE"
+            : current.lifecycle?.runtimeStatus ?? "NOT_STARTED",
+        releasedAt: parsedRuntime.finishedAt ?? current.lifecycle?.releasedAt ?? null,
+        billingStoppedAt: parsedRuntime.finishedAt ?? current.lifecycle?.billingStoppedAt ?? null,
+        releaseFailure: parsedRuntime.finishedAt ? null : current.lifecycle?.releaseFailure ?? null,
+      }),
     }));
 
     if (!updated) {
@@ -2138,8 +2625,7 @@ export class RunsService {
     }
 
     if (isTerminalStatus(updated.run.status)) {
-      await billingService.recordRunRuntimeEstimate(updated).catch(() => undefined);
-      void this.#runtimeControl.requestStop(runId).catch(() => undefined);
+      return await this.#releaseRuntime(runId, "graceful");
     }
 
     return this.#buildSnapshot(updated);
@@ -2166,7 +2652,8 @@ export function createRunsServiceDependencies(): RunsServiceDependencies {
     bridgeRegistry,
     runtimeControl: {
       startRun: (runId) => getDefaultRunOrchestrator().startRun(runId),
-      requestStop: (runId) => getDefaultRunOrchestrator().requestStop(runId),
+      requestStop: (runId, options) => getDefaultRunOrchestrator().requestStop(runId, options),
+      requestWorkspaceCleanup: (runId) => getDefaultRunOrchestrator().requestWorkspaceCleanup(runId),
       requestSessionCapture: (runId, captureId) =>
         getDefaultRunOrchestrator().requestSessionCapture(runId, captureId),
       getDiagnostics: () => getDefaultRunOrchestrator().getDiagnostics(),
@@ -2200,6 +2687,20 @@ export async function initializeRunsInfrastructure() {
 }
 
 export async function recoverRunsRuntimeAfterStartup() {
+  const releaseCandidates = runsService
+    .listRuns()
+    .filter(
+      (snapshot) =>
+        isTerminalStatus(snapshot.run.status) &&
+        snapshot.lifecycle.runtimeStatus !== "RELEASED"
+    );
+  for (const candidate of releaseCandidates) {
+    await runsService.reconcileRuntime(candidate.run.runId).catch((error) => {
+      console.error(
+        `[lingban-runs-service] failed to reconcile terminal runtime ${candidate.run.runId} during startup: ${toErrorMessage(error)}`
+      );
+    });
+  }
   await defaultRunsServiceDependencies.runtimeControl.recover();
 }
 

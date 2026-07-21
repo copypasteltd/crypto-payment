@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "./zod.js";
 import { isoDatetimeSchema, userIdSchema } from "./common.js";
 
 export const adminResourceTypeSchema = z.enum([
@@ -25,6 +25,7 @@ export const adminResourceStatusSchema = z.enum([
   "disabled",
   "revoked",
   "draining",
+  "deleted",
 ]);
 
 export const adminActionSchema = z.enum([
@@ -44,6 +45,8 @@ export const adminActionSchema = z.enum([
   "revoke",
   "drain",
   "restore",
+  "reconcile",
+  "delete",
   "update",
 ]);
 

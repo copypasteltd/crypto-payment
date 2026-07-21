@@ -1,31 +1,39 @@
+import "whatwg-fetch";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Taro, { useLaunch } from "@tarojs/taro";
 import type { PropsWithChildren } from "react";
 import { useEffect, useMemo } from "react";
 import { MobileAuthGate } from "./components/MobileAuthGate";
+import { resolveMobileNetworkMode } from "./lib/mobileNetwork";
 import { applyMobileTheme } from "./lib/theme";
 import { useResolvedMobileWorkspace } from "./lib/useMobileWorkspace";
 import { useMobileAuthStore } from "./stores/mobileAuthStore";
 import { useMobileUiStore } from "./stores/mobileUiStore";
 import "./app.css";
 import "./styles/task-detail.css";
+import "./styles/creator.css";
 
 function App({ children }: PropsWithChildren) {
   const theme = useMobileUiStore((state) => state.theme);
   const authMode = useMobileAuthStore((state) => state.authMode);
   const authenticated = useMobileAuthStore((state) => state.authenticated);
   const currentWorkspace = useResolvedMobileWorkspace();
+  const networkMode = resolveMobileNetworkMode(process.env.TARO_ENV);
   const queryClient = useMemo(
     () =>
       new QueryClient({
         defaultOptions: {
           queries: {
+            networkMode,
             retry: 1,
             staleTime: 30_000,
           },
+          mutations: {
+            networkMode,
+          },
         },
       }),
-    []
+    [networkMode]
   );
 
   useLaunch(() => {
@@ -43,6 +51,23 @@ function App({ children }: PropsWithChildren) {
         : `${currentWorkspace.name} / 灵办词元`;
     document.body.dataset.theme = theme;
     applyMobileTheme(theme);
+
+    const pages = Taro.getCurrentPages();
+    const currentRoute = pages[pages.length - 1]?.route ?? "";
+    const isTabBarPage = [
+      "pages/workshops/index",
+      "pages/tasks/index",
+      "pages/me/index",
+    ].includes(currentRoute);
+
+    if (
+      !isTabBarPage ||
+      authMode === "unknown" ||
+      (authMode === "required" && !authenticated)
+    ) {
+      return;
+    }
+
     void Taro.setTabBarStyle(
       theme === "light"
         ? {

@@ -18,7 +18,7 @@ const configs: Record<DetailKind, { endpoint: string; mainKey: string; idKey: st
   workspace: { endpoint: "/workspaces", mainKey: "workspace", idKey: "workspaceId", actions: [{ action: "suspend", label: "Suspend workspace", labelKey: "actionsSuspendWorkspace", tone: "danger" }, { action: "resume", label: "Resume workspace", labelKey: "actionsResumeWorkspace" }] },
   workshop: { endpoint: "/workshops", mainKey: "workshop", idKey: "workshopId", actions: [{ action: "unlist", label: "Unlist", labelKey: "actionsUnlist", tone: "danger" }, { action: "list", label: "List", labelKey: "actionsList" }, { action: "archive", label: "Archive", labelKey: "actionsArchive" }] },
   session: { endpoint: "/sessions", mainKey: "session", idKey: "sessionVersionId", actions: [{ action: "quarantine", label: "Quarantine", labelKey: "actionsQuarantine", tone: "danger" }, { action: "release", label: "Release", labelKey: "actionsRelease" }] },
-  run: { endpoint: "/runs", mainKey: "run", idKey: "runId", actions: [{ action: "cancel", label: "Cancel run", labelKey: "actionsCancelRun", tone: "danger" }, { action: "retry", label: "Retry", labelKey: "actionsRetry" }, { action: "terminate", label: "Force terminate", labelKey: "actionsTerminateRun", tone: "danger" }] },
+  run: { endpoint: "/runs", mainKey: "run", idKey: "runId", actions: [] },
   mcp: { endpoint: "/mcps", mainKey: "mcp", idKey: "mcpId", actions: [{ action: "quarantine", label: "Quarantine MCP", labelKey: "actionsQuarantineMcp", tone: "danger" }, { action: "release", label: "Release", labelKey: "actionsRelease" }, { action: "disable", label: "Disable", labelKey: "actionsDisable" }] },
   credential: { endpoint: "/credentials", mainKey: "credential", idKey: "credentialId", actions: [{ action: "disable", label: "Freeze credential", labelKey: "actionsFreezeCredential", tone: "danger" }, { action: "revoke", label: "Revoke credential", labelKey: "actionsRevokeCredential", tone: "danger" }] },
 };
@@ -65,6 +65,31 @@ export function DetailPage({ kind }: { kind: DetailKind }) {
   if (query.error) return <ErrorState error={query.error} onRetry={() => void query.refetch()} />;
   const status = record.governanceStatus ?? data.governanceStatus ?? record.status ?? "active";
   const title = titleOf(record, id);
+  const lifecycle = asObject(data.lifecycle);
+  const runActions: GovernanceActionSpec[] = kind === "run"
+    ? lifecycle.recordStatus === "DELETED"
+      ? []
+      : lifecycle.recordStatus === "ARCHIVED"
+        ? [
+            { action: "restore", label: "Restore", labelKey: "actionsRestoreRun" },
+            { action: "delete", label: "Delete", labelKey: "actionsDeleteRun", tone: "danger" },
+          ]
+        : lifecycle.runtimeStatus === "RELEASE_FAILED" || lifecycle.runtimeStatus === "ORPHANED"
+          ? [
+              { action: "reconcile", label: "Reconcile", labelKey: "actionsReconcileRun" },
+              { action: "terminate", label: "Force terminate", labelKey: "actionsTerminateRun", tone: "danger" },
+            ]
+          : ["SUCCEEDED", "FAILED", "CANCELLED"].includes(String(record.status)) && lifecycle.runtimeStatus === "RELEASED"
+            ? [
+                { action: "retry", label: "Retry", labelKey: "actionsRetry" },
+                { action: "archive", label: "Archive", labelKey: "actionsArchive" },
+                { action: "delete", label: "Delete", labelKey: "actionsDeleteRun", tone: "danger" },
+              ]
+            : [
+                { action: "cancel", label: "Cancel run", labelKey: "actionsCancelRun", tone: "danger" },
+                { action: "terminate", label: "Force terminate", labelKey: "actionsTerminateRun", tone: "danger" },
+              ]
+    : config.actions;
   return (
     <div className="page-stack detail-page">
       <button type="button" className="back-link" onClick={() => navigate(-1)}><ArrowLeft size={16} />{t("backToList")}</button>
@@ -91,7 +116,7 @@ export function DetailPage({ kind }: { kind: DetailKind }) {
       </nav>
       {tab !== "overview" ? <Panel title={tab} meta={t("relatedRecords", { count: countOf(data[tab]) })}><RecordView value={data[tab]} /></Panel> : null}
       <Panel title={t("governanceActions")} meta={t("governanceMeta")} className="danger-zone">
-        <div className="governance-buttons">{config.actions.map((item) => <button type="button" key={item.action} className={`button ${item.tone === "danger" ? "danger" : "secondary"}`} onClick={() => setAction(item)}><ShieldAlert size={16} />{item.labelKey ? t(item.labelKey) : item.label}</button>)}</div>
+        <div className="governance-buttons">{runActions.map((item) => <button type="button" key={item.action} className={`button ${item.tone === "danger" ? "danger" : "secondary"}`} onClick={() => setAction(item)}><ShieldAlert size={16} />{item.labelKey ? t(item.labelKey) : item.label}</button>)}</div>
       </Panel>
       {action ? <GovernanceActionDialog resourceType={kind} resourceId={id} spec={action} onClose={() => setAction(null)} /> : null}
       {rotating ? <RotateCredential credentialId={id} onClose={() => setRotating(false)} /> : null}

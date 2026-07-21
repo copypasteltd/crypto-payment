@@ -1,8 +1,8 @@
 import type { RunFileEntry } from "@lingban/contracts";
 import { matchesSearchQuery } from "@lingban/domain-models";
-import { useQuery } from "@tanstack/react-query";
+import { useMobileQuery as useQuery } from "../../lib/useMobileQuery";
 import { Button, Image, Input, View } from "@tarojs/components";
-import Taro, { getCurrentInstance } from "@tarojs/taro";
+import Taro from "@tarojs/taro";
 import { useEffect, useMemo, useState } from "react";
 import { mobileRunsApi, requestMobileRunFileDownloadUrl } from "../../lib/api";
 import { isLiveTaskId, mapRunSnapshotToMobileTask } from "../../lib/liveTaskAdapters";
@@ -14,6 +14,8 @@ import {
 import { useMobileRecentRecorder } from "../../lib/recent";
 import { useMobileRunStream } from "../../lib/runStream";
 import { useResolvedMobileWorkspace } from "../../lib/useMobileWorkspace";
+import { useMobileRouteParams } from "../../lib/useMobileRouteParams";
+import { useMobilePageShellClass } from "../../components/MobilePageShell";
 
 function ensureTrailingSlash(value: string) {
   return value.endsWith("/") ? value : `${value}/`;
@@ -112,7 +114,16 @@ function toTestIdSegment(value: string) {
 }
 
 export default function TaskFilesPage() {
-  const id = getCurrentInstance().router?.params?.id;
+  const params = useMobileRouteParams<{ id?: string }>();
+  const pageShellClass = useMobilePageShellClass();
+  if (!params) {
+    return <View className={pageShellClass}><View className="section-copy">正在加载文件路由</View></View>;
+  }
+  return <TaskFilesContent id={params.id} />;
+}
+
+function TaskFilesContent({ id }: { id?: string }) {
+  const pageShellClass = useMobilePageShellClass();
   const liveTaskId = isLiveTaskId(id);
   const currentWorkspace = useResolvedMobileWorkspace();
   useMobileRunStream(liveTaskId ? id ?? null : null, liveTaskId);
@@ -389,7 +400,7 @@ export default function TaskFilesPage() {
 
   if (!task && routeTaskOutOfScope) {
     return (
-      <View className="page-shell">
+      <View className={pageShellClass}>
         <View className="hero-card">
           <View className="section-title">当前任务文件不属于这个工作区</View>
           <View className="section-copy">
@@ -410,7 +421,7 @@ export default function TaskFilesPage() {
 
   if (!task && liveTaskId && (liveRunDetailQuery.isPending || liveRunFilesQuery.isPending)) {
     return (
-      <View className="page-shell">
+      <View className={pageShellClass}>
         <View className="hero-card">
           <View className="section-title">正在加载文件目录</View>
           <View className="section-copy">正在同步当前 run 的文件树与目标路径。</View>
@@ -421,7 +432,7 @@ export default function TaskFilesPage() {
 
   if (!task) {
     return (
-      <View className="page-shell">
+      <View className={pageShellClass}>
         <View className="hero-card">
           <View className="section-title">当前工作区暂无可查看文件的任务</View>
           <View className="section-copy">先回到工坊启动实例，或者切换到有任务的工作区。</View>
@@ -434,7 +445,7 @@ export default function TaskFilesPage() {
   }
 
   return (
-    <View className="page-shell" data-testid="mobile-task-files-page">
+    <View className={pageShellClass} data-testid="mobile-task-files-page">
       <View className="crumb-row">
         <Button className="crumb-btn" onClick={() => Taro.navigateBack()}>
           返回会话
