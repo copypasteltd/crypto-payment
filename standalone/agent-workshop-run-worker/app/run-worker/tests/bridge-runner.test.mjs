@@ -222,6 +222,7 @@ function createJob(preparedWorkspace, runId) {
           preparedWorkspace.hostPaths.runtimePath,
           "container-launch-plan.json"
         ),
+        codexConfigPath: path.join(preparedWorkspace.hostPaths.codexHomePath, "config.toml"),
       },
     },
     containerLaunchPlan: {
@@ -750,6 +751,13 @@ test("startLocalBridgeProcess maps stdio allowlist prefixes from container paths
 
     await handle.waitUntilReady();
     const childEnv = spawnCalls[0].options.env;
+    assert.equal(childEnv.HOME, fixture.preparedWorkspace.hostPaths.homePath);
+    assert.equal(childEnv.CODEX_HOME, fixture.preparedWorkspace.hostPaths.codexHomePath);
+    assert.equal(childEnv.TMPDIR, fixture.preparedWorkspace.hostPaths.tmpPath);
+    assert.equal(childEnv.TARGET_PATH, fixture.preparedWorkspace.hostPaths.targetPath);
+    assert.equal(childEnv.MCP_CONFIG_PATH, job.runtimeConfig.files.mcpConfigPath);
+    assert.equal(childEnv.BRIDGE_CONTEXT_PATH, job.runtimeConfig.files.bridgeContextHostPath);
+    assert.equal(childEnv.RUNTIME_CONFIG_PATH, job.runtimeConfig.files.runtimeConfigPath);
     assert.deepEqual(
       JSON.parse(childEnv.LINGBAN_MCP_STDIO_ALLOWED_PATH_PREFIXES),
       [

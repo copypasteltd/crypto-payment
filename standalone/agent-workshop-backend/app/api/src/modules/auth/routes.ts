@@ -4,6 +4,7 @@ import {
   acceptWorkspaceInvitationInputSchema,
   createWorkspaceInvitationInputSchema,
   loginAuthInputSchema,
+  wechatMiniProgramLoginInputSchema,
   logoutAuthInputSchema,
   refreshAuthInputSchema,
   registerAuthInputSchema,
@@ -43,6 +44,11 @@ export async function registerAuthRoutes(server: FastifyInstance) {
   server.post("/login", async (request) => {
     const body = loginAuthInputSchema.parse(request.body);
     return await authService.login(body);
+  });
+
+  server.post("/wechat-mini-program", async (request) => {
+    const body = wechatMiniProgramLoginInputSchema.parse(request.body);
+    return await authService.loginWithWechatMiniProgram(body);
   });
 
   server.post("/refresh", async (request) => {

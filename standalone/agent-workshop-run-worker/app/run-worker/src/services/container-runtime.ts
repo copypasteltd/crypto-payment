@@ -30,11 +30,23 @@ export function buildCodexRuntimeConfig(
   payload: StartRunJobPayload,
   preparedWorkspace: PreparedRunWorkspace
 ) {
-  const lines: string[] = [];
+  const lines: string[] = ['sandbox_mode = "workspace-write"'];
   if (payload.provider) {
     lines.push(
       `model = ${tomlString(payload.provider.model)}`,
-      'model_provider = "lingban_runtime"',
+      'model_provider = "lingban_runtime"'
+    );
+  }
+
+  lines.push(
+    "",
+    "[sandbox_workspace_write]",
+    "network_access = true",
+    ""
+  );
+
+  if (payload.provider) {
+    lines.push(
       "",
       "[model_providers.lingban_runtime]",
       `name = ${tomlString(payload.provider.displayName)}`,

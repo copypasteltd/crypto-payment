@@ -277,6 +277,7 @@ async function seedCreatorRbacState(storageRoot) {
           en: "Drama workshop / staged",
         },
         workspaceContextKeys: ["brand-lab"],
+        workspaceIds: [workspaceId],
         linkedWorkshopIds: ["drama-workshop"],
         linkedServiceIds: ["drama-storyboard"],
         session: {

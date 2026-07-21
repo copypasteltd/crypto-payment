@@ -190,6 +190,10 @@ export function matchesRunListQuery(
     return false;
   }
 
+  if (parsed.recordStatus && current.lifecycle.recordStatus !== parsed.recordStatus) {
+    return false;
+  }
+
   if (parsed.tag && !tags.includes(parsed.tag)) {
     return false;
   }

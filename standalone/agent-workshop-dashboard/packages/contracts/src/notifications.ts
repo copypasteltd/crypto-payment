@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "./zod.js";
 import { localizedTextSchema, workspaceContextKeySchema } from "./catalog.js";
 import { isoDatetimeSchema, runIdSchema, workspaceIdSchema } from "./common.js";
 

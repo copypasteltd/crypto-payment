@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "./zod.js";
 import {
   isoDatetimeSchema,
   sessionIdSchema,
@@ -159,6 +159,11 @@ export const loginAuthInputSchema = z.object({
   password: z.string().min(1).max(200),
 });
 
+export const wechatMiniProgramLoginInputSchema = z.object({
+  code: z.string().trim().min(1).max(256),
+  displayName: z.string().trim().min(1).max(120).optional(),
+});
+
 export const refreshAuthInputSchema = z.object({
   refreshToken: z.string().min(1),
 });
@@ -223,6 +228,9 @@ export type AuthDisabledSessionBootstrap = z.infer<typeof authDisabledSessionBoo
 export type AuthSessionResponse = z.infer<typeof authSessionResponseSchema>;
 export type RegisterAuthInput = z.infer<typeof registerAuthInputSchema>;
 export type LoginAuthInput = z.infer<typeof loginAuthInputSchema>;
+export type WechatMiniProgramLoginInput = z.infer<
+  typeof wechatMiniProgramLoginInputSchema
+>;
 export type RefreshAuthInput = z.infer<typeof refreshAuthInputSchema>;
 export type LogoutAuthInput = z.infer<typeof logoutAuthInputSchema>;
 export type SwitchWorkspaceInput = z.infer<typeof switchWorkspaceInputSchema>;

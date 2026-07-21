@@ -30,6 +30,8 @@ import {
 } from "./storage-schema.js";
 import { creatorService } from "./service.js";
 import { sessionDraftService } from "../session-drafts/service.js";
+import { executeIdempotent, readOptionalIdempotencyKey } from "../idempotency/service.js";
+import { AppError } from "../../app/errors.js";
 
 const creatorAccessRoles: WorkspaceRole[] = ["owner", "admin", "creator"];
 const creatorGovernanceRoles: WorkspaceRole[] = ["owner", "admin"];
@@ -38,6 +40,7 @@ function toCreatorActor(authContext: AuthRequestContext) {
   return {
     userId: authContext.user.userId,
     role: authContext.currentWorkspace.role,
+    workspaceId: authContext.currentWorkspace.workspaceId,
     workspaceContextKey: authContext.currentWorkspace.contextKey,
   };
 }
@@ -58,13 +61,23 @@ export async function registerCreatorRoutes(server: FastifyInstance) {
     return creatorService.listPackages(query, authContext ? toCreatorActor(authContext) : undefined);
   });
 
-  server.post("/packages", async (request) => {
+  server.post("/packages", async (request, reply) => {
     const authContext = requireCurrentWorkspaceAccess(request, creatorAccessRoles);
     if (!authContext) return null;
-    return creatorService.createPackage(
-      createCreatorPackageInputSchema.parse(request.body),
-      toCreatorActor(authContext)
-    );
+    const body = createCreatorPackageInputSchema.parse(request.body);
+    const idempotencyKey = readOptionalIdempotencyKey(request);
+    if (!idempotencyKey) {
+      return creatorService.createPackage(body, toCreatorActor(authContext));
+    }
+    const result = await executeIdempotent({
+      scope: "creator.package.create",
+      key: idempotencyKey,
+      actorId: `${authContext.user.userId}:${authContext.currentWorkspace.workspaceId}`,
+      request: body,
+      execute: () => creatorService.createPackage(body, toCreatorActor(authContext)),
+    });
+    reply.header("Idempotency-Status", result.replayed ? "replayed" : "created");
+    return result.value;
   });
 
   server.get("/packages/:packageId", async (request) => {
@@ -81,6 +94,11 @@ export async function registerCreatorRoutes(server: FastifyInstance) {
     if (!authContext) return null;
     const params = creatorPackageIdParamsSchema.parse(request.params);
     const body = putCreatorPackageSessionBindingInputSchema.parse(request.body);
+    creatorService.getPackage(params.packageId, toCreatorActor(authContext));
+    const version = await sessionDraftService.getVersion(body.sessionVersionId);
+    if (version.session.workspaceId !== authContext.currentWorkspace.workspaceId) {
+      throw new AppError(404, "SESSION_VERSION_NOT_FOUND", `Session version not found: ${body.sessionVersionId}`);
+    }
     return sessionDraftService.bindPackage(params.packageId, body);
   });
 
@@ -88,6 +106,7 @@ export async function registerCreatorRoutes(server: FastifyInstance) {
     const authContext = requireCurrentWorkspaceAccess(request, creatorAccessRoles);
     if (!authContext) return creatorPackageSessionBindingsSchema.parse({ active: null, candidate: null });
     const params = creatorPackageIdParamsSchema.parse(request.params);
+    creatorService.getPackage(params.packageId, toCreatorActor(authContext));
     return creatorPackageSessionBindingsSchema.parse(
       await sessionDraftService.getPackageBindings(params.packageId)
     );
@@ -161,7 +180,7 @@ export async function registerCreatorRoutes(server: FastifyInstance) {
     );
   });
 
-  server.post("/packages/:packageId/releases", async (request) => {
+  server.post("/packages/:packageId/releases", async (request, reply) => {
     const authContext = requireCurrentWorkspaceAccess(request, creatorAccessRoles);
     if (!authContext) {
       return null;
@@ -169,7 +188,19 @@ export async function registerCreatorRoutes(server: FastifyInstance) {
 
     const params = creatorPackageIdParamsSchema.parse(request.params);
     const body = createCreatorReleaseInputSchema.parse(request.body);
-    return await creatorService.createRelease(params.packageId, toCreatorActor(authContext), body);
+    const idempotencyKey = readOptionalIdempotencyKey(request);
+    if (!idempotencyKey) {
+      return await creatorService.createRelease(params.packageId, toCreatorActor(authContext), body);
+    }
+    const result = await executeIdempotent({
+      scope: "creator.release.create",
+      key: idempotencyKey,
+      actorId: `${authContext.user.userId}:${authContext.currentWorkspace.workspaceId}`,
+      request: { packageId: params.packageId, body },
+      execute: () => creatorService.createRelease(params.packageId, toCreatorActor(authContext), body),
+    });
+    reply.header("Idempotency-Status", result.replayed ? "replayed" : "created");
+    return result.value;
   });
 
   server.patch("/packages/:packageId/releases/:releaseId", async (request) => {

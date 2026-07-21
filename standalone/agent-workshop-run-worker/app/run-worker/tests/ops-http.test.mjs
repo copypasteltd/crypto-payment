@@ -282,3 +282,57 @@ test("WorkerOpsHttpServer exposes health, readiness, diagnostics, and metrics", 
     await server.stop();
   }
 });
+
+test("WorkerOpsHttpServer forwards stop and immediate cleanup semantics", async () => {
+  const { WorkerOpsHttpServer } = await importOpsModules();
+  const calls = [];
+  const server = new WorkerOpsHttpServer({
+    host: "127.0.0.1",
+    port: 0,
+    authToken: "ops-secret",
+    getReadiness: () => createReadiness("ready"),
+    getDiagnostics: () => createDiagnostics(),
+    getMetricsText: () => "",
+    stopRun: async (runId, options) => {
+      calls.push({ runId, force: options?.force ?? false });
+      return { stopped: true, force: options?.force ?? false };
+    },
+    cleanupRun: async (runId) => {
+      calls.push({ runId, cleanup: true });
+      return { cleaned: true };
+    },
+  });
+  await server.start();
+  try {
+    for (const force of [false, true]) {
+      const response = await fetch(`${server.url}/runs/stop`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-lingban-worker-ops-token": "ops-secret",
+        },
+        body: JSON.stringify({ runId: force ? "run_force" : "run_graceful", force }),
+      });
+      assert.equal(response.status, 202);
+      assert.equal((await response.json()).result.force, force);
+    }
+    assert.deepEqual(calls, [
+      { runId: "run_graceful", force: false },
+      { runId: "run_force", force: true },
+    ]);
+
+    const cleanupResponse = await fetch(`${server.url}/runs/cleanup`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-lingban-worker-ops-token": "ops-secret",
+      },
+      body: JSON.stringify({ runId: "run_cleanup" }),
+    });
+    assert.equal(cleanupResponse.status, 200);
+    assert.equal((await cleanupResponse.json()).result.cleaned, true);
+    assert.deepEqual(calls.at(-1), { runId: "run_cleanup", cleanup: true });
+  } finally {
+    await server.stop();
+  }
+});

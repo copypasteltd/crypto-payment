@@ -1048,11 +1048,16 @@ export class BullmqRunWorkerDaemon {
     });
   }
 
-  async stopRun(runId: string) {
+  async stopRun(runId: string, options: { force?: boolean } = {}) {
     const handle = this.#active.get(runId);
     if (!handle) return { stopped: false, reason: "runtime-not-active" };
-    await handle.stop();
-    return { stopped: true };
+    await handle.stop(options);
+    return { stopped: true, force: options.force ?? false };
+  }
+
+  async cleanupRun(runId: string) {
+    await this.#processCleanupJob({ runId });
+    return { cleaned: true };
   }
 
   #scheduleWorkspaceCleanup(runId: string) {
@@ -1300,7 +1305,8 @@ async function main() {
     getMetricsText: async () =>
       buildRunWorkerMetricsText(await daemon.getDiagnostics(), await daemon.getReadinessReport()),
     processCapture: async (runId, captureId) => await daemon.processSessionCapture(runId, captureId),
-    stopRun: async (runId) => await daemon.stopRun(runId),
+    stopRun: async (runId, options) => await daemon.stopRun(runId, options),
+    cleanupRun: async (runId) => await daemon.cleanupRun(runId),
   });
   await daemon.start();
   await opsServer.start();

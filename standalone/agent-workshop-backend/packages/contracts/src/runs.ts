@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "./zod.js";
 import {
   approvalIdSchema,
   approvalStateSchema,
@@ -44,6 +44,25 @@ export const runListViewStatusSchema = z.enum([
   "failed",
   "cancelled",
 ]);
+
+export const runRuntimeLifecycleStatusSchema = z.enum([
+  "NOT_STARTED",
+  "ACTIVE",
+  "STOP_REQUESTED",
+  "STOPPING",
+  "RELEASED",
+  "RELEASE_FAILED",
+  "ORPHANED",
+]);
+
+export const runRecordLifecycleStatusSchema = z.enum([
+  "ACTIVE",
+  "ARCHIVED",
+  "DELETION_PENDING",
+  "DELETED",
+]);
+
+export const runStopModeSchema = z.enum(["graceful", "force"]);
 
 export const runAttentionModeSchema = z.enum([
   "todo",
@@ -159,6 +178,7 @@ export const listRunsQuerySchema = z.object({
   attentionMode: runAttentionModeSchema.optional(),
   entrySurface: entrySurfaceSchema.optional(),
   tag: z.string().trim().min(1).max(120).optional(),
+  recordStatus: runRecordLifecycleStatusSchema.optional(),
 });
 
 export const runRecordSchema = z.object({
@@ -212,6 +232,50 @@ export const runRuntimeUpdateSchema = z
     (value) => Object.values(value).some((item) => item !== undefined),
     "At least one runtime metadata field must be provided"
   );
+
+export const runLifecycleSchema = z.object({
+  runtimeStatus: runRuntimeLifecycleStatusSchema.default("NOT_STARTED"),
+  recordStatus: runRecordLifecycleStatusSchema.default("ACTIVE"),
+  stopMode: runStopModeSchema.nullable().default(null),
+  stopReason: z.string().min(1).max(2000).nullable().default(null),
+  stopRequestedAt: isoDatetimeSchema.nullable().default(null),
+  stopRequestedByUserId: userIdSchema.nullable().default(null),
+  releaseOperationId: z.string().min(1).nullable().default(null),
+  releasedAt: isoDatetimeSchema.nullable().default(null),
+  billingStoppedAt: isoDatetimeSchema.nullable().default(null),
+  releaseFailure: z.string().min(1).max(4000).nullable().default(null),
+  cleanupAttemptCount: z.number().int().nonnegative().default(0),
+  archivedAt: isoDatetimeSchema.nullable().default(null),
+  archivedByUserId: userIdSchema.nullable().default(null),
+  deletionRequestedAt: isoDatetimeSchema.nullable().default(null),
+  deletionRequestedByUserId: userIdSchema.nullable().default(null),
+  deletionFailure: z.string().min(1).max(4000).nullable().default(null),
+  deletedAt: isoDatetimeSchema.nullable().default(null),
+});
+
+const runLifecycleDefaults = runLifecycleSchema.parse({});
+
+export const stopRunInputSchema = z.object({
+  reason: z.string().trim().min(1).max(2000).optional(),
+  mode: runStopModeSchema.default("graceful"),
+});
+
+export const archiveRunInputSchema = z.object({
+  reason: z.string().trim().min(1).max(2000).optional(),
+});
+
+export const deleteRunInputSchema = z.object({
+  reason: z.string().trim().min(1).max(2000),
+  confirmation: z.string().trim().min(1).max(240),
+});
+
+export const deleteRunResponseSchema = z.object({
+  runId: runIdSchema,
+  deletedAt: isoDatetimeSchema,
+  deletedUploads: z.number().int().nonnegative(),
+  deletedDownloadTickets: z.number().int().nonnegative(),
+  retainedSessionCaptures: z.number().int().nonnegative(),
+});
 
 export const runInformationCollectionStatusSchema = z.enum([
   "pending",
@@ -467,6 +531,7 @@ export const createRunResponseSchema = z.object({
 export const runSnapshotSchema = z.object({
   run: runRecordSchema,
   runtime: runRuntimeMetadataSchema.default(runRuntimeMetadataDefaults),
+  lifecycle: runLifecycleSchema.default(runLifecycleDefaults),
   provider: resolvedRunProviderSchema.nullable().default(null),
   informationCollection: runInformationCollectionSchema.default(
     runInformationCollectionDefaults
@@ -605,6 +670,10 @@ export type RunApprovalMode = z.infer<typeof runApprovalModeSchema>;
 export type RunApprovalDecisionMode = z.infer<typeof runApprovalDecisionModeSchema>;
 export type RunListViewStatus = z.infer<typeof runListViewStatusSchema>;
 export type RunAttentionMode = z.infer<typeof runAttentionModeSchema>;
+export type RunRuntimeLifecycleStatus = z.infer<typeof runRuntimeLifecycleStatusSchema>;
+export type RunRecordLifecycleStatus = z.infer<typeof runRecordLifecycleStatusSchema>;
+export type RunStopMode = z.infer<typeof runStopModeSchema>;
+export type DeleteRunResponse = z.infer<typeof deleteRunResponseSchema>;
 export type CreateRunBinding = z.infer<typeof createRunBindingSchema>;
 export type RunCatalogMetadata = z.infer<typeof runCatalogMetadataSchema>;
 export type CreateRunInput = z.input<typeof createRunInputSchema>;
@@ -614,6 +683,10 @@ export type RunRecord = z.infer<typeof runRecordSchema>;
 export type RunRuntimeLaunchMode = z.infer<typeof runRuntimeLaunchModeSchema>;
 export type RunRuntimeMetadata = z.infer<typeof runRuntimeMetadataSchema>;
 export type RunRuntimeUpdate = z.infer<typeof runRuntimeUpdateSchema>;
+export type RunLifecycle = z.infer<typeof runLifecycleSchema>;
+export type StopRunInput = z.input<typeof stopRunInputSchema>;
+export type ArchiveRunInput = z.input<typeof archiveRunInputSchema>;
+export type DeleteRunInput = z.input<typeof deleteRunInputSchema>;
 export type RunInformationCollectionStatus = z.infer<
   typeof runInformationCollectionStatusSchema
 >;

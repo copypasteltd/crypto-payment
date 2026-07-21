@@ -11,6 +11,7 @@ export interface AgentRuntimeRepository {
   upsertThread(thread: AgentThreadRecord): Promise<AgentThreadRecord>;
   appendEvent(event: AgentRuntimeEventRecord): Promise<AgentRuntimeEventRecord>;
   listEvents(runId: string, options?: { afterSequence?: number; throughSequence?: number }): Promise<AgentRuntimeEventRecord[]>;
+  deleteRun(runId: string): Promise<void>;
 }
 
 export class InMemoryAgentRuntimeRepository implements AgentRuntimeRepository {
@@ -45,6 +46,11 @@ export class InMemoryAgentRuntimeRepository implements AgentRuntimeRepository {
       .filter((event) => event.sequence > (options.afterSequence ?? 0))
       .filter((event) => event.sequence <= (options.throughSequence ?? Number.MAX_SAFE_INTEGER))
       .sort((left, right) => left.sequence - right.sequence);
+  }
+
+  async deleteRun(runId: string) {
+    this.#threads.delete(runId);
+    this.#events.delete(runId);
   }
 }
 
@@ -206,5 +212,11 @@ export class PostgresAgentRuntimeRepository implements AgentRuntimeRepository {
       payloadSha256: row.payload_sha256,
       payload: row.payload_json,
     }));
+  }
+
+  async deleteRun(runId: string) {
+    const queryable = await this.#getQueryable();
+    await queryable.query("DELETE FROM lingban_run_agent_events WHERE run_id = $1", [runId]);
+    await queryable.query("DELETE FROM lingban_run_agent_threads WHERE run_id = $1", [runId]);
   }
 }

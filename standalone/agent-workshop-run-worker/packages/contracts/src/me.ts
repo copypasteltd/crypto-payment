@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "./zod.js";
 import { authUserSchema, workspaceProfileMetricsSchema, workspaceSummarySchema } from "./auth.js";
 import {
   localizedTextSchema,

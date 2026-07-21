@@ -20,6 +20,7 @@ import {
   RuntimeEgressProxyServer,
 } from "./egress-proxy.js";
 import { buildContainerEgressFirewallEnv } from "./egress-firewall.js";
+import { buildRunSessionPackHostPaths } from "./session-pack-materializer.js";
 
 type RuntimeProcessOptions = {
   job: StartRunJobResult;
@@ -46,7 +47,7 @@ export type ManagedBridgeRuntimeHandle = {
   getDiagnostics: () => ManagedBridgeRuntimeDiagnostics;
   waitUntilReady: () => Promise<void>;
   completion: Promise<{ exitCode: number | null; signal: NodeJS.Signals | null }>;
-  stop: () => Promise<void>;
+  stop: (options?: { force?: boolean }) => Promise<void>;
 };
 
 export type ManagedBridgeRuntimeDiagnostics = {
@@ -476,6 +477,8 @@ function buildDockerRuntimeEnv(input: {
     CODEX_RUNTIME_PROTOCOL: process.env.CODEX_RUNTIME_PROTOCOL ?? "app-server",
     CODEX_APP_SERVER_REQUEST_TIMEOUT_MS:
       process.env.CODEX_APP_SERVER_REQUEST_TIMEOUT_MS ?? "30000",
+    CODEX_APP_SERVER_INCLUDE_DEFAULT_ARGS:
+      process.env.CODEX_APP_SERVER_INCLUDE_DEFAULT_ARGS ?? "true",
     ...(input.codex?.command ? { CODEX_BIN: input.codex.command } : {}),
     ...(input.codex?.args ? { CODEX_ARGS_JSON: JSON.stringify(input.codex.args) } : {}),
   };
@@ -742,16 +745,31 @@ export async function startLocalBridgeProcess(
   const cliPath = resolveBridgeCliPath();
   const stdoutLogPath = path.join(options.job.preparedWorkspace.hostPaths.logsPath, "bridge.stdout.log");
   const stderrLogPath = path.join(options.job.preparedWorkspace.hostPaths.logsPath, "bridge.stderr.log");
+  const hostPaths = options.job.preparedWorkspace.hostPaths;
+  const sessionPackPaths = buildRunSessionPackHostPaths(options.job.preparedWorkspace);
   let child: SpawnedChildProcess;
   try {
     child = spawnImpl(process.execPath, [cliPath], {
       cwd: options.job.preparedWorkspace.hostPaths.runRootPath,
       env: {
         ...process.env,
+        HOME: hostPaths.homePath,
+        CODEX_HOME: hostPaths.codexHomePath,
+        TMPDIR: hostPaths.tmpPath,
+        TARGET_PATH: hostPaths.targetPath,
+        RUN_ID: options.job.payload.run.runId,
+        WORKSPACE_ID: options.job.payload.run.workspaceId,
         BRIDGE_CONTEXT_PATH: options.job.runtimeConfig.files.bridgeContextHostPath,
         RUNTIME_CONFIG_PATH: options.job.runtimeConfig.files.runtimeConfigPath,
-        OUTPUTS_PATH: options.job.preparedWorkspace.hostPaths.outputsPath,
-        RUNTIME_DIR: options.job.preparedWorkspace.hostPaths.runtimePath,
+        MCP_CONFIG_PATH: options.job.runtimeConfig.files.mcpConfigPath,
+        OUTPUTS_PATH: hostPaths.outputsPath,
+        RUNTIME_DIR: hostPaths.runtimePath,
+        PLAYWRIGHT_BROWSERS_PATH: workerConfig.playwrightBrowsersPath,
+        SESSION_PACK_ROOT: sessionPackPaths.unpackedPath,
+        SESSION_PACK_ARCHIVE_PATH: sessionPackPaths.archivePath,
+        SESSION_PACK_MANIFEST_PATH: sessionPackPaths.manifestPath,
+        SESSION_PACK_METADATA_PATH: sessionPackPaths.metadataPath,
+        SESSION_PACK_WORKSPACE_BASE_PATH: sessionPackPaths.workspaceBasePath,
         LINGBAN_RUNTIME_UMASK: "077",
         ...(options.job.payload.provider?.runtimeEnv ?? {}),
         ...secretEnv,
@@ -775,6 +793,8 @@ export async function startLocalBridgeProcess(
         CODEX_RUNTIME_PROTOCOL: process.env.CODEX_RUNTIME_PROTOCOL ?? "app-server",
         CODEX_APP_SERVER_REQUEST_TIMEOUT_MS:
           process.env.CODEX_APP_SERVER_REQUEST_TIMEOUT_MS ?? "30000",
+        CODEX_APP_SERVER_INCLUDE_DEFAULT_ARGS:
+          process.env.CODEX_APP_SERVER_INCLUDE_DEFAULT_ARGS ?? "true",
         ...(options.codex?.args ? { CODEX_ARGS_JSON: JSON.stringify(options.codex.args) } : {}),
       },
       stdio: "pipe",
@@ -815,22 +835,24 @@ export async function startLocalBridgeProcess(
       );
     },
     completion,
-    stop: async () => {
+    stop: async (stopOptions = {}) => {
       try {
         if (child.exitCode != null || child.killed) {
           await completion.catch(() => undefined);
           return;
         }
 
-        const gracefulResult = await waitForCompletionGracefully(
-          completion,
-          LOCAL_BRIDGE_STOP_GRACE_MS
-        );
-        if (gracefulResult) {
-          return;
+        if (!stopOptions.force) {
+          const gracefulResult = await waitForCompletionGracefully(
+            completion,
+            LOCAL_BRIDGE_STOP_GRACE_MS
+          );
+          if (gracefulResult) {
+            return;
+          }
         }
 
-        child.kill("SIGTERM");
+        child.kill(stopOptions.force ? "SIGKILL" : "SIGTERM");
         await completion.catch(() => undefined);
       } finally {
         await egressProxy?.stop();
@@ -964,10 +986,10 @@ export async function startDockerBridgeProcess(
       }
     },
     completion,
-    stop: async () => {
+    stop: async (stopOptions = {}) => {
       try {
         try {
-          if (child.exitCode == null && !child.killed) {
+          if (!stopOptions.force && child.exitCode == null && !child.killed) {
             await runSubprocessImpl(
               workerConfig.dockerBin,
               ["stop", "--time", "10", options.job.containerLaunchPlan.containerName],

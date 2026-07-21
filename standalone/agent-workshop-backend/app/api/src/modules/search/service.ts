@@ -591,6 +591,7 @@ export class SearchService {
           workspaceContextKey: actor.workspaceContextKey,
         },
         {
+          workspaceId: actor.workspaceId,
           workspaceContextKey: actor.workspaceContextKey,
         }
       );

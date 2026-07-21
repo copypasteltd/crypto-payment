@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from "./zod.js";
 
 export const isoDatetimeSchema = z.string().datetime({ offset: true });
 

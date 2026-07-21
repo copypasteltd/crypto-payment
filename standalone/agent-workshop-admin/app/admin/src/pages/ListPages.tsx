@@ -107,16 +107,33 @@ export function SessionsPage() {
 
 export function RunsPage() {
   const { t } = useTranslation(["runs", "common"]);
+  const runActions = (row: JsonObject): GovernanceActionSpec[] => {
+    const run = nested(row, "run");
+    const lifecycle = nested(row, "lifecycle");
+    if (lifecycle.recordStatus === "DELETED") return [];
+    if (lifecycle.recordStatus === "ARCHIVED") {
+      return [actionSpec(t, "restore", "actionsRestoreRun"), actionSpec(t, "delete", "actionsDeleteRun", "danger")];
+    }
+    if (lifecycle.runtimeStatus === "RELEASE_FAILED" || lifecycle.runtimeStatus === "ORPHANED") {
+      return [actionSpec(t, "reconcile", "actionsReconcileRun"), actionSpec(t, "terminate", "actionsTerminateRun", "danger")];
+    }
+    if (["SUCCEEDED", "FAILED", "CANCELLED"].includes(text(run.status)) && lifecycle.runtimeStatus === "RELEASED") {
+      return [actionSpec(t, "retry", "actionsRetry"), actionSpec(t, "archive", "actionsArchive")];
+    }
+    return [actionSpec(t, "cancel", "actionsCancelRun", "danger"), actionSpec(t, "terminate", "actionsTerminateRun", "danger")];
+  };
   const columns: DataColumn<JsonObject>[] = [
     { key: "run", label: t("common:run"), render: (r) => { const run = nested(r, "run"); const id = text(run.runId); return <Primary title={readableTitle(run.title, `${t("common:run")} ${id}`)} id={id} meta={text(run.workspaceId)} />; } },
     { key: "status", label: t("common:status"), width: 135, render: (r) => <StatusBadge status={nested(r, "run").status} /> },
     { key: "stage", label: t("runs:stage"), width: 130, render: (r) => text(nested(r, "run").stage ?? nested(r, "run").statusReason) },
+    { key: "runtimeLifecycle", label: "Runtime", width: 145, render: (r) => <StatusBadge status={nested(r, "lifecycle").runtimeStatus} /> },
+    { key: "recordLifecycle", label: t("common:status"), width: 130, render: (r) => <StatusBadge status={nested(r, "lifecycle").recordStatus} /> },
     { key: "provider", label: t("common:providerModel"), width: 170, render: (r) => { const p = nested(r, "provider"); return <div className="stacked-cell"><span>{text(p.displayName ?? p.providerId)}</span><code>{text(p.model)}</code></div>; } },
     { key: "files", label: t("runs:files"), width: 80, render: (r) => number(r.fileCount) },
     { key: "updated", label: t("common:updatedAt"), width: 180, render: (r) => formatDate(nested(r, "run").updatedAt) },
-    actionsColumn("run", (r) => text(nested(r, "run").runId), (r) => text(nested(r, "run").status), t),
+    { key: "actions", label: t("common:actions"), width: 180, render: (r) => <RowActions resourceType="run" resourceId={text(nested(r, "run").runId)} actions={runActions(r)} /> },
   ];
-  return <><ModuleTabs items={[{ to: "/runs", label: t("runs:runs") }, { to: "/runtime", label: t("runs:runtime") }]} /><ResourceListPage queryKey="runs" endpoint="/runs" eyebrow={t("runs:eyebrow")} title={t("runs:runs")} description={t("runs:description")} columns={columns} rowKey={(r) => text(nested(r, "run").runId)} detailPath={(r) => `/runs/${encodeURIComponent(text(nested(r, "run").runId))}`} statusOptions={["CREATED", "STARTING", "RUNNING", "WAITING_INPUT", "WAITING_APPROVAL", "FAILED", "COMPLETED", "CANCELLED"]} /></>;
+  return <><ModuleTabs items={[{ to: "/runs", label: t("runs:runs") }, { to: "/runtime", label: t("runs:runtime") }]} /><ResourceListPage queryKey="runs" endpoint="/runs" eyebrow={t("runs:eyebrow")} title={t("runs:runs")} description={t("runs:description")} columns={columns} rowKey={(r) => text(nested(r, "run").runId)} detailPath={(r) => `/runs/${encodeURIComponent(text(nested(r, "run").runId))}`} statusOptions={["CREATED", "STARTING", "RUNNING", "WAITING_APPROVAL", "SUCCEEDED", "FAILED", "CANCELLED", "STOPPING", "RELEASE_FAILED", "ORPHANED", "ARCHIVED", "DELETED"]} /></>;
 }
 
 export function ProvidersPage() {

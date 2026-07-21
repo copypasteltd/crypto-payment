@@ -1,7 +1,7 @@
-import { z } from "zod";
+import { z } from "./zod.js";
 import { workspaceRoleSchema } from "./auth.js";
 import { localizedTextSchema, serviceIdSchema, workshopIdSchema, workspaceContextKeySchema } from "./catalog.js";
-import { isoDatetimeSchema, sessionVersionIdSchema, taskVersionIdSchema, userIdSchema } from "./common.js";
+import { isoDatetimeSchema, sessionVersionIdSchema, taskVersionIdSchema, userIdSchema, workspaceIdSchema } from "./common.js";
 
 export const creatorPackageStateSchema = z.enum(["audited", "pending_release", "ready"]);
 export const creatorPackageToneSchema = z.enum(["success", "warn", "active"]);
@@ -57,6 +57,7 @@ export const creatorPackageSummarySchema = z.object({
   updatedAt: z.string().min(1),
   releaseChannel: localizedTextSchema,
   workspaceContextKeys: z.array(workspaceContextKeySchema).min(1),
+  workspaceIds: z.array(workspaceIdSchema).default([]),
   linkedWorkshopIds: z.array(workshopIdSchema).default([]),
   linkedServiceIds: z.array(serviceIdSchema).default([]),
 });
