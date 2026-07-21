@@ -30,6 +30,14 @@ The `packages/` directory contains contracts, domain models, persistence, sessio
 
 The shared contract layer defines runtime release, record archival, deletion state, cleanup diagnostics, and typed SDK operations across H5, Dashboard, Admin, API, and Worker.
 
+## 工坊目录持久化 / Workshop Catalog Persistence
+
+- `@lingban/db` 支持按 Context Key 创建或更新工作区目录上下文。
+- 空目录环境中的首次 Creator 发布会先持久化当前工作区上下文，再写入 Workshop、Service 与 Task Version。
+- PostgreSQL 与文件仓储实现保持相同的上下文写入语义和缓存一致性。
+
+`@lingban/db` persists workspace catalog contexts on the first Creator publication in an empty catalog. PostgreSQL and file-backed repositories share the same upsert and cache semantics.
+
 ## 依赖原则 / Dependency Rules
 
 1. `contracts` 保持可序列化、可验证并独立于应用实现。
