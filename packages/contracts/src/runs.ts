@@ -425,7 +425,14 @@ export const runFileSourceSchema = z.enum([
   "log",
 ]);
 
-export const runFilePreviewModeSchema = z.enum(["none", "text", "image", "pdf", "download"]);
+export const runFilePreviewModeSchema = z.enum([
+  "none",
+  "text",
+  "image",
+  "video",
+  "pdf",
+  "download",
+]);
 export const runFileStorageTierSchema = z.enum(["hot", "cold"]);
 export const runFileArchiveReasonSchema = z.enum(["terminal-retention", "manual"]);
 
