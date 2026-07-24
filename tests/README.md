@@ -34,6 +34,12 @@ pnpm exec playwright show-report
 
 | 日期 | 范围 | 结果 |
 | --- | --- | --- |
+| 2026-07-25 | API Capture/分享专项 | 4/4 通过 |
+| 2026-07-25 | Runtime Bridge | 34/34 通过 |
+| 2026-07-25 | Run Worker | 33/33 通过 |
+| 2026-07-25 | Shared DB / Session Pack | 30/30、24/24 通过 |
+| 2026-07-25 | Mobile Creator / Media | 6/6、8/8 通过 |
+| 2026-07-25 | Mobile H5 / 微信小程序构建与校验 | 通过 |
 | 2026-07-21 | Dashboard + Mobile H5 + Admin E2E | 34/34 通过，包含 H5 实例停止与释放请求断言 |
 | 2026-07-21 | Run lifecycle API | 6/6 通过 |
 | 2026-07-21 | Run Worker | 33/33 通过 |
