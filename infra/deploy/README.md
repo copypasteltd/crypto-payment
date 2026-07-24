@@ -21,7 +21,7 @@ This directory contains the minimum deployment assets required to move the curre
 4. Install the systemd unit files and the Nginx config on the host.
 5. Run `server/install-release.sh` on the host to build, migrate, and switch the active release.
 
-The generated release bundle keeps backend and worker as standalone workspaces, and it includes prebuilt static artifacts for Dashboard, Mobile H5, and the independent Admin Console.
+The generated release bundle keeps backend and worker as standalone workspaces, includes prebuilt static artifacts for Dashboard, Mobile H5, and the independent Admin Console, and carries a self-contained `runner-build/` context for the target Linux host.
 
 ## Deployment defaults
 
@@ -35,6 +35,12 @@ The generated release bundle keeps backend and worker as standalone workspaces, 
 - Worker launch mode defaults to `local-process`
 - Codex host binary is expected at `CODEX_BIN=/home/lingban/.local/bin/codex`
 - Codex structured runtime uses `CODEX_RUNTIME_PROTOCOL=app-server`
+
+When `runner-build/infra/docker/runner.Dockerfile` is present, the installer builds a release-scoped `lingban/runner:<release>` image on the target host, verifies Codex and Playwright MCP executables, writes the image tag to `/etc/lingban/run-worker.env`, and then restarts the Worker. Runner image construction never occurs on the local Windows development host.
+
+Hosts with an approved cached base image or a restricted registry mirror can set `LINGBAN_RUNNER_BASE_IMAGE` in `/etc/lingban/run-worker.env`. The installer passes that value as the Dockerfile base-image build argument while retaining the same package installation and executable verification gates.
+
+API-only releases that do not change the Runner build context can invoke the installer with `LINGBAN_SKIP_RUNNER_BUILD=1`. The Worker keeps the currently configured immutable Runner image.
 
 ## Session Control production baseline
 

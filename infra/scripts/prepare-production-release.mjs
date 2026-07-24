@@ -1,4 +1,4 @@
-import { cp, mkdir, rm, stat, writeFile } from "node:fs/promises";
+import { copyFile, cp, mkdir, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
@@ -105,6 +105,45 @@ async function copyDirectory(sourceDir, destinationDir) {
   await cp(sourceDir, destinationDir, { recursive: true });
 }
 
+const runnerBuildRootFiles = [
+  "package.json",
+  "pnpm-workspace.yaml",
+  "pnpm-lock.yaml",
+  "tsconfig.base.json",
+  "turbo.json",
+];
+
+const excludedRunnerBuildNames = new Set([
+  ".git",
+  ".turbo",
+  "coverage",
+  "dist",
+  "node_modules",
+]);
+
+async function copyRunnerBuildContext() {
+  const destinationRoot = path.join(releaseRoot, "runner-build");
+  await rm(destinationRoot, { recursive: true, force: true });
+  await mkdir(destinationRoot, { recursive: true });
+
+  for (const fileName of runnerBuildRootFiles) {
+    await copyFile(
+      path.join(workspaceRoot, fileName),
+      path.join(destinationRoot, fileName)
+    );
+  }
+
+  for (const relativePath of ["packages", "app/container-bridge", "infra/docker"]) {
+    const sourceDir = path.join(workspaceRoot, relativePath);
+    const destinationDir = path.join(destinationRoot, relativePath);
+    await mkdir(path.dirname(destinationDir), { recursive: true });
+    await cp(sourceDir, destinationDir, {
+      recursive: true,
+      filter: (sourcePath) => !excludedRunnerBuildNames.has(path.basename(sourcePath)),
+    });
+  }
+}
+
 async function buildStandaloneWorkspaces() {
   for (const entry of standaloneTargets) {
     await runCommand("node", ["infra/scripts/export-standalone-workspace.mjs", entry.target], workspaceRoot);
@@ -146,11 +185,13 @@ async function writeManifest() {
         dashboard: "workspaces/dashboard",
         app: "workspaces/app",
       },
+      runnerBuild: "runner-build",
       deployAssets: "deploy",
     },
     postDeployChecklist: [
       "Install dependencies inside release/workspaces/backend and release/workspaces/run-worker.",
       "Build backend and run-worker standalone workspaces on the target Linux host.",
+      "Build the release-scoped Runner image from release/runner-build on the target Linux host.",
       "Run backend database migrations before restarting services.",
       "Serve release/static/dashboard and release/static/mobile-h5 through Nginx or another static host.",
       "Serve release/static/admin from an isolated Admin virtual host and proxy /admin/v1 to the API.",
@@ -168,6 +209,7 @@ async function main() {
   await buildStandaloneWorkspaces();
   await buildFrontends();
   await copyStandaloneBundles();
+  await copyRunnerBuildContext();
   await copyDirectory(path.join(workspaceRoot, "infra", "deploy"), path.join(releaseRoot, "deploy"));
   await writeManifest();
 

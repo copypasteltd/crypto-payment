@@ -12,6 +12,7 @@ The `infra/` directory contains release, deployment, Nginx, systemd, environment
 | `scripts/export-standalone-workspace.mjs` | 导出五个带完整 workspace 依赖闭包的交付仓库 |
 | `scripts/prepare-production-release.mjs` | 生成生产发布目录和静态前端产物 |
 | `docker/` | 服务器 Runtime 镜像与隔离执行配置 |
+| `docker/playwright-mcp-entrypoint.sh` | 服务器 Runtime 内启动 Playwright MCP 的标准入口 |
 
 ## HZ01 端口 / HZ01 Ports
 
@@ -33,3 +34,5 @@ node infra/scripts/prepare-production-release.mjs
 ```
 
 Local preparation uses native Node.js/pnpm. Runtime installation and isolation validation are performed on the designated server.
+
+截至 2026-07-25，Capture 恢复、Codex thread 恢复和 Playwright MCP 入口已纳入服务器发布资产。
