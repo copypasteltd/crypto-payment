@@ -112,6 +112,7 @@ Production session control uses `codex app-server --listen stdio://` through `sr
 |---|---|
 | Consumer startup | `initialize` → `thread/start` → initial `turn/start` |
 | Blank Source startup | `initialize` → `thread/start` → wait for Creator message |
+| Runtime recovery | `initialize` → `thread/resume` with the persisted Thread ID |
 | Continued conversation | Reuses one Thread across multiple Turns |
 | Active-turn input | `turn/steer` with `expectedTurnId` |
 | Structured input | `item/tool/requestUserInput` response mapping |
@@ -128,9 +129,31 @@ For `deferInitialTurn=true`, Bridge creates the Codex Thread and stays idle. The
 
 As of 2026-07-17, the bridge uses Codex App Server as the primary structured protocol and retains a controlled PTY rollback adapter. Recovery, MCP materialization, secret injection, API integration, and runtime diagnostics remain available.
 
-最新原生测试结果：26/26 通过。
+最新原生测试结果：32/32 通过。
 
-Latest native test result: 26/26 passed.
+Latest native test result: 32/32 passed.
+
+## 2026-07-25 Codex Thread Resume / 2026-07-25 Codex 会话恢复
+
+- Bridge Context 支持 `resumeThreadId`、`resumeThroughTurnId` 和 `resumeThroughTurnState`。
+- 恢复路径调用 Codex App Server `thread/resume`，跳过新 Thread 创建和初始化提示词。
+- 已完成 Turn 作为 Capture Barrier 保留；进行中的 Turn 继续维持当前控制状态。
+- 缺少目标 Turn 时返回明确的 Barrier 错误，API 可以持久化重试或终止状态。
+- Codex Thread Resume 场景和 Bridge 完整测试 `34/34` 通过，线上 Runner 使用 Codex CLI `0.144.1` 完成恢复验证。
+
+The bridge resumes the persisted Codex thread through `thread/resume`, preserves the completed-turn capture boundary, skips duplicate initialization prompts, and reports explicit barrier errors when persisted turn evidence is unavailable.
+
+## 2026-07-23 Agent 视频关联 / Agent Video Association
+
+App Server 与 legacy PTY 消息链现已识别 Markdown 视频链接、HTML `video/source`、普通相对路径和纯视频文件名。支持 `mp4/webm/mov/m4v/ogv/ogg`，输出附件按 Agent 原文出现顺序写入 `conversation.message.attachments`。
+
+视频路径与图片使用同一 target path 边界：HTTP、data、blob、目录越界和 Run 目标目录外路径会被拒绝。Bridge 仅提交逻辑相对路径，文件存在性、索引、授权和传输由后端文件链处理。
+
+Both runtime protocols associate validated agent-local video references with conversation messages while preserving source order and target-directory confinement.
+
+最新原生测试结果：33/33 通过。
+
+Latest native test result: 33/33 passed.
 
 生产深化项包括长时会话压力测试、Codex CLI 多版本兼容矩阵、第三方 MCP 故障注入、Run-scoped 密钥轮换和断网恢复演练。
 
@@ -141,3 +164,15 @@ Production hardening covers long-running session load tests, a Codex CLI version
 Bridge 原生测试 `29/29` 通过。Bridge 将已解析 MCP 写入 Codex 原生 `mcp_servers` Thread 配置，处理 MCP 启动状态、工具调用、`elicitation` 审批和 `auto_all` 自动审批，并将调用结果按 Call ID 去重后写入平台审计。真实 Playwright MCP 已在 Runner 中报告 `ready` 并完成工具调用。
 
 Native bridge tests pass `29/29`. Resolved MCP servers are injected through the Codex App Server thread configuration, with startup status, tool calls, elicitation approvals, automatic approval, deduplicated audit events, and sensitive-value redaction.
+
+## 2026-07-22 Agent 图片关联 / Agent Image Association
+
+App Server 与 legacy PTY 两条消息链均会识别 Agent 输出中的 Markdown 图片、HTML `img`、普通相对路径和纯图片文件名。解析结果写入 `conversation.message.attachments`，路径统一转换为当前 Run `targetPath` 下的逻辑相对路径。
+
+解析器拒绝 HTTP、data URL、blob URL、目录越界和 target path 外部路径。文件可以在消息事件之后完成写入；移动端会在受限时间内等待文件索引，再通过后端预览票据读取实际内容。
+
+Both runtime protocols associate agent-local image references with persisted conversation messages. The bridge emits only validated target-relative attachment paths and leaves file authorization, indexing, and delivery to the backend file chain.
+
+最新原生测试结果：32/32 通过。
+
+Latest native test result: 32/32 passed.

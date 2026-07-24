@@ -54,6 +54,15 @@ pnpm -C app/mobile build:weapp
 pnpm test:runtime:compiled
 ```
 
-截至 2026-07-21，六个应用均已具备正式代码主链；移动端已完成微信小程序构建与登录主链，Admin 已完成独立工程、后端控制面、Dashboard 拆离和发布接入。Mobile、Dashboard 与 Admin 已接入实例停止、释放、归档、恢复和永久销毁生命周期。
+截至 2026-07-25，六个应用均已具备正式代码主链；移动端已完成微信小程序构建与登录主链，Admin 已完成独立工程、后端控制面、Dashboard 拆离和发布接入。Mobile、Dashboard 与 Admin 已接入实例停止、释放、归档、恢复和永久销毁生命周期。
 
-As of 2026-07-21, all six applications have production-oriented main paths. Mobile includes the WeChat Mini Program build and login flow, Admin remains independently deployed from Dashboard, and every client surface exposes the run lifecycle actions allowed by its permission boundary.
+As of 2026-07-25, all six applications have production-oriented main paths. Mobile includes the WeChat Mini Program build and login flow, Admin remains independently deployed from Dashboard, and every client surface exposes the run lifecycle actions allowed by its permission boundary.
+
+## 2026-07-25 会话恢复与分享 / Session Recovery and Sharing
+
+- Mobile 支持会话检查点固化、继续运行、只读会话分享与固化资产分享。
+- API 支持对话分享访问控制、Capture 上传限制、失败重试和运行恢复。
+- Run Worker 使用原生 Zstandard 流式处理 Capture，并对上传与恢复操作执行有界重试。
+- Runtime Bridge 保存 Codex thread/turn 元数据，并通过 `thread/resume` 恢复既有会话。
+
+Mobile now supports session checkpoints, continued execution, read-only conversation sharing, and packaged-asset sharing. API, Worker, and Runtime Bridge preserve Codex thread state and recover interrupted capture flows with bounded retries and native Zstandard processing.

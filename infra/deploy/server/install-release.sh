@@ -11,6 +11,23 @@ DEPLOY_ROOT="${2:-/srv/lingban}"
 TIMESTAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 RELEASE_TARGET="${DEPLOY_ROOT}/releases/${TIMESTAMP}"
 CURRENT_LINK="${DEPLOY_ROOT}/current"
+RUNNER_IMAGE="lingban/runner:${TIMESTAMP}"
+
+upsert_env_value() {
+  local file_path="$1"
+  local key="$2"
+  local value="$3"
+
+  if [[ ! -f "${file_path}" ]]; then
+    return 0
+  fi
+
+  if grep -q "^${key}=" "${file_path}"; then
+    sed -i "s|^${key}=.*|${key}=${value}|" "${file_path}"
+  else
+    printf '%s=%s\n' "${key}" "${value}" >> "${file_path}"
+  fi
+}
 
 wait_for_readiness() {
   local service_name="$1"
@@ -62,6 +79,22 @@ fi
 pnpm install --no-frozen-lockfile
 pnpm run build
 popd >/dev/null
+
+if [[ "${LINGBAN_SKIP_RUNNER_BUILD:-0}" == "1" ]]; then
+  echo "runner image build skipped by LINGBAN_SKIP_RUNNER_BUILD=1"
+elif [[ -f "${RELEASE_TARGET}/runner-build/infra/docker/runner.Dockerfile" ]]; then
+  RUNNER_BUILD_ARGS=(
+    --file "${RELEASE_TARGET}/runner-build/infra/docker/runner.Dockerfile"
+    --tag "${RUNNER_IMAGE}"
+  )
+  if [[ -n "${LINGBAN_RUNNER_BASE_IMAGE:-}" ]]; then
+    RUNNER_BUILD_ARGS+=(--build-arg "RUNNER_BASE_IMAGE=${LINGBAN_RUNNER_BASE_IMAGE}")
+  fi
+  docker build "${RUNNER_BUILD_ARGS[@]}" "${RELEASE_TARGET}/runner-build"
+  docker run --rm --entrypoint /bin/sh "${RUNNER_IMAGE}" -c \
+    'node --version && codex --version && playwright-mcp --help >/dev/null && test -x /usr/local/bin/lingban-playwright-mcp && cd /opt/lingban/app/container-bridge && node -e "require(\"node-pty\")"'
+  upsert_env_value /etc/lingban/run-worker.env LINGBAN_RUNNER_IMAGE "${RUNNER_IMAGE}"
+fi
 
 if [[ -d "${RELEASE_TARGET}/workspaces/dashboard" && ! -f "${RELEASE_TARGET}/static/dashboard/index.html" ]]; then
   pushd "${RELEASE_TARGET}/workspaces/dashboard" >/dev/null

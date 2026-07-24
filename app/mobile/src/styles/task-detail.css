@@ -145,6 +145,164 @@ body[data-theme="light"] .task-detail-page .capture-sheet-icon {
   filter: invert(38%);
 }
 
+.task-detail-page .capture-mode-selector,
+.task-detail-page .share-source-list,
+.task-detail-page .share-member-list,
+.task-detail-page .share-toggle-list,
+.task-detail-page .share-history {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.task-detail-page .capture-mode-selector {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.task-detail-page .capture-mode-option,
+.task-detail-page .share-source-option,
+.task-detail-page .share-member-option,
+.task-detail-page .share-history-item {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--panel-2);
+  color: var(--text);
+  line-height: 1.45;
+  text-align: left;
+}
+
+.task-detail-page .capture-mode-option.active,
+.task-detail-page .share-source-option.active,
+.task-detail-page .share-member-option.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel-2));
+}
+
+.task-detail-page .capture-mode-option.warn {
+  border-color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 8%, var(--panel-2));
+}
+
+.task-detail-page .capture-mode-title,
+.task-detail-page .share-source-title,
+.task-detail-page .share-prepared-title {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.task-detail-page .capture-mode-copy,
+.task-detail-page .share-source-copy,
+.task-detail-page .share-prepared-meta,
+.task-detail-page .share-config-help {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.task-detail-page .capture-result-actions,
+.task-detail-page .share-prepared-actions,
+.task-detail-page .share-choice-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.task-detail-page .capture-result-actions,
+.task-detail-page .share-prepared-actions {
+  margin-top: 12px;
+}
+
+.task-detail-page .conversation-share-sheet {
+  max-height: 90vh;
+}
+
+.task-detail-page .share-config-section {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.task-detail-page .share-config-label {
+  margin-bottom: 9px;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.task-detail-page .share-source-list,
+.task-detail-page .share-member-list,
+.task-detail-page .share-history {
+  margin-top: 0;
+}
+
+.task-detail-page .share-member-option,
+.task-detail-page .share-history-item,
+.task-detail-page .share-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.task-detail-page .share-check {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--line-strong, var(--line));
+  border-radius: 50%;
+  background: transparent;
+}
+
+.task-detail-page .share-check.selected {
+  border: 5px solid var(--accent);
+  background: var(--panel);
+}
+
+.task-detail-page .share-toggle-list {
+  margin: 16px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.task-detail-page .share-toggle-row {
+  min-height: 56px;
+  padding: 9px 2px;
+  border-bottom: 1px solid var(--line);
+}
+
+.task-detail-page .share-toggle-row:last-child {
+  border-bottom: 0;
+}
+
+.task-detail-page .share-prepared-panel {
+  margin-top: 18px;
+}
+
+.task-detail-page .share-history {
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 360px) {
+  .task-detail-page .capture-mode-selector {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .task-detail-page .task-shell-toggle {
   padding: 12px;
 }
@@ -277,6 +435,43 @@ body[data-theme="light"] .task-detail-page .capture-sheet-icon {
   gap: 7px;
 }
 
+.task-detail-page .message-head-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+}
+
+.task-detail-page .message-copy-button {
+  display: inline-flex;
+  width: 26px;
+  min-width: 26px;
+  height: 26px;
+  min-height: 26px;
+  margin: 0;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--task-divider);
+  border-radius: 4px;
+  background: var(--task-panel-raised);
+  line-height: 1;
+}
+
+.task-detail-page .message-copy-button::after {
+  border: 0;
+}
+
+.task-detail-page .message-copy-button:active {
+  background: var(--task-panel-strong);
+}
+
+.task-detail-page .message-copy-icon {
+  display: block;
+  width: 14px;
+  height: 14px;
+}
+
 .task-detail-page .message-role-marker {
   width: 7px;
   height: 7px;
@@ -316,11 +511,128 @@ body[data-theme="light"] .task-detail-page .capture-sheet-icon {
 }
 
 .task-detail-page .message-body {
+  display: block;
   color: var(--text);
   font-size: 13px;
   line-height: 1.62;
   overflow-wrap: anywhere;
+  -webkit-user-select: text;
+  user-select: text;
   white-space: pre-wrap;
+}
+
+.task-detail-page .message-image-list {
+  display: grid;
+  gap: 8px;
+}
+
+.task-detail-page .message-image-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--task-divider);
+  border-radius: 6px;
+  background: var(--task-panel-raised);
+}
+
+.task-detail-page .message-image-head {
+  display: grid;
+  gap: 2px;
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--task-divider);
+}
+
+.task-detail-page .message-image-label {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.task-detail-page .message-image-path {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-detail-page .message-image-frame {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--task-panel) 88%, #000);
+}
+
+.task-detail-page .message-image-preview {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.task-detail-page .message-video-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #000;
+}
+
+.task-detail-page .message-video-preview {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100% !important;
+  min-height: 0 !important;
+  display: block;
+  background: #000;
+}
+
+.task-detail-page .message-video-preview video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain;
+}
+
+.task-detail-page .message-image-state {
+  min-height: 132px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 16px;
+  background: var(--task-panel);
+}
+
+.task-detail-page .message-image-state-mark {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.task-detail-page .message-image-state-mark.loading {
+  background: #6683f4;
+  box-shadow: 0 0 0 4px color-mix(in srgb, #6683f4 14%, transparent);
+}
+
+.task-detail-page .message-image-state-copy {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.task-detail-page .message-image-actions {
+  display: flex;
+  gap: 7px;
+  padding: 8px 10px 10px;
+  border-top: 1px solid var(--task-divider);
 }
 
 .task-detail-page .message-module {

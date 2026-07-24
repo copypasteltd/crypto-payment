@@ -36,3 +36,7 @@ The `docs/` directory is the canonical location for product, architecture, devel
 - 服务器密码、API Key、Token 和用户数据禁止进入文档。
 
 Documents use bilingual headings where appropriate and keep implementation evidence traceable to code paths and verification commands.
+
+## 最新验收记录 / Latest Acceptance Record
+
+- `20260720真实运行闭环与前端验收记录.md`：真实 Provider、Codex App Server、MCP、Session 固化、工坊发布消费、Dashboard、H5、微信构建和 HZ01 部署证据。

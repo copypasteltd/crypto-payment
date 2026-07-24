@@ -30,6 +30,7 @@ import { objectStore } from "./object-store.js";
 import { uploadRepository } from "./repository.js";
 import { runFileAccessService } from "../runs/file-access.js";
 import { runFileSecurityService } from "./file-security.js";
+import { resolveByteRange } from "./byte-range.js";
 
 let uploadSequence = 1;
 let downloadTicketSequence = 1;
@@ -122,7 +123,15 @@ function guessMimeType(fileName: string, contentType?: string | null) {
   if (normalized.endsWith(".html")) return "text/html; charset=utf-8";
   if (normalized.endsWith(".csv")) return "text/csv; charset=utf-8";
   if (normalized.endsWith(".pdf")) return "application/pdf";
-  if (/\.(png|jpg|jpeg|gif|webp|svg)$/i.test(normalized)) return "application/octet-stream";
+  if (normalized.endsWith(".svg")) return "image/svg+xml";
+  if (normalized.endsWith(".png")) return "image/png";
+  if (normalized.endsWith(".jpg") || normalized.endsWith(".jpeg")) return "image/jpeg";
+  if (normalized.endsWith(".gif")) return "image/gif";
+  if (normalized.endsWith(".webp")) return "image/webp";
+  if (normalized.endsWith(".mp4") || normalized.endsWith(".m4v")) return "video/mp4";
+  if (normalized.endsWith(".webm")) return "video/webm";
+  if (normalized.endsWith(".mov")) return "video/quicktime";
+  if (normalized.endsWith(".ogv") || normalized.endsWith(".ogg")) return "video/ogg";
   return "application/octet-stream";
 }
 
@@ -573,7 +582,10 @@ export class RunUploadService {
     });
   }
 
-  async resolveDownloadTicket(ticketId: string) {
+  async resolveDownloadTicket(
+    ticketId: string,
+    options: { disposition?: "attachment" | "inline"; rangeHeader?: string } = {}
+  ) {
     const ticket = uploadRepository.getDownloadTicket(ticketId);
     if (!ticket) {
       throw new AppError(404, "DOWNLOAD_TICKET_NOT_FOUND", `Download ticket not found: ${ticketId}`);
@@ -590,6 +602,7 @@ export class RunUploadService {
         fileName: ticket.fileName,
         contentType: ticket.mimeType,
         expiresInSeconds: remainingTicketTtlSeconds(ticket.expiresAt),
+        disposition: options.disposition ?? "attachment",
       });
 
       if (redirectUrl) {
@@ -599,6 +612,11 @@ export class RunUploadService {
         };
       }
 
+      const indexedFile = runFileIndexService.get(ticket.runId, ticket.path);
+      const attachedUpload = uploadRepository.findUploadByAttachedPath(ticket.runId, ticket.path);
+      const sizeBytes = indexedFile?.sizeBytes ?? attachedUpload?.storedSizeBytes ?? null;
+      const byteRange = resolveByteRange(options.rangeHeader, sizeBytes);
+
       return {
         ticket,
         descriptor: {
@@ -606,16 +624,19 @@ export class RunUploadService {
             path: ticket.path,
             name: ticket.fileName,
             kind: "input" as const,
-            sizeBytes: null,
+            sizeBytes,
             updatedAt: ticket.createdAt,
           },
           mimeType: ticket.mimeType,
-          stream: await objectStore.createReadStream(ticket.objectKey),
+          stream: await objectStore.createReadStream(ticket.objectKey, byteRange ?? undefined),
+          byteRange,
         },
       };
     }
 
-    const descriptor = await runFileAccessService.createDownloadDescriptor(ticket.runId, ticket.path);
+    const descriptor = await runFileAccessService.createDownloadDescriptor(ticket.runId, ticket.path, {
+      rangeHeader: options.rangeHeader,
+    });
     return {
       ticket,
       descriptor,

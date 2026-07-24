@@ -203,7 +203,7 @@ export async function registerRunRoutes(server: FastifyInstance) {
       requestedByUserId: authContext?.user.userId ?? null,
     });
 
-    if (preview.mode === "image" || preview.mode === "pdf") {
+    if (preview.mode === "image" || preview.mode === "video" || preview.mode === "pdf") {
       const ticket = await runUploadService.createDownloadTicket(
         params.runId,
         {
@@ -217,7 +217,7 @@ export async function registerRunRoutes(server: FastifyInstance) {
 
       return {
         ...preview,
-        downloadUrl: ticket.downloadUrl,
+        downloadUrl: `${ticket.downloadUrl}?disposition=inline`,
         downloadTicketId: ticket.ticket.ticketId,
         downloadExpiresAt: ticket.ticket.expiresAt,
       };

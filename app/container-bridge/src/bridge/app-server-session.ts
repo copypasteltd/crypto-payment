@@ -17,6 +17,7 @@ import {
 } from "@lingban/contracts";
 import type { CodexSessionDiagnostics } from "../observability.js";
 import type { AgentSession } from "./agent-session.js";
+import { extractAgentMediaAttachments } from "./agent-message-images.js";
 
 type JsonRpcId = string | number;
 type JsonRecord = Record<string, unknown>;
@@ -347,7 +348,10 @@ export class AppServerSession implements AgentSession {
     };
     this.#sequence = Date.now() * 1_000 + Math.floor(Math.random() * 1_000);
     this.#approvalMode = options.context.approvalMode;
-    this.#deferredInitialPromptPending = options.context.deferInitialTurn;
+    this.#deferredInitialPromptPending =
+      options.context.deferInitialTurn && !options.context.resumeThreadId;
+    this.#turnId = options.context.resumeThroughTurnId;
+    this.#turnState = options.context.resumeThroughTurnState;
   }
 
   setRuntimeEnv(env: Record<string, string>) {
@@ -391,7 +395,10 @@ export class AppServerSession implements AgentSession {
     });
     if (isRecord(initializeResult)) this.#protocolVersion = readString(initializeResult.protocolVersion);
     this.#notify("initialized", {});
-    const threadResult = await this.#request("thread/start", {
+    const resumeThreadId = this.#options.context.resumeThreadId;
+    const threadMethod = resumeThreadId ? "thread/resume" : "thread/start";
+    const threadResult = await this.#request(threadMethod, {
+      ...(resumeThreadId ? { threadId: resumeThreadId } : {}),
       cwd: this.#options.launch.cwd,
       approvalPolicy: "on-request",
       sandbox: "workspace-write",
@@ -401,7 +408,7 @@ export class AppServerSession implements AgentSession {
     if (isRecord(threadResult)) {
       this.#threadId = extractThreadId({ result: threadResult }) ?? this.#threadId;
     }
-    if (!this.#threadId) throw new Error("Codex App Server thread/start returned no thread id");
+    if (!this.#threadId) throw new Error(`Codex App Server ${threadMethod} returned no thread id`);
     this.#setConnectionState("ready");
     this.#emitRunStatus("RUNNING", "container bridge established the Codex App Server thread");
 
@@ -409,7 +416,9 @@ export class AppServerSession implements AgentSession {
       this.#options.context.initialPrompt,
       this.#options.context.requestedInitialMessage,
     ].filter((value): value is string => Boolean(value)).join("\n\n");
-    if (initialText && !this.#options.context.deferInitialTurn) await this.#startTurn(initialText);
+    if (initialText && !this.#options.context.deferInitialTurn && !resumeThreadId) {
+      await this.#startTurn(initialText);
+    }
   }
 
   async sendMessage(input: SendRunMessageInput) {
@@ -707,6 +716,10 @@ export class AppServerSession implements AgentSession {
   }
 
   #emitAgentMessage(text: string, itemId: string | null, kind: "text" | "prompt" = "text") {
+    const attachments = extractAgentMediaAttachments(text, {
+      targetPath: this.#options.context.targetPath,
+      cwd: this.#options.launch.cwd,
+    });
     this.#options.emit(bridgeEventSchema.parse({
       type: "conversation.message",
       message: runConversationMessageSchema.parse({
@@ -715,7 +728,7 @@ export class AppServerSession implements AgentSession {
         role: "agent",
         kind,
         text,
-        attachments: [],
+        attachments,
         sequence: this.#sequence,
         threadId: this.#threadId,
         turnId: this.#turnId,

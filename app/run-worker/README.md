@@ -150,3 +150,15 @@ Production operation requires Redis high availability, multi-worker contention t
 Worker 原生测试 `32/32` 通过。宿主机 Session Pack 下载固定使用 `LINGBAN_API_BASE_URL`，容器 Bridge 回调固定使用 `LINGBAN_RUNTIME_API_BASE_URL`；连接错误日志包含请求方法、脱敏 URL 和底层原因。HZ01 已完成真实 Source Run、Consumer Run 和双 Capture 验收。
 
 Native worker tests pass `32/32`. Host-side package downloads and container-side callbacks use separate API boundaries, and the isolated HZ01 runtime completed both source and consumer capture flows.
+
+## 2026-07-25 Capture Recovery / 2026-07-25 固化恢复
+
+- Runtime 恢复计划透传原 Codex Thread、已完成 Turn 和 Turn 状态，恢复容器继续既有会话上下文。
+- Capture Orchestrator 使用宿主机 `zstd` CLI 将工作区 tar 流式压缩为 `.zst`，规避大型随机文件触发 WASM 固定堆内存耗尽。
+- 缺少原生 `zstd` 时仅允许小型归档使用兼容回退；大型归档返回明确的可诊断错误码。
+- Capture 失败错误码统一归一化并回写 API，处理重试最多 12 次，租约和工作区在重试期间保持一致。
+- HZ01 已验证 12 MB 级候选包、五类不可变 Capture 对象和恢复后的继续对话实例。
+
+Runtime recovery now carries the original Codex thread and completed-turn boundary into the resumed container. Workspace capture streams through host zstd, emits normalized failure codes, and uses bounded processing retries while preserving the capture lease and workspace.
+
+The complete native Worker suite passes `33/33`.

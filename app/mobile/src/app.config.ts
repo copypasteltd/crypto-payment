@@ -11,6 +11,7 @@ export default defineAppConfig({
     "pages/tasks/new",
     "pages/tasks/detail",
     "pages/tasks/files",
+    "pages/shares/conversation",
     "pages/creator/projects",
     "pages/creator/project",
     "pages/creator/draft",
