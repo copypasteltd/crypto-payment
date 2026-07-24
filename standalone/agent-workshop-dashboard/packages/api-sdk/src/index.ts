@@ -144,6 +144,12 @@ import {
   clientRealtimeMessageSchema,
   createRunInputSchema,
   createRunResponseSchema,
+  createConversationShareInputSchema,
+  createConversationShareResponseSchema,
+  conversationSharePublicViewSchema,
+  conversationShareViewSchema,
+  listConversationSharesResponseSchema,
+  listConversationShareAccessResponseSchema,
   createSessionCaptureInputSchema,
   createSessionCaptureResponseSchema,
   createCreatorSourceRunInputSchema,
@@ -332,6 +338,12 @@ import {
   type BridgeEvent,
   type CreateRunInput,
   type CreateRunResponse,
+  type CreateConversationShareInput,
+  type CreateConversationShareResponse,
+  type ConversationSharePublicView,
+  type ConversationShareView,
+  type ListConversationSharesResponse,
+  type ListConversationShareAccessResponse,
   type CreateSessionCaptureInput,
   type CreateSessionCaptureResponse,
   type CreateCreatorSourceRunInput,
@@ -1230,6 +1242,74 @@ export function createSessionCapturesApiClient(config: ClientConfig) {
 }
 
 export type SessionCapturesApiClient = ReturnType<typeof createSessionCapturesApiClient>;
+
+export function createConversationSharesApiClient(config: ClientConfig) {
+  const fetcher = config.fetcher ?? fetch;
+  return {
+    async create(
+      runId: string,
+      input: CreateConversationShareInput
+    ): Promise<CreateConversationShareResponse> {
+      const response = await fetcher(
+        `${config.baseUrl}/v1/runs/${encodeURIComponent(runId)}/conversation-shares`,
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            ...buildAuthHeaders(config.getAccessToken),
+          },
+          body: JSON.stringify(createConversationShareInputSchema.parse(input)),
+        }
+      );
+      return parseJson(response, createConversationShareResponseSchema);
+    },
+
+    async list(runId: string): Promise<ListConversationSharesResponse> {
+      const response = await fetcher(
+        `${config.baseUrl}/v1/runs/${encodeURIComponent(runId)}/conversation-shares`,
+        { headers: buildAuthHeaders(config.getAccessToken) }
+      );
+      return parseJson(response, listConversationSharesResponseSchema);
+    },
+
+    async get(shareId: string): Promise<ConversationShareView> {
+      const response = await fetcher(
+        `${config.baseUrl}/v1/conversation-shares/${encodeURIComponent(shareId)}`,
+        { headers: buildAuthHeaders(config.getAccessToken) }
+      );
+      return parseJson(response, conversationShareViewSchema);
+    },
+
+    async getPublic(shareId: string): Promise<ConversationSharePublicView> {
+      const response = await fetcher(
+        `${config.baseUrl}/v1/conversation-shares/public/${encodeURIComponent(shareId)}`,
+        { headers: buildAuthHeaders(config.getAccessToken) }
+      );
+      return parseJson(response, conversationSharePublicViewSchema);
+    },
+
+    async revoke(shareId: string): Promise<ConversationShareView> {
+      const response = await fetcher(
+        `${config.baseUrl}/v1/conversation-shares/${encodeURIComponent(shareId)}/revoke`,
+        {
+          method: "POST",
+          headers: buildAuthHeaders(config.getAccessToken),
+        }
+      );
+      return parseJson(response, conversationShareViewSchema);
+    },
+
+    async listAccess(shareId: string): Promise<ListConversationShareAccessResponse> {
+      const response = await fetcher(
+        `${config.baseUrl}/v1/conversation-shares/${encodeURIComponent(shareId)}/access-audit`,
+        { headers: buildAuthHeaders(config.getAccessToken) }
+      );
+      return parseJson(response, listConversationShareAccessResponseSchema);
+    },
+  };
+}
+
+export type ConversationSharesApiClient = ReturnType<typeof createConversationSharesApiClient>;
 
 export function createSessionDraftsApiClient(config: ClientConfig) {
   const fetcher = config.fetcher ?? fetch;

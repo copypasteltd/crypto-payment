@@ -89,6 +89,9 @@ export class RunControlServer {
           if (session.currentTurnState === "in_progress" || session.currentTurnState === "pending") {
             throw new Error("Capture barrier requires a completed turn");
           }
+          if (!session.currentTurnId) {
+            throw new Error("Capture barrier requires a completed turn id");
+          }
           return {
             ok: true,
             command: parsed.type,

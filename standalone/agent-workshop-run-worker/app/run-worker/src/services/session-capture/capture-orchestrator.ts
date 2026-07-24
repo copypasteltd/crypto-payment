@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
-import { createReadStream, promises as fs } from "node:fs";
+import { spawn } from "node:child_process";
+import { createReadStream, createWriteStream, promises as fs } from "node:fs";
 import path from "node:path";
 import { gzipSync } from "node:zlib";
 import { ZstdCodec } from "zstd-codec";
@@ -35,6 +36,11 @@ function sha256(content: Uint8Array) {
   return createHash("sha256").update(content).digest("hex");
 }
 
+function captureErrorCode(error: unknown) {
+  const message = toErrorMessage(error);
+  return /^([A-Z][A-Z0-9_]{2,159})(?::|\b)/.exec(message)?.[1] ?? "RUN_CAPTURE_FAILED";
+}
+
 async function zstdCompress(content: Uint8Array, level: number) {
   return await new Promise<Buffer>((resolve, reject) => {
     try {
@@ -49,6 +55,61 @@ async function zstdCompress(content: Uint8Array, level: number) {
     } catch (error) {
       reject(error);
     }
+  });
+}
+
+const MAX_WASM_ZSTD_INPUT_BYTES = 4 * 1024 * 1024;
+
+async function compressFileWithZstd(inputPath: string, outputPath: string, level: number) {
+  const zstdBin = process.env.LINGBAN_ZSTD_BIN?.trim() || "zstd";
+  await new Promise<void>((resolve, reject) => {
+    const output = createWriteStream(outputPath, { flags: "wx" });
+    const child = spawn(zstdBin, ["--quiet", "--stdout", `-${level}`, inputPath], {
+      windowsHide: true,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stderr = "";
+    let settled = false;
+    let childSucceeded = false;
+    let outputClosed = false;
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      output.destroy();
+      if (error) reject(error);
+      else resolve();
+    };
+    const finishIfComplete = () => {
+      if (childSucceeded && outputClosed) finish();
+    };
+
+    child.stderr.on("data", (chunk) => {
+      stderr = `${stderr}${String(chunk)}`.slice(-4_000);
+    });
+    child.once("error", (error: NodeJS.ErrnoException) => {
+      const code = error.code === "ENOENT" ? "RUN_CAPTURE_ZSTD_UNAVAILABLE" : "RUN_CAPTURE_ZSTD_FAILED";
+      finish(new Error(`${code}: ${error.message}`));
+    });
+    output.once("error", (error) => {
+      child.kill();
+      finish(new Error(`RUN_CAPTURE_ZSTD_FAILED: ${error.message}`));
+    });
+    output.once("close", () => {
+      outputClosed = true;
+      finishIfComplete();
+    });
+    child.stdout.pipe(output);
+    child.once("close", (code, signal) => {
+      if (code !== 0) {
+        finish(new Error(
+          `RUN_CAPTURE_ZSTD_FAILED: zstd exited with code ${code ?? "null"}, signal ${signal ?? "null"}` +
+          (stderr.trim() ? `: ${stderr.trim()}` : "")
+        ));
+        return;
+      }
+      childSucceeded = true;
+      finishIfComplete();
+    });
   });
 }
 
@@ -111,6 +172,7 @@ async function buildInventory(lease: SessionCaptureLease, targetPath: string) {
 async function buildWorkspaceArchive(targetPath: string, runtimePath: string, captureId: string, files: string[]) {
   await fs.mkdir(runtimePath, { recursive: true });
   const tarPath = path.join(runtimePath, `${captureId}.workspace.tar`);
+  const zstdPath = `${tarPath}.zst`;
   try {
     await createTar({
       cwd: targetPath,
@@ -120,9 +182,21 @@ async function buildWorkspaceArchive(targetPath: string, runtimePath: string, ca
       follow: false,
       prefix: "workspace",
     }, files);
-    return await zstdCompress(await fs.readFile(tarPath), 9);
+    try {
+      await compressFileWithZstd(tarPath, zstdPath, 9);
+      return await fs.readFile(zstdPath);
+    } catch (error) {
+      const tarStat = await fs.stat(tarPath);
+      if (!toErrorMessage(error).startsWith("RUN_CAPTURE_ZSTD_UNAVAILABLE") || tarStat.size > MAX_WASM_ZSTD_INPUT_BYTES) {
+        throw error;
+      }
+      return await zstdCompress(await fs.readFile(tarPath), 9);
+    }
   } finally {
-    await fs.rm(tarPath, { force: true }).catch(() => undefined);
+    await Promise.all([
+      fs.rm(tarPath, { force: true }).catch(() => undefined),
+      fs.rm(zstdPath, { force: true }).catch(() => undefined),
+    ]);
   }
 }
 
@@ -239,7 +313,7 @@ export async function processSessionCapture(input: ProcessSessionCaptureInput) {
       await input.apiConnector.failSessionCapture(input.runId, input.captureId, {
         workerId: lease.workerId,
         leaseGeneration: lease.leaseGeneration,
-        errorCode: toErrorMessage(error).split(":", 1)[0] || "RUN_CAPTURE_FAILED",
+        errorCode: captureErrorCode(error),
         reason: toErrorMessage(error),
         retryable: !/PATH_ESCAPE|SIZE_LIMIT|HASH_MISMATCH/.test(toErrorMessage(error)),
         diagnosticId: `capture:${input.captureId}:${Date.now()}`,

@@ -23,9 +23,9 @@ pnpm install
 pnpm run validate
 ```
 
-每个工作区根目录的 `standalone-manifest.json` 记录源目录、包含包和验证命令。快照于 2026-07-21 从主工作区重新生成，包含完整实例生命周期能力。
+每个工作区根目录的 `standalone-manifest.json` 记录源目录、包含包和验证命令。快照于 2026-07-25 从主工作区重新生成，包含完整实例生命周期、会话检查点、只读分享与中断恢复能力。
 
-Each workspace includes a `standalone-manifest.json` with its source path, included packages, and validation command. Snapshots were regenerated from the primary workspace on 2026-07-21 with the complete run lifecycle implementation.
+Each workspace includes a `standalone-manifest.json` with its source path, included packages, and validation command. Snapshots were regenerated from the primary workspace on 2026-07-25 with run lifecycle, session checkpoint, read-only sharing, and interrupted-capture recovery support.
 
 API Key、Token 和服务器凭证未写入该分支。
 

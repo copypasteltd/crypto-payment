@@ -51,11 +51,14 @@ import { initializeServiceSessionBindingRegistry } from "../modules/session-draf
 import { registerSessionMigrationRoutes } from "../modules/session-migrations/routes.js";
 import { registerSessionProjectRoutes } from "../modules/session-projects/routes.js";
 import { initializeSessionProjectsInfrastructure } from "../modules/session-projects/service.js";
+import { registerConversationShareRoutes } from "../modules/conversation-shares/routes.js";
+import { initializeConversationSharesInfrastructure } from "../modules/conversation-shares/service.js";
 
 const defaultCorsAllowMethods = "GET,POST,PATCH,PUT,DELETE,OPTIONS";
 const defaultCorsAllowHeaders =
   "Authorization,Content-Type,Accept,Origin,Idempotency-Key,X-Admin-CSRF,X-Request-Id,X-Trace-Id,X-Client-Release";
-const defaultCorsExposeHeaders = "Content-Disposition,Content-Length,Content-Type,Idempotency-Status,X-Session-Capture-Audit-Id";
+const defaultCorsExposeHeaders =
+  "Accept-Ranges,Content-Disposition,Content-Length,Content-Range,Content-Type,Idempotency-Status,X-Session-Capture-Audit-Id";
 
 function normalizeConfiguredOrigins(rawValue: string | undefined) {
   return (rawValue ?? "")
@@ -98,6 +101,7 @@ export async function createServer() {
   await initializeSessionInfrastructure();
   await initializeCreatorInfrastructure();
   await initializeSessionProjectsInfrastructure();
+  await initializeConversationSharesInfrastructure();
   await initializeQuotaInfrastructure();
   await initializeSealedSessionVersionRegistry();
   await initializeServiceSessionBindingRegistry();
@@ -255,6 +259,10 @@ export async function createServer() {
   });
 
   server.register(registerSessionCaptureRoutes, {
+    prefix: "/v1",
+  });
+
+  server.register(registerConversationShareRoutes, {
     prefix: "/v1",
   });
 

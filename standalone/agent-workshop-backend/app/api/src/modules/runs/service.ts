@@ -77,7 +77,7 @@ import { runFileIndexService } from "./file-index.js";
 import { buildStartRunJobPayload } from "./launch-plan.js";
 import { buildRunQuotaUsageContext } from "./quota-usage.js";
 import { runQueryRepository } from "./query-repository.js";
-import { runsRepository } from "./repository.js";
+import { runsRepository, type RunAggregate } from "./repository.js";
 import { EmbeddedRunOrchestrator } from "./runtime-orchestrator.js";
 import { agentRuntimeRepository } from "../agent-runtime/repository.js";
 import { sessionCaptureRepository } from "../session-captures/repository.js";
@@ -659,6 +659,15 @@ export class RunsService {
       connectedAt: registeredBridge?.connectedAt ?? null,
       lastSeenAt: registeredBridge?.lastSeenAt ?? null,
     };
+    const runtimeFinishedAtMs = snapshot.runtime.finishedAt
+      ? Date.parse(snapshot.runtime.finishedAt)
+      : Number.NaN;
+    const bridgeLastSeenAtMs = bridge.lastSeenAt ? Date.parse(bridge.lastSeenAt) : Number.NaN;
+    const bridgeRegisteredAfterRuntimeFinished =
+      bridge.registered &&
+      Number.isFinite(runtimeFinishedAtMs) &&
+      Number.isFinite(bridgeLastSeenAtMs) &&
+      bridgeLastSeenAtMs > runtimeFinishedAtMs;
 
     let action: RunRuntimeRecoveryCandidate["action"] = "ignore";
     let reason: string | null = null;
@@ -680,18 +689,15 @@ export class RunsService {
         startJob = startRunJobPayloadSchema.parse(aggregate.startJob);
       }
     } else if (ORPHANED_RUNTIME_STATUSES.has(snapshot.run.status)) {
-      if (bridge.registered) {
-        action = "await-bridge";
-        reason = `run is ${snapshot.run.status} and bridge registration is active`;
-      } else if (snapshot.runtime.finishedAt) {
+      if (snapshot.runtime.finishedAt && !bridgeRegisteredAfterRuntimeFinished) {
         action = "enqueue-start";
         reason =
           `run is ${snapshot.run.status}, its previous runtime finished at ` +
           `${snapshot.runtime.finishedAt}, and it should be re-enqueued for runtime recovery`;
-        startJob = startRunJobPayloadSchema.parse({
-          ...aggregate.startJob,
-          run: aggregate.run,
-        });
+        startJob = this.#buildRuntimeStartJobPayload(aggregate);
+      } else if (bridge.registered) {
+        action = "await-bridge";
+        reason = `run is ${snapshot.run.status} and bridge registration is active`;
       } else {
         action = "mark-orphan-failed";
         reason =
@@ -1098,9 +1104,22 @@ export class RunsService {
 
   getStartRunJobPayload(runId: string): StartRunJobPayload {
     const aggregate = this.#requireAggregate(runId);
+    return this.#buildRuntimeStartJobPayload(aggregate);
+  }
+
+  #buildRuntimeStartJobPayload(aggregate: RunAggregate) {
+    const shouldResume =
+      ORPHANED_RUNTIME_STATUSES.has(aggregate.run.status) &&
+      Boolean(aggregate.runtime?.finishedAt) &&
+      Boolean(aggregate.agentThread?.threadId);
     return startRunJobPayloadSchema.parse({
       ...aggregate.startJob,
       run: aggregate.run,
+      resumeThreadId: shouldResume ? aggregate.agentThread?.threadId ?? null : null,
+      resumeThroughTurnId: shouldResume ? aggregate.agentThread?.currentTurnId ?? null : null,
+      resumeThroughTurnState: shouldResume
+        ? aggregate.agentThread?.currentTurnState ?? null
+        : null,
     });
   }
 
@@ -2317,10 +2336,6 @@ export class RunsService {
       reason: reason ?? null,
     });
 
-    if (isTerminalStatus(status)) {
-      return await this.#releaseRuntime(runId, "graceful");
-    }
-
     return this.#buildSnapshot(updated);
   }
 
@@ -2388,7 +2403,23 @@ export class RunsService {
   }
 
   async requestSessionCaptureExecution(runId: string, captureId: string) {
-    return this.#runtimeControl.requestSessionCapture(runId, captureId);
+    const recovery = this.#buildRuntimeRecoveryCandidate(runId);
+    if (recovery.action === "enqueue-start") {
+      await this.#runtimeControl.startRun(runId);
+      return {
+        deferred: true as const,
+        reason: recovery.reason ?? "runtime recovery was requested before session capture",
+      };
+    }
+    if (recovery.action === "mark-orphan-failed") {
+      throw new AppError(
+        409,
+        "RUN_CAPTURE_RUNTIME_UNAVAILABLE",
+        recovery.reason ?? `Runtime is unavailable for capture ${captureId}`
+      );
+    }
+    await this.#runtimeControl.requestSessionCapture(runId, captureId);
+    return { deferred: false as const, reason: null };
   }
 
   async ingestBridgeEvents(runId: string, events: BridgeEvent[]) {
@@ -2622,10 +2653,6 @@ export class RunsService {
         default:
           break;
       }
-    }
-
-    if (isTerminalStatus(updated.run.status)) {
-      return await this.#releaseRuntime(runId, "graceful");
     }
 
     return this.#buildSnapshot(updated);

@@ -28,6 +28,7 @@
     "typecheck": "pnpm --filter @lingban/api-sdk --filter @lingban/contracts --filter @lingban/domain-models --filter @lingban/realtime --filter @lingban/ui-tokens build && pnpm -C app/dashboard run typecheck",
     "build": "pnpm --filter @lingban/api-sdk --filter @lingban/contracts --filter @lingban/domain-models --filter @lingban/realtime --filter @lingban/ui-tokens build && pnpm -C app/dashboard run build",
     "lint": "pnpm -C app/dashboard run lint",
+    "test:message-media": "pnpm -C app/dashboard run test:message-media",
     "preview": "pnpm -C app/dashboard run preview",
     "validate": "pnpm run lint && pnpm run build"
   }

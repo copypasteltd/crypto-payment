@@ -132,6 +132,9 @@ function buildBridgeSessionContext(
     initialPrompt: payload.initialPrompt,
     deferInitialTurn: payload.run.sessionBootstrapMode === "blank",
     requestedInitialMessage: payload.requestedInitialMessage,
+    resumeThreadId: payload.resumeThreadId,
+    resumeThroughTurnId: payload.resumeThroughTurnId,
+    resumeThroughTurnState: payload.resumeThroughTurnState,
     credentialMounts: payload.credentialMounts.map((mount) =>
       rewriteCredentialMount(mount, preparedWorkspace, mode)
     ),

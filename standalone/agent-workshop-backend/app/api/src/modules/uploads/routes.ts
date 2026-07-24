@@ -10,6 +10,7 @@ import { requireWorkspaceAccess } from "../auth/request-auth.js";
 import { runsService } from "../runs/service.js";
 import { runIdParamsSchema } from "../runs/routes.js";
 import { runUploadService } from "./service.js";
+import { ByteRangeNotSatisfiableError } from "./byte-range.js";
 
 const uploadParamsSchema = runIdParamsSchema.extend({
   uploadId: z.string().min(1),
@@ -17,6 +18,10 @@ const uploadParamsSchema = runIdParamsSchema.extend({
 
 const downloadTicketParamsSchema = z.object({
   ticketId: z.string().min(1),
+});
+
+const downloadTicketQuerySchema = z.object({
+  disposition: z.enum(["attachment", "inline"]).default("attachment"),
 });
 
 export async function registerRunUploadRoutes(server: FastifyInstance) {
@@ -73,7 +78,26 @@ export async function registerRunUploadRoutes(server: FastifyInstance) {
 export async function registerDownloadTicketRoutes(server: FastifyInstance) {
   server.get("/:ticketId", async (request, reply) => {
     const params = downloadTicketParamsSchema.parse(request.params);
-    const resolved = await runUploadService.resolveDownloadTicket(params.ticketId);
+    const query = downloadTicketQuerySchema.parse(request.query ?? {});
+    let resolved;
+    try {
+      resolved = await runUploadService.resolveDownloadTicket(params.ticketId, {
+        ...query,
+        rangeHeader: request.headers.range,
+      });
+    } catch (error) {
+      if (error instanceof ByteRangeNotSatisfiableError) {
+        reply.header("accept-ranges", "bytes");
+        reply.header("content-range", `bytes */${error.sizeBytes}`);
+        return reply.status(416).send({
+          error: {
+            code: "DOWNLOAD_RANGE_NOT_SATISFIABLE",
+            message: error.message,
+          },
+        });
+      }
+      throw error;
+    }
 
     if ("redirectUrl" in resolved && resolved.redirectUrl) {
       return reply.redirect(resolved.redirectUrl, 307);
@@ -84,10 +108,23 @@ export async function registerDownloadTicketRoutes(server: FastifyInstance) {
     }
 
     reply.header("content-type", resolved.ticket.mimeType);
+    reply.header("cache-control", "private, no-store");
+    reply.header("x-content-type-options", "nosniff");
+    reply.header("accept-ranges", "bytes");
     reply.header(
       "content-disposition",
-      `attachment; filename="${encodeURIComponent(resolved.ticket.fileName)}"`
+      `${query.disposition}; filename="${encodeURIComponent(resolved.ticket.fileName)}"`
     );
+
+    const sizeBytes = resolved.descriptor.file.sizeBytes;
+    if (resolved.descriptor.byteRange) {
+      const { start, end, length } = resolved.descriptor.byteRange;
+      reply.status(206);
+      reply.header("content-range", `bytes ${start}-${end}/${sizeBytes}`);
+      reply.header("content-length", length);
+    } else if (sizeBytes != null) {
+      reply.header("content-length", sizeBytes);
+    }
 
     return reply.send(resolved.descriptor.stream);
   });

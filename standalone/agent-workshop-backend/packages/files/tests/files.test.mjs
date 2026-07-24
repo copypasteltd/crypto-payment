@@ -50,6 +50,9 @@ test("mime type guessing and preview inference stay aligned", async () => {
   );
   assert.equal(inferFilePreviewMode("report.json", null), "text");
   assert.equal(inferFilePreviewMode("preview.png", null), "image");
+  assert.equal(guessFileMimeType("episode.mp4"), "video/mp4");
+  assert.equal(guessFileMimeType("episode.webm"), "video/webm");
+  assert.equal(inferFilePreviewMode("episode.mp4", null), "video");
   assert.equal(inferFilePreviewMode("receipt.pdf", null), "pdf");
   assert.equal(inferFilePreviewMode("bundle.zip", null), "download");
   assert.equal(

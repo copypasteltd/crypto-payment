@@ -18,6 +18,7 @@ import {
   mcpRiskLevelSchema,
   mcpStdioPolicySchema,
 } from "./mcp.js";
+import { agentTurnStateSchema } from "./agent-runtime.js";
 
 export const envCredentialMountSchema = z.object({
   credentialId: credentialIdSchema,
@@ -68,6 +69,9 @@ export const bridgeSessionContextSchema = z.object({
   initialPrompt: z.string().min(1),
   deferInitialTurn: z.boolean().default(false),
   requestedInitialMessage: z.string().min(1).nullable().default(null),
+  resumeThreadId: z.string().trim().min(1).max(240).nullable().default(null),
+  resumeThroughTurnId: z.string().trim().min(1).max(240).nullable().default(null),
+  resumeThroughTurnState: agentTurnStateSchema.nullable().default(null),
   credentialMounts: z.array(credentialMountSchema).default([]),
   mcpBindings: z.array(mcpBindingSchema).default([]),
   mcpNetworkPolicies: z.array(mcpNetworkPolicySchema).default([]),

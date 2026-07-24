@@ -73,7 +73,9 @@ export async function registerSessionCaptureInternalRoutes(server: FastifyInstan
     return sessionCaptureService.heartbeat(params.captureId, heartbeatSessionCaptureInputSchema.parse(request.body));
   });
 
-  server.post("/runs/:runId/session-captures/:captureId/objects/:objectType", async (request) => {
+  server.post("/runs/:runId/session-captures/:captureId/objects/:objectType", {
+    bodyLimit: getApiRuntimeConfig().uploadMaxBytes,
+  }, async (request) => {
     const params = uploadParamsSchema.parse(request.params);
     const query = uploadQuerySchema.parse(request.query);
     if (!(request.body instanceof Buffer)) {

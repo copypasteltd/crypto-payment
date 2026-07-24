@@ -22,7 +22,7 @@ import {
   type SessionCaptureStatus,
   type SubmitSessionCaptureBarrierInput,
 } from "@lingban/contracts";
-import { nowIso } from "@lingban/shared";
+import { nowIso, toErrorMessage } from "@lingban/shared";
 import { AppError } from "../../app/errors.js";
 import { getApiRuntimeConfig } from "../../app/runtime.js";
 import { ObjectStoreImmutableConflictError, objectStore } from "../uploads/object-store.js";
@@ -32,7 +32,7 @@ import { sessionCaptureRepository } from "./repository.js";
 import { sessionControlMetrics } from "../session-control/metrics.js";
 
 const allowedTransitions: Record<SessionCaptureStatus, ReadonlySet<SessionCaptureStatus>> = {
-  REQUESTED: new Set(["WAITING_BARRIER", "CANCELLED"]),
+  REQUESTED: new Set(["WAITING_BARRIER", "RETRY_WAIT", "FAILED", "CANCELLED"]),
   WAITING_BARRIER: new Set(["CAPTURING_EVENTS", "RETRY_WAIT", "FAILED", "CANCELLED"]),
   CAPTURING_EVENTS: new Set(["CAPTURING_WORKSPACE", "UPLOADING", "RETRY_WAIT", "FAILED", "CANCELLED"]),
   CAPTURING_WORKSPACE: new Set(["UPLOADING", "RETRY_WAIT", "FAILED", "CANCELLED"]),
@@ -43,6 +43,9 @@ const allowedTransitions: Record<SessionCaptureStatus, ReadonlySet<SessionCaptur
   FAILED: new Set(["REQUESTED", "CANCELLED"]),
   CANCELLED: new Set(),
 };
+
+const MAX_CAPTURE_DISPATCH_ATTEMPTS = 12;
+const MAX_CAPTURE_PROCESSING_ATTEMPTS = 12;
 
 function transition(record: SessionCaptureRecord, status: SessionCaptureStatus, patch: Partial<SessionCaptureRecord> = {}) {
   if (record.status !== status && !allowedTransitions[record.status].has(status)) {
@@ -105,6 +108,7 @@ function contentAddressedObjectKey(captureId: string, object: SessionCaptureObje
 export class SessionCaptureService {
   #retrySweeper: NodeJS.Timeout | null = null;
   #dispatchingClaimable = false;
+  #dispatchingCaptureIds = new Set<string>();
 
   startRetrySweeper(intervalMs = 5_000) {
     if (!getApiRuntimeConfig().sessionCaptureV2Enabled) return;
@@ -134,7 +138,7 @@ export class SessionCaptureService {
           });
           continue;
         }
-        void runsService.requestSessionCaptureExecution(capture.runId, capture.captureId).catch((error) => {
+        await this.#dispatchCapture(capture).catch((error) => {
           console.error(`[lingban-session-capture] claimable dispatch failed for ${capture.captureId}:`, error);
         });
       }
@@ -172,7 +176,7 @@ export class SessionCaptureService {
     });
     if (created.captureId === record.captureId) sessionControlMetrics.captureRequested();
     await this.#syncRunSummaries(runId);
-    void runsService.requestSessionCaptureExecution(runId, created.captureId).catch((error) => {
+    void this.#dispatchCapture(created).catch((error) => {
       console.error(`[lingban-session-capture] dispatch failed for ${created.captureId}:`, error);
     });
     return { capture: created, statusUrl: `/v1/session-captures/${created.captureId}` };
@@ -208,14 +212,59 @@ export class SessionCaptureService {
       leaseOwner: null,
       leaseExpiresAt: null,
       nextRetryAt: null,
+      attemptCount: current.status === "FAILED" ? 0 : current.attemptCount,
     });
     const updated = await sessionCaptureRepository.update(next, current.version);
     if (!updated) throw new AppError(409, "RESOURCE_VERSION_CONFLICT", `Capture changed concurrently: ${captureId}`);
     sessionControlMetrics.captureRetried();
     await this.#syncRunSummaries(current.runId);
-    void runsService.requestSessionCaptureExecution(current.runId, updated.captureId).catch((error) => {
+    void this.#dispatchCapture(updated).catch((error) => {
       console.error(`[lingban-session-capture] retry dispatch failed for ${updated.captureId}:`, error);
     });
+    return updated;
+  }
+
+  async #dispatchCapture(capture: SessionCaptureRecord) {
+    if (this.#dispatchingCaptureIds.has(capture.captureId)) return;
+    this.#dispatchingCaptureIds.add(capture.captureId);
+    try {
+      const result = await runsService.requestSessionCaptureExecution(capture.runId, capture.captureId);
+      if (result.deferred) {
+        throw new Error(`RUN_CAPTURE_RUNTIME_RECOVERY_PENDING: ${result.reason}`);
+      }
+    } catch (error) {
+      await this.#recordDispatchFailure(capture.captureId, error);
+      throw error;
+    } finally {
+      this.#dispatchingCaptureIds.delete(capture.captureId);
+    }
+  }
+
+  async #recordDispatchFailure(captureId: string, error: unknown) {
+    const current = await this.get(captureId);
+    if (current.status !== "REQUESTED") return current;
+
+    const attemptCount = current.attemptCount + 1;
+    const exhausted = attemptCount >= MAX_CAPTURE_DISPATCH_ATTEMPTS;
+    const message = toErrorMessage(error).slice(0, 4000);
+    const retryDelayMs = Math.min(30_000, 2 ** Math.min(attemptCount, 5) * 1_000);
+    const next = transition(current, exhausted ? "FAILED" : "RETRY_WAIT", {
+      statusReason: message,
+      errorCode: exhausted
+        ? "RUN_CAPTURE_DISPATCH_EXHAUSTED"
+        : "RUN_CAPTURE_DISPATCH_RETRY",
+      diagnosticId: `capture-dispatch:${captureId}:${Date.now()}`,
+      attemptCount,
+      nextRetryAt: exhausted
+        ? null
+        : new Date(Date.now() + retryDelayMs).toISOString(),
+      leaseOwner: null,
+      leaseExpiresAt: null,
+    });
+    const updated = await sessionCaptureRepository.update(next, current.version);
+    if (!updated) return this.get(captureId);
+    sessionControlMetrics.captureFailed(next.errorCode!);
+    await this.#syncRunSummaries(current.runId);
     return updated;
   }
 
@@ -306,8 +355,15 @@ export class SessionCaptureService {
     if (current.requestedThroughTurnId && current.requestedThroughTurnId !== boundary.throughTurnId) {
       throw new AppError(409, "RUN_CAPTURE_BARRIER_MISMATCH", `Capture boundary turn does not match the requested turn: ${captureId}`);
     }
-    const thread = await agentRuntimeRepository.getThreadByRunId(current.runId);
-    if (!thread || thread.threadId !== boundary.threadId || thread.eventHighWatermark < boundary.eventHighWatermark) {
+    const [thread, persistedEventHighWatermark] = await Promise.all([
+      agentRuntimeRepository.getThreadByRunId(current.runId),
+      agentRuntimeRepository.getEventHighWatermark(current.runId),
+    ]);
+    const persistedHighWatermark = Math.max(
+      thread?.eventHighWatermark ?? 0,
+      persistedEventHighWatermark
+    );
+    if (!thread || thread.threadId !== boundary.threadId || persistedHighWatermark < boundary.eventHighWatermark) {
       throw new AppError(409, "RUN_CAPTURE_BARRIER_NOT_REACHED", `Agent event barrier is unavailable: ${captureId}`);
     }
     const next = transition(current, "CAPTURING_EVENTS", { boundary });
@@ -475,10 +531,15 @@ export class SessionCaptureService {
     const parsed = failSessionCaptureInputSchema.parse(input);
     const current = await this.get(captureId);
     requireLease(current, parsed.workerId, parsed.leaseGeneration);
-    const retryAt = parsed.retryable ? new Date(Date.now() + Math.min(60_000, 2 ** Math.min(current.attemptCount, 8) * 1000)).toISOString() : null;
-    const next = transition(current, parsed.retryable ? "RETRY_WAIT" : "FAILED", {
+    const retryable = parsed.retryable && current.attemptCount < MAX_CAPTURE_PROCESSING_ATTEMPTS;
+    const retryAt = retryable
+      ? new Date(Date.now() + Math.min(60_000, 2 ** Math.min(current.attemptCount, 8) * 1000)).toISOString()
+      : null;
+    const next = transition(current, retryable ? "RETRY_WAIT" : "FAILED", {
       statusReason: parsed.reason,
-      errorCode: parsed.errorCode,
+      errorCode: parsed.retryable && !retryable
+        ? "RUN_CAPTURE_PROCESSING_EXHAUSTED"
+        : parsed.errorCode,
       diagnosticId: parsed.diagnosticId,
       nextRetryAt: retryAt,
       leaseOwner: null,
@@ -486,7 +547,7 @@ export class SessionCaptureService {
     });
     const updated = await sessionCaptureRepository.update(next, current.version);
     if (!updated) throw new AppError(409, "RESOURCE_VERSION_CONFLICT", `Capture changed concurrently: ${captureId}`);
-    sessionControlMetrics.captureFailed(parsed.errorCode);
+    sessionControlMetrics.captureFailed(next.errorCode!);
     await this.#syncRunSummaries(current.runId);
     return updated;
   }

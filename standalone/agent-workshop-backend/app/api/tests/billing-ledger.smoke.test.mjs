@@ -97,6 +97,7 @@ test("billing ledger smoke: execution points aggregate into billing entries, sum
     "API_HOST",
     "API_PORT",
     "LINGBAN_DATA_DIR",
+    "LINGBAN_ENABLE_DEMO_DATA",
     "LINGBAN_AUTH_MODE",
     "LINGBAN_OBJECT_STORAGE_DRIVER",
     "LINGBAN_OBJECT_STORAGE_ROOT",
@@ -125,6 +126,7 @@ test("billing ledger smoke: execution points aggregate into billing entries, sum
     process.env.API_HOST = "127.0.0.1";
     process.env.API_PORT = String(port);
     process.env.LINGBAN_DATA_DIR = storageRoot;
+    process.env.LINGBAN_ENABLE_DEMO_DATA = "1";
     process.env.LINGBAN_AUTH_MODE = "required";
     process.env.LINGBAN_OBJECT_STORAGE_DRIVER = "filesystem";
     process.env.LINGBAN_OBJECT_STORAGE_ROOT = path.join(smokeRoot, "objects");

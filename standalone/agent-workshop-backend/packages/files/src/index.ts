@@ -255,6 +255,10 @@ export function guessFileMimeType(filePath: string, explicitMimeType?: string | 
   if (normalized.endsWith(".jpg") || normalized.endsWith(".jpeg")) return "image/jpeg";
   if (normalized.endsWith(".gif")) return "image/gif";
   if (normalized.endsWith(".webp")) return "image/webp";
+  if (normalized.endsWith(".mp4") || normalized.endsWith(".m4v")) return "video/mp4";
+  if (normalized.endsWith(".webm")) return "video/webm";
+  if (normalized.endsWith(".mov")) return "video/quicktime";
+  if (normalized.endsWith(".ogv") || normalized.endsWith(".ogg")) return "video/ogg";
   if (normalized.endsWith(".docx")) {
     return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
   }
@@ -313,6 +317,10 @@ export function inferFilePreviewMode(
 
   if (normalizedMimeType?.startsWith("image/")) {
     return "image";
+  }
+
+  if (normalizedMimeType?.startsWith("video/")) {
+    return "video";
   }
 
   return "download";

@@ -18,6 +18,7 @@ import {
   getApiDatabasePool,
   withApiDatabaseTransaction,
 } from "../../app/database.js";
+import { isDemoDataEnabled } from "../../app/demo-data.js";
 import { getApiRuntimeConfig } from "../../app/runtime.js";
 import { resolveApiStorageDir } from "../../app/storage.js";
 import { seedCatalogState } from "./seed-data.js";
@@ -39,6 +40,7 @@ class FileBackedWorkshopCatalogRepository extends CachedWorkshopCatalogRepositor
     await super.init();
 
     if (
+      isDemoDataEnabled() &&
       this.listContexts().length === 0 &&
       this.listWorkshops().length === 0 &&
       this.listServices().length === 0 &&
@@ -82,6 +84,7 @@ export class PostgresWorkshopCatalogRepository extends SharedPostgresWorkshopCat
     await super.init();
 
     if (
+      isDemoDataEnabled() &&
       this.listContexts().length === 0 &&
       this.listWorkshops().length === 0 &&
       this.listServices().length === 0 &&

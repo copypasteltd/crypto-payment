@@ -101,6 +101,53 @@ reader.on("line", (line) => {
   }
 });
 
+test("AppServerSession resolves local image references into target-relative attachments", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "lingban-app-server-images-"));
+  const fixturePath = path.join(root, "fake-app-server.mjs");
+  await writeFile(fixturePath, `
+import readline from "node:readline";
+const reader = readline.createInterface({ input: process.stdin });
+const send = (value) => process.stdout.write(JSON.stringify(value) + "\\n");
+reader.on("line", (line) => {
+  const message = JSON.parse(line);
+  if (message.method === "initialize") send({ id: message.id, result: { protocolVersion: "test-images" } });
+  if (message.method === "thread/start") send({ id: message.id, result: { thread: { id: "thr_images" } } });
+  if (message.method === "turn/start") {
+    send({ id: message.id, result: { turn: { id: "turn_images" } } });
+    send({ method: "item/completed", params: { threadId: "thr_images", turnId: "turn_images", item: {
+      id: "item_images",
+      type: "agentMessage",
+      text: "Generated media:\\n![cover](./outputs/cover.png)\\n" + ${JSON.stringify("`./outputs/detail.webp`")} + "\\n[episode](./outputs/episode.mp4)\\n![blocked](../outside.png)\\n[blocked video](../outside.webm)"
+    } } });
+    send({ method: "turn/completed", params: { threadId: "thr_images", turn: { id: "turn_images", status: "completed" } } });
+  }
+});
+`, "utf8");
+
+  const events = [];
+  const session = new AppServerSession({
+    context: createContext(root, "run_app_server_images", "wsp_app_server_images"),
+    launch: { command: process.execPath, args: [fixturePath], cwd: root },
+    emit: (event) => events.push(event),
+    requestTimeoutMs: 10_000,
+    includeDefaultAppServerArgs: false,
+  });
+
+  try {
+    await session.start();
+    await waitFor(() => events.some((event) => event.type === "conversation.message"));
+    const event = events.find((item) => item.type === "conversation.message");
+    assert.deepEqual(event.message.attachments, [
+      { path: "outputs/cover.png", label: "cover", slotKey: null },
+      { path: "outputs/detail.webp", label: "detail.webp", slotKey: null },
+      { path: "outputs/episode.mp4", label: "episode", slotKey: null },
+    ]);
+  } finally {
+    await session.stop();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("AppServerSession answers structured input and steers an active turn", async () => {
   const root = await mkdtemp(path.join(tmpdir(), "lingban-app-server-input-"));
   const fixturePath = path.join(root, "fake-app-server.mjs");
@@ -215,6 +262,71 @@ reader.on("line", (line) => {
     const response = events.find((event) => event.type === "conversation.message" && event.message.role === "agent");
     assert.match(response.message.text, /collect required information/);
     assert.match(response.message.text, /record this workflow/);
+  } finally {
+    await session.stop();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("AppServerSession resumes the existing thread and preserves the capture boundary", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "lingban-app-server-resume-"));
+  const fixturePath = path.join(root, "fake-app-server.mjs");
+  await writeFile(fixturePath, `
+import readline from "node:readline";
+const reader = readline.createInterface({ input: process.stdin });
+const send = (value) => process.stdout.write(JSON.stringify(value) + "\\n");
+reader.on("line", (line) => {
+  const message = JSON.parse(line);
+  if (message.method === "initialize") send({ id: message.id, result: { protocolVersion: "test-resume" } });
+  if (message.method === "thread/start") send({ id: message.id, error: { code: -32602, message: "unexpected thread/start" } });
+  if (message.method === "thread/resume") {
+    if (message.params?.threadId !== "thr_existing") {
+      send({ id: message.id, error: { code: -32602, message: "wrong thread id" } });
+      return;
+    }
+    send({ id: message.id, result: { thread: { id: "thr_existing" } } });
+  }
+  if (message.method === "turn/start") {
+    send({ id: message.id, result: { turn: { id: "turn_next" } } });
+    send({ method: "turn/started", params: { threadId: "thr_existing", turn: { id: "turn_next", status: "inProgress" } } });
+    send({ method: "turn/completed", params: { threadId: "thr_existing", turn: { id: "turn_next", status: "completed" } } });
+  }
+});
+`, "utf8");
+
+  const events = [];
+  const context = {
+    ...createContext(root, "run_resume", "wsp_resume"),
+    deferInitialTurn: true,
+    resumeThreadId: "thr_existing",
+    resumeThroughTurnId: "turn_existing",
+    resumeThroughTurnState: "completed",
+  };
+  const session = new AppServerSession({
+    context,
+    launch: { command: process.execPath, args: [fixturePath], cwd: root },
+    emit: (event) => events.push(event),
+    requestTimeoutMs: 10_000,
+    includeDefaultAppServerArgs: false,
+  });
+
+  try {
+    await session.start();
+    const resumed = session.getDiagnostics();
+    assert.equal(resumed.threadId, "thr_existing");
+    assert.equal(resumed.currentTurnId, "turn_existing");
+    assert.equal(resumed.currentTurnState, "completed");
+    assert.equal(
+      events.some((event) => event.type === "agent.runtime.event" && event.eventType === "turn/started"),
+      false
+    );
+
+    await session.sendMessage({ text: "continue resumed session", attachments: [], slotValues: [] });
+    await waitFor(() =>
+      session.getDiagnostics().currentTurnId === "turn_next" &&
+      session.getDiagnostics().currentTurnState === "completed"
+    );
+    assert.equal(session.getDiagnostics().currentTurnState, "completed");
   } finally {
     await session.stop();
     await rm(root, { recursive: true, force: true });
