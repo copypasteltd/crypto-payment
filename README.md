@@ -28,3 +28,7 @@ Open `index.html` to access all styles and device variants.
 - 三套原型均保留明暗主题和现代扁平图标。
 
 Production frontend code uses Style C as a visual and interaction reference while retaining API-driven state and responsive constraints.
+
+截至 2026-07-25，方案 C 继续作为 Dashboard、H5 与微信小程序的布局、主题、导航和任务对话交互基线。
+
+As of 2026-07-25, Style C remains the approved interaction baseline for Dashboard, H5, and the WeChat Mini Program.
