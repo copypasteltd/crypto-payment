@@ -30,6 +30,7 @@
     "typecheck": "pnpm --filter @lingban/container-bridge --filter @lingban/run-worker --filter @lingban/config --filter @lingban/contracts --filter @lingban/credential --filter @lingban/db --filter @lingban/domain-models --filter @lingban/files --filter @lingban/mcp --filter @lingban/session-pack --filter @lingban/shared build && pnpm -C app/api run typecheck",
     "test:admin": "pnpm -C app/api run test:admin",
     "test:session-control": "pnpm -C app/api run test:session-control",
+    "test:conversation-shares": "pnpm -C app/api run test:conversation-shares",
     "test:creator-source": "pnpm -C app/api run test:creator-source",
     "test:creator-loop": "pnpm -C app/api run test:creator-loop",
     "test:catalog-write": "pnpm -C app/api run test:catalog-write",
@@ -44,6 +45,7 @@
     "test:smoke": "pnpm -C app/api run test:smoke",
     "test:wechat-auth": "pnpm -C app/api run test:wechat-auth",
     "test:run-lifecycle": "pnpm -C app/api run test:run-lifecycle",
+    "test:demo-data": "pnpm -C app/api run test:demo-data",
     "validate": "pnpm run build && pnpm run test:smoke:compiled"
   }
 }

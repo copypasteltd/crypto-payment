@@ -63,6 +63,7 @@ export interface WorkshopCatalogRepository {
   listContexts(): WorkspaceContextSummary[];
   getContextByKey(contextKey: string): WorkspaceContextSummary | null;
   getContextByRuntimeWorkspaceId(workspaceId: string): WorkspaceContextSummary | null;
+  saveContext(context: WorkspaceContextSummary): Promise<WorkspaceContextSummary>;
   listWorkshops(): WorkshopCatalogRecord[];
   getWorkshopById(workshopId: string): WorkshopCatalogRecord | null;
   saveWorkshop(workshop: WorkshopCatalogRecord): Promise<WorkshopCatalogRecord>;
@@ -129,6 +130,16 @@ export abstract class CachedWorkshopCatalogRepository implements WorkshopCatalog
 
   getContextByRuntimeWorkspaceId(workspaceId: string) {
     return this.#state.contexts.find((item) => item.runtimeWorkspaceId === workspaceId) ?? null;
+  }
+
+  async saveContext(context: WorkspaceContextSummary) {
+    await this.init();
+    const parsed = workspaceContextSummarySchema.parse(context);
+    await this.updateState((state) => ({
+      ...state,
+      contexts: replaceByKey(state.contexts, parsed, (item) => item.contextKey),
+    }));
+    return parsed;
   }
 
   listWorkshops() {
@@ -300,6 +311,25 @@ export class PostgresWorkshopCatalogRepository extends CachedWorkshopCatalogRepo
        SET workshop_id = EXCLUDED.workshop_id, status = EXCLUDED.status, service_json = EXCLUDED.service_json`,
       [service.serviceId, service.workshopId, service.status, JSON.stringify(service)]
     );
+  }
+
+  override async saveContext(context: WorkspaceContextSummary) {
+    await this.init();
+    const parsed = workspaceContextSummarySchema.parse(context);
+    const queryable = await this.#getQueryable();
+    await queryable.query(
+      `INSERT INTO lingban_workshop_contexts (context_key, runtime_workspace_id, context_json)
+       VALUES ($1, $2, $3::jsonb)
+       ON CONFLICT (context_key) DO UPDATE
+       SET runtime_workspace_id = EXCLUDED.runtime_workspace_id,
+           context_json = EXCLUDED.context_json`,
+      [parsed.contextKey, parsed.runtimeWorkspaceId, JSON.stringify(parsed)]
+    );
+    this.updateCachedState((state) => ({
+      ...state,
+      contexts: replaceByKey(state.contexts, parsed, (item) => item.contextKey),
+    }));
+    return parsed;
   }
 
   override async saveWorkshop(workshop: WorkshopCatalogRecord) {

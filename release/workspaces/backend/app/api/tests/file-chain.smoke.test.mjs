@@ -1,35 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
-import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import JSZip from "jszip";
 import XLSX from "xlsx";
-
-function allocatePort() {
-  return new Promise((resolve, reject) => {
-    const server = net.createServer();
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      if (!address || typeof address === "string") {
-        server.close();
-        reject(new Error("Failed to allocate port"));
-        return;
-      }
-
-      server.close((error) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-
-        resolve(address.port);
-      });
-    });
-    server.once("error", reject);
-  });
-}
+import { allocateFetchPort as allocatePort } from "./support/allocate-fetch-port.mjs";
 
 async function requestJson(url, init = {}) {
   const response = await fetch(url, init);
@@ -56,7 +32,13 @@ async function requestBytes(url, init = {}) {
 
   return {
     body,
+    status: response.status,
     contentType: response.headers.get("content-type"),
+    contentDisposition: response.headers.get("content-disposition"),
+    cacheControl: response.headers.get("cache-control"),
+    acceptRanges: response.headers.get("accept-ranges"),
+    contentRange: response.headers.get("content-range"),
+    contentLength: response.headers.get("content-length"),
   };
 }
 
@@ -447,6 +429,7 @@ test("file chain smoke: upload preview and runtime output objectify", async () =
     );
 
     const runtimeImageAbsolutePath = path.join(targetPath, "output", "preview.png");
+    const runtimeVideoAbsolutePath = path.join(targetPath, "output", "episode.mp4");
     const runtimePdfAbsolutePath = path.join(targetPath, "output", "preview.pdf");
     const runtimeDocxAbsolutePath = path.join(targetPath, "output", "summary.docx");
     const runtimeXlsxAbsolutePath = path.join(targetPath, "output", "table.xlsx");
@@ -459,6 +442,7 @@ test("file chain smoke: upload preview and runtime output objectify", async () =
       "%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n",
       "utf8"
     );
+    const runtimeVideoContent = Buffer.from("00000018667479706D70343200000000", "hex");
     const runtimeDocxContent = await createDocxBuffer("office doc preview smoke");
     const runtimeXlsxContent = createXlsxBuffer([
       ["item", "value"],
@@ -470,6 +454,7 @@ test("file chain smoke: upload preview and runtime output objectify", async () =
       ["slide two", "preview smoke"],
     ]);
     await writeFile(runtimeImageAbsolutePath, runtimeImageContent);
+    await writeFile(runtimeVideoAbsolutePath, runtimeVideoContent);
     await writeFile(runtimePdfAbsolutePath, runtimePdfContent);
     await writeFile(runtimeDocxAbsolutePath, runtimeDocxContent);
     await writeFile(runtimeXlsxAbsolutePath, runtimeXlsxContent);
@@ -546,6 +531,22 @@ test("file chain smoke: upload preview and runtime output objectify", async () =
     assert.equal(runtimeImagePreview.downloadUrl != null, true);
     assert.equal(runtimeImagePreview.downloadTicketId != null, true);
     assert.equal(runtimeImagePreview.downloadExpiresAt != null, true);
+
+    const runtimeVideoPreview = await requestJson(
+      `${baseUrl}/v1/runs/${runId}/files/preview?path=${encodeURIComponent("output/episode.mp4")}`,
+      {
+        headers: {
+          authorization: authHeaders.authorization,
+        },
+      }
+    );
+    assert.equal(runtimeVideoPreview.mode, "video");
+    assert.equal(runtimeVideoPreview.mimeType, "video/mp4");
+    assert.equal(runtimeVideoPreview.file.previewable, true);
+    assert.equal(runtimeVideoPreview.file.source, "runtime-output");
+    assert.equal(runtimeVideoPreview.downloadUrl != null, true);
+    assert.equal(runtimeVideoPreview.downloadTicketId != null, true);
+    assert.equal(runtimeVideoPreview.downloadExpiresAt != null, true);
 
     const runtimePdfPreview = await requestJson(
       `${baseUrl}/v1/runs/${runId}/files/preview?path=${encodeURIComponent("output/preview.pdf")}`,
@@ -628,7 +629,40 @@ test("file chain smoke: upload preview and runtime output objectify", async () =
 
     const runtimeImageDownload = await requestBytes(new URL(runtimeImagePreview.downloadUrl, baseUrl));
     assert.equal(runtimeImageDownload.contentType, "image/png");
+    assert.match(runtimeImageDownload.contentDisposition ?? "", /^inline;/);
+    assert.equal(runtimeImageDownload.cacheControl, "private, no-store");
     assert.deepEqual(runtimeImageDownload.body, runtimeImageContent);
+
+    const runtimeVideoDownload = await requestBytes(new URL(runtimeVideoPreview.downloadUrl, baseUrl));
+    assert.equal(runtimeVideoDownload.contentType, "video/mp4");
+    assert.match(runtimeVideoDownload.contentDisposition ?? "", /^inline;/);
+    assert.equal(runtimeVideoDownload.cacheControl, "private, no-store");
+    assert.equal(runtimeVideoDownload.acceptRanges, "bytes");
+    assert.deepEqual(runtimeVideoDownload.body, runtimeVideoContent);
+
+    const runtimeVideoRange = await requestBytes(
+      new URL(runtimeVideoPreview.downloadUrl, baseUrl),
+      {
+        headers: {
+          range: "bytes=4-9",
+        },
+      }
+    );
+    assert.equal(runtimeVideoRange.status, 206);
+    assert.equal(runtimeVideoRange.contentRange, `bytes 4-9/${runtimeVideoContent.length}`);
+    assert.equal(runtimeVideoRange.contentLength, "6");
+    assert.deepEqual(runtimeVideoRange.body, runtimeVideoContent.subarray(4, 10));
+
+    const invalidVideoRange = await fetch(new URL(runtimeVideoPreview.downloadUrl, baseUrl), {
+      headers: {
+        range: `bytes=${runtimeVideoContent.length + 1}-`,
+      },
+    });
+    assert.equal(invalidVideoRange.status, 416);
+    assert.equal(
+      invalidVideoRange.headers.get("content-range"),
+      `bytes */${runtimeVideoContent.length}`
+    );
 
     const runtimePdfDownload = await requestBytes(new URL(runtimePdfPreview.downloadUrl, baseUrl));
     assert.equal(runtimePdfDownload.contentType, "application/pdf");
@@ -650,6 +684,13 @@ test("file chain smoke: upload preview and runtime output objectify", async () =
       billingAfterBinaryPreview.some(
         (entry) =>
           entry.source === "file-preview" && entry.sourceRef === runtimeImagePreview.file.path
+      ),
+      true
+    );
+    assert.equal(
+      billingAfterBinaryPreview.some(
+        (entry) =>
+          entry.source === "file-preview" && entry.sourceRef === runtimeVideoPreview.file.path
       ),
       true
     );

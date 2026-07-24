@@ -4,6 +4,7 @@ export * from "./agent-runtime.js";
 export * from "./batch-runs.js";
 export * from "./billing.js";
 export * from "./bridge.js";
+export * from "./conversation-shares.js";
 export * from "./catalog.js";
 export * from "./common.js";
 export * from "./credentials.js";

@@ -12,6 +12,7 @@ import { useMobileUiStore } from "./stores/mobileUiStore";
 import "./app.css";
 import "./styles/task-detail.css";
 import "./styles/creator.css";
+import "./styles/conversation-share.css";
 
 function App({ children }: PropsWithChildren) {
   const theme = useMobileUiStore((state) => state.theme);

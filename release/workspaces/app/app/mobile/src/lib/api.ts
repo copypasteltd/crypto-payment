@@ -1,6 +1,7 @@
 import {
   createAuthApiClient,
   createBillingApiClient,
+  createConversationSharesApiClient,
   createCredentialsApiClient,
   createCreatorApiClient,
   createMeApiClient,
@@ -125,6 +126,12 @@ export const mobileRunsApi = createRunsApiClient({
 });
 
 export const mobileSessionCapturesApi = createSessionCapturesApiClient({
+  baseUrl: mobileApiBaseUrl,
+  fetcher: mobileAuthFetch,
+  getAccessToken: getMobileAccessToken,
+});
+
+export const mobileConversationSharesApi = createConversationSharesApiClient({
   baseUrl: mobileApiBaseUrl,
   fetcher: mobileAuthFetch,
   getAccessToken: getMobileAccessToken,

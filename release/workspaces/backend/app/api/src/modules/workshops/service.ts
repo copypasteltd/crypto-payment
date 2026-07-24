@@ -9,6 +9,7 @@ import {
   serviceLaunchTemplateSchema,
   workshopDetailSchema,
   serviceTaskVersionRecordSchema,
+  workspaceContextSummarySchema,
   type CreateWorkshopServiceBundleInput,
   type CreateServiceLaunchTemplateInput,
   type ListServicesQuery,
@@ -32,6 +33,9 @@ type CatalogWriteActor = {
   userId: string;
   workspaceId: string;
   workspaceContextKey: string;
+  workspaceName: string;
+  workspaceType: "personal" | "team" | "enterprise";
+  workspaceRoot: string;
 };
 
 function buildRunSuffix() {
@@ -74,10 +78,16 @@ export class WorkshopCatalogService {
         "A sealed Session Version is required before catalog assets can be created"
       );
     }
-    const context = workshopCatalogRepository.getContextByKey(actor.workspaceContextKey);
-    if (!context) {
-      throw new AppError(409, "WORKSHOP_CONTEXT_MISMATCH", "Current workspace catalog context is unavailable");
-    }
+    const context = workshopCatalogRepository.getContextByKey(actor.workspaceContextKey) ??
+      await workshopCatalogRepository.saveContext(workspaceContextSummarySchema.parse({
+        contextKey: actor.workspaceContextKey,
+        runtimeWorkspaceId: actor.workspaceId,
+        displayName: { zh: actor.workspaceName, en: actor.workspaceName },
+        type: actor.workspaceType,
+        meta: { zh: "工作区目录", en: "Workspace catalog" },
+        root: actor.workspaceRoot,
+        allowedEntrySurfaces: ["dashboard", "h5", "mini-program"],
+      }));
 
     const resourceSeed = createHash("sha256")
       .update(`${actor.workspaceId}:${actor.userId}:${idempotencyKey}`)
@@ -103,7 +113,7 @@ export class WorkshopCatalogService {
         ...parsed.service.requiredBindings.credentialIds,
       ])],
     };
-    const targetRoot = deriveTargetRoot(context.root, serviceId);
+    const targetRoot = deriveTargetRoot(actor.workspaceRoot, serviceId);
 
     const workshopRecord = workshopCatalogRecordSchema.parse({
       workshopId,
@@ -191,25 +201,11 @@ export class WorkshopCatalogService {
   }) {
     if (input.workspaceContextKey) {
       const byKey = workshopCatalogRepository.getContextByKey(input.workspaceContextKey);
-      if (!byKey) {
-        throw new AppError(
-          404,
-          "WORKSHOP_CONTEXT_NOT_FOUND",
-          `Workspace context not found: ${input.workspaceContextKey}`
-        );
-      }
       return byKey;
     }
 
     if (input.workspaceId) {
       const byRuntimeId = workshopCatalogRepository.getContextByRuntimeWorkspaceId(input.workspaceId);
-      if (!byRuntimeId) {
-        throw new AppError(
-          404,
-          "WORKSHOP_CONTEXT_NOT_FOUND",
-          `Runtime workspace context not found: ${input.workspaceId}`
-        );
-      }
       return byRuntimeId;
     }
 

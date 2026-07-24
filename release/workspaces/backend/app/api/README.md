@@ -42,6 +42,8 @@ This component depends on internal `workspace:*` packages. The standalone backen
 | `/v1/workshops`, `/v1/services` | 工坊目录、服务详情与启动模板 |
 | `/v1/creator/session-projects`, `/v1/creator/source-runs` | Session Project 与空白 Source Run |
 | `/v1/runs` | Run、对话、审批、文件、上传与下载票据 |
+| `/v1/conversation-shares` | 活跃会话与固化边界的只读分享、访问范围和撤销 |
+| `/v1/session-captures`, `/v1/session-drafts` | 检查点/终结固化、不可变对象、Draft Revision 与脱敏审查 |
 | `/ws/runs` | Run WebSocket 订阅与控制消息 |
 | `/v1/sessions` | Session 版本、继承、发布、回滚、脱敏与归档 |
 | `/v1/packages`, `/v1/releases` | Creator Package、Release、Gate、Activation 与 Replay |
@@ -62,6 +64,9 @@ This component depends on internal `workspace:*` packages. The standalone backen
 | `src/app/runtime.ts` | Embedded/BullMQ 运行调度选择与生命周期 |
 | `src/modules/auth/` | 邮箱与微信小程序身份认证、外部身份映射、工作区上下文、成员与邀请 |
 | `src/modules/runs/` | Run 聚合、消息、审批、文件、状态与编排 |
+| `src/modules/conversation-shares/` | 会话快照、访问策略、公开读取和撤销 |
+| `src/modules/session-captures/` | Capture Job、租约、边界、水位、对象校验与重试 |
+| `src/modules/session-drafts/` | Draft Revision、脱敏、Replay、密封与版本绑定 |
 | `src/modules/uploads/` | 上传、对象存储、文件安全、保留与下载票据 |
 | `src/modules/bridge/` | Runtime 注册、命令队列、回调账本和诊断 |
 | `src/modules/providers/` | Provider 配置、密钥引用、真实模型测试、只读模型拉取、确认写入和默认路由 |
@@ -136,7 +141,12 @@ LINGBAN_ADMIN_COOKIE_SECURE=true
 LINGBAN_RELEASE=<immutable-release-id>
 LINGBAN_WECHAT_MINI_PROGRAM_APP_ID=<wechat-app-id>
 LINGBAN_WECHAT_MINI_PROGRAM_APP_SECRET=<wechat-app-secret>
+LINGBAN_ENABLE_DEMO_DATA=0
 ```
+
+`LINGBAN_ENABLE_DEMO_DATA` 默认关闭。仅在隔离的演示环境显式设置为 `1` 时，空目录库才会写入示例工坊、服务、Package、Release 和 Replay；生产环境必须保持 `0` 或不配置。
+
+`LINGBAN_ENABLE_DEMO_DATA` is disabled by default. Set it to `1` only in an isolated demonstration environment to populate an empty catalog with sample workshops, services, packages, releases, and replays. Production must keep it unset or set to `0`.
 
 Admin 账号使用统一认证存储；账户需要具备 `platform_admin` 标记。账号与密码不通过进程环境变量旁路配置。
 
@@ -221,3 +231,66 @@ Production scale-out requires external PostgreSQL, Redis, object storage, centra
 API Release Gates 已完成 `65/65`。真实 HZ01 链路已经覆盖第三方 OpenAI-compatible Provider、Codex App Server、Playwright MCP、文件写入、Source Capture、Replay、Seal、Package、Release、Activation、Consumer Run 与 Consumer Capture。Creator 和 Workshop Catalog 的 PostgreSQL 写入采用实体级 UPSERT 与事务边界，普通更新不会删除其他实体。
 
 API Release Gates pass `65/65`. The HZ01 system test covers a real provider, Codex App Server, Playwright MCP, target files, source capture, sealing, publication, activation, consumer execution, and consumer capture.
+
+## 2026-07-22 图片预览票据 / Inline Image Preview Tickets
+
+Run 文件预览接口为图片和 PDF 签发短期下载票据，并在预览 URL 中声明 `disposition=inline`。下载票据路由按请求模式设置 `Content-Disposition`，文件下载继续使用 `attachment`，会话内图片使用 `inline`。本地对象流与 S3 签名 URL 使用相同语义。
+
+预览响应附带 `Cache-Control: private, no-store` 与 `X-Content-Type-Options: nosniff`。票据有效期、Run 工作区权限、target path 校验和对象存储边界继续由既有文件链负责。
+
+Run file previews now issue short-lived inline tickets for images and PDFs. Direct downloads retain attachment semantics, while local streams and S3 signed URLs preserve the same disposition and security headers.
+
+## 2026-07-25 Capture Recovery Hardening / 2026-07-25 固化恢复加固
+
+- API 启动恢复以 `runtime.finishedAt` 和 Bridge 心跳时间共同判定 Runtime 是否仍然有效，避免过期注册阻止恢复。
+- Capture 调度失败会进入持久化 `RETRY_WAIT` 或 `FAILED`，调度与处理均设置 12 次尝试上限；人工重试会重置尝试次数。
+- 固化边界校验同时读取 Thread 摘要水位和原始事件最大水位，防止摘要投影延迟造成永久 Barrier 失败。
+- Runtime 恢复载荷包含 `resumeThreadId`、`resumeThroughTurnId` 和 Turn 状态，供 Worker 与 Bridge 精确恢复。
+- 内部 Capture 对象上传路由使用 `LINGBAN_UPLOAD_MAX_BYTES` 独立限制，支持大型工作区归档上传。
+- `packages/session-pack` 优先调用原生 `zstd` 完成压缩和解压，并对解压输出设置上限。
+- Capture 完成后生成的 Draft Revision 已通过候选包尺寸、SHA-256 与 `zstd -t` 完整性验证。
+
+The recovery path now distinguishes finished runtimes from active bridge registrations, resumes the original Codex thread and completed turn boundary, persists bounded capture retries, validates both projected and raw event watermarks, and accepts capture objects through a dedicated internal body limit. Large Session Pack archives use native zstd with bounded decompression output.
+
+Focused verification:
+
+```bash
+node --experimental-test-isolation=process --test --test-concurrency=1 \
+  tests/runtime-recovery-internal.smoke.test.mjs \
+  tests/session-capture-upload-limit.smoke.test.mjs \
+  tests/session-control.smoke.test.mjs
+```
+
+The four focused API scenarios and all 24 Session Pack tests pass. HZ01 release `20260724T114552Z` completed the online capture and Draft Revision recovery flow.
+
+## 2026-07-23 视频预览票据 / Inline Video Preview Tickets
+
+Run 文件索引新增 `video` 预览模式，支持 `video/mp4`、`video/webm`、`video/quicktime` 和 `video/ogg`。预览接口为视频签发短期 `inline` 下载票据，响应保留工作区鉴权、Run 文件边界、对象存储和计费审计链。
+
+文件索引将视频标记为 `previewable=true`。下载票据返回准确 `Content-Type`、`Content-Disposition: inline`、`Cache-Control: private, no-store` 与 `X-Content-Type-Options: nosniff`。直接下载接口继续使用附件语义。
+
+票据下载接口支持单区间 HTTP Range：标准区间、开放尾区间和后缀区间返回 `206`、`Content-Range`、`Content-Length` 与 `Accept-Ranges: bytes`；非法或越界区间返回 `416`。该能力用于大视频渐进播放和进度拖动。
+
+Run video previews use the shared `video` mode and accurate media MIME types. Inline delivery retains the existing authorization, path confinement, object-storage, quota, and billing controls.
+
+## 2026-07-24 会话只读分享 / Read-only Conversation Sharing
+
+- `POST /v1/runs/:runId/conversation-shares` 将当前会话或指定 Capture 边界冻结为独立只读快照。
+- 分享快照保存消息正文、消息顺序、角色、时间、边界标识和附件元数据；本地图片、视频及附件复制到对象存储，源实例释放后仍可访问。
+- `public_link`、`workspace`、`invited_users` 三种范围分别覆盖公开链接、当前工作区和指定用户。
+- `GET /v1/conversation-shares/public/:shareId` 提供只读展示数据；非公开范围继续执行登录和成员权限校验。
+- `POST /v1/conversation-shares/:shareId/revoke` 立即撤销分享；过期时间由创建请求指定，最长 366 天。
+- 文件访问使用短期 HMAC Grant，图片和视频支持内联展示及 HTTP Range；查看和文件访问写入审计记录。
+- 分享表只记录源 `run_id` 和 `capture_id`，不建立删除外键。分享内容已经独立固化，源 Run 删除不会破坏已发布分享。
+
+生产环境必须为所有 API 节点配置一致的 `LINGBAN_CONVERSATION_SHARE_GRANT_SECRET`。密钥轮换后，已经签发的短期文件地址会失效，刷新只读页即可获得新地址。
+
+Verification:
+
+```bash
+pnpm -C app/api typecheck
+pnpm -C app/api build:local
+pnpm -C app/api test:conversation-shares
+```
+
+HZ01 已部署 Release `20260724T052050Z`，migration `0034_conversation_shares` 已应用，公网分享路由通过业务级 404 探测，API 与 Worker readiness 均通过。

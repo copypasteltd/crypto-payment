@@ -435,7 +435,11 @@ export class RunFileIndexService {
       uploadId: matchedUpload?.uploadId ?? null,
       checksum,
       previewMode,
-      previewable: previewMode === "text" || previewMode === "image" || previewMode === "pdf",
+      previewable:
+        previewMode === "text" ||
+        previewMode === "image" ||
+        previewMode === "video" ||
+        previewMode === "pdf",
       downloadable: !entry.path.endsWith("/"),
       storageTier: existing?.storageTier ?? "hot",
       archivedAt: existing?.archivedAt ?? null,

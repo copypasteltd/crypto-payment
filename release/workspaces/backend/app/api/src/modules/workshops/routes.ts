@@ -35,6 +35,9 @@ function toCatalogWriteActor(
     userId: authContext.user.userId,
     workspaceId: authContext.currentWorkspace.workspaceId,
     workspaceContextKey: authContext.currentWorkspace.contextKey,
+    workspaceName: authContext.currentWorkspace.name,
+    workspaceType: authContext.currentWorkspace.type,
+    workspaceRoot: authContext.currentWorkspace.root,
   };
 }
 

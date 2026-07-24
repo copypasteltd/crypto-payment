@@ -88,6 +88,7 @@ test("session-pack archives can be imported, queried, and exported", async () =>
     "API_HOST",
     "API_PORT",
     "LINGBAN_DATA_DIR",
+    "LINGBAN_ENABLE_DEMO_DATA",
     "LINGBAN_AUTH_MODE",
     "LINGBAN_RUNS_DIR",
     "LINGBAN_RUNTIME_LAUNCH_MODE",
@@ -119,6 +120,7 @@ test("session-pack archives can be imported, queried, and exported", async () =>
     process.env.API_HOST = "127.0.0.1";
     process.env.API_PORT = String(port);
     process.env.LINGBAN_DATA_DIR = storageRoot;
+    process.env.LINGBAN_ENABLE_DEMO_DATA = "1";
     process.env.LINGBAN_AUTH_MODE = "disabled";
     process.env.LINGBAN_RUNS_DIR = path.join(smokeRoot, "worker-runs");
     process.env.LINGBAN_RUNTIME_LAUNCH_MODE = "local-process";

@@ -55,3 +55,9 @@ pnpm --filter @lingban/db test
 ```
 
 Standalone exports use the transitive `workspace:*` dependency closure, allowing each deliverable to retain the same contract sources used by the monorepo.
+
+## 2026-07-23 视频预览契约 / Video Preview Contract
+
+- `contracts` 的 `RunFilePreviewMode` 增加 `video`。
+- `files` 识别 MP4、WebM、QuickTime、M4V 与 Ogg 视频 MIME。
+- 视频索引记录使用 `previewMode=video`，供 API、Dashboard、H5 和微信小程序共享同一响应契约。

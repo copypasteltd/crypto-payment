@@ -110,9 +110,70 @@ for (const marker of [
   "composer-collapsed",
   "composer-expanded",
   "task-composer-chevron",
+  "mobile-message-",
+  "message-image-card",
+  "message-video-frame",
+  "message-video-preview",
+  "previewRunFile",
+  "previewImage",
+  "chooseMessageFile",
+  "getFileSystemManager",
+  "readFile",
+  "setClipboardData",
+  "message-copy-button",
+  "userSelect",
+  "capture-mode-option",
+  "share-config",
+  "conversation-shares",
+  "checkpoint",
+  "terminal",
+  "public_link",
+  "invited_users",
 ]) {
   if (!taskDetailPageSource.includes(marker)) {
     throw new Error(`Missing collapsible task composer marker: ${marker}`);
+  }
+}
+
+const conversationSharePageSource = readFileSync(
+  path.join(distRoot, "pages", "shares", "conversation.js"),
+  "utf8"
+);
+for (const marker of [
+  "READ-ONLY SESSION",
+  "shared-message",
+  "session_capture",
+  "setClipboardData",
+  "previewImage",
+  "openDocument",
+]) {
+  if (!conversationSharePageSource.includes(marker)) {
+    throw new Error(`Missing read-only conversation share marker: ${marker}`);
+  }
+}
+
+const taskDetailSourcePath = path.join(
+  projectRoot,
+  "src",
+  "pages",
+  "tasks",
+  "detail.tsx"
+);
+const taskDetailSource = readFileSync(taskDetailSourcePath, "utf8");
+if (!taskDetailSource.includes("pickLocalAttachments({ multiple: true })")) {
+  throw new Error("Task attachment action must use the cross-platform attachment picker");
+}
+if (taskDetailSource.includes("pickBrowserAttachments({ multiple: true })")) {
+  throw new Error("Browser-only attachment picker leaked into the task attachment action");
+}
+
+const taskFilesPageSource = readFileSync(
+  path.join(distRoot, "pages", "tasks", "files.js"),
+  "utf8"
+);
+for (const marker of ["preview-video-shell", "preview-video", "video"]) {
+  if (!taskFilesPageSource.includes(marker)) {
+    throw new Error(`Missing task file video preview marker: ${marker}`);
   }
 }
 
@@ -129,10 +190,19 @@ for (const marker of [
 }
 
 for (const filePath of listSourceFiles(path.join(projectRoot, "src"))) {
+  const source = readFileSync(filePath, "utf8");
+  for (const match of source.matchAll(/confirmText\s*:\s*["']([^"']+)["']/g)) {
+    const label = match[1];
+    const weightedLength = label.replace(/[\u0391-\uFFE5]/g, "aa").length;
+    if (weightedLength > 8) {
+      throw new Error(
+        `WeChat confirmText exceeds the platform limit: ${path.relative(projectRoot, filePath)} -> ${label}`
+      );
+    }
+  }
   if (filePath === path.join(projectRoot, "src", "lib", "useMobileQuery.ts")) {
     continue;
   }
-  const source = readFileSync(filePath, "utf8");
   if (
     /import\s*\{[^}]*\buseQuery\b[^}]*\}\s*from\s*["']@tanstack\/react-query["']/.test(
       source
@@ -164,7 +234,64 @@ const sourceProject = JSON.parse(
 const outputProject = JSON.parse(
   readFileSync(path.join(distRoot, "project.config.json"), "utf8")
 );
-JSON.parse(readFileSync(path.join(distRoot, "app.json"), "utf8"));
+const appConfig = JSON.parse(readFileSync(path.join(distRoot, "app.json"), "utf8"));
+
+const shareablePages = [
+  "pages/workshops/index",
+  "pages/workshops/detail",
+  "pages/services/detail",
+  "pages/tasks/detail",
+  "pages/shares/conversation",
+];
+for (const pagePath of shareablePages) {
+  if (!appConfig.pages.includes(pagePath)) {
+    throw new Error(`Missing shareable page registration: ${pagePath}`);
+  }
+  const pageSource = readFileSync(path.join(distRoot, `${pagePath}.js`), "utf8");
+  if (
+    !/enableShareAppMessage\s*[:=]\s*!0/.test(pageSource) ||
+    !/enableShareTimeline\s*[:=]\s*!0/.test(pageSource)
+  ) {
+    throw new Error(`WeChat sharing is not fully enabled for: ${pagePath}`);
+  }
+}
+
+for (const pagePath of [
+  "pages/auth/index",
+  "pages/tasks/index",
+  "pages/tasks/new",
+  "pages/tasks/files",
+  "pages/creator/projects",
+  "pages/creator/project",
+  "pages/creator/draft",
+  "pages/creator/publish",
+  "pages/me/index",
+]) {
+  const pageSource = readFileSync(path.join(distRoot, `${pagePath}.js`), "utf8");
+  if (
+    /enableShareAppMessage\s*[:=]\s*!0/.test(pageSource) ||
+    /enableShareTimeline\s*[:=]\s*!0/.test(pageSource)
+  ) {
+    throw new Error(`Private mobile page unexpectedly enables sharing: ${pagePath}`);
+  }
+  if (!pageSource.includes("useMobileShareDisabled")) {
+    throw new Error(`Private mobile page does not hide the WeChat share menu: ${pagePath}`);
+  }
+}
+
+const shareSource = readFileSync(path.join(distRoot, "common.js"), "utf8");
+for (const marker of [
+  "lingban:mobile:pending-share-route",
+  "/pages/workshops/detail",
+  "/pages/services/detail",
+  "/pages/shares/conversation",
+  "shareAppMessage",
+  "shareTimeline",
+]) {
+  if (!shareSource.includes(marker)) {
+    throw new Error(`Missing WeChat sharing runtime marker: ${marker}`);
+  }
+}
 
 if (sourceProject.libVersion !== "3.15.2" || outputProject.libVersion !== "3.15.2") {
   throw new Error(

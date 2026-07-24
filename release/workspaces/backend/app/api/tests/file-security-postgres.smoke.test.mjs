@@ -1,33 +1,9 @@
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
-import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import { createFakePostgresPool } from "./support/fake-postgres-pool.mjs";
-
-function allocatePort() {
-  return new Promise((resolve, reject) => {
-    const server = net.createServer();
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      if (!address || typeof address === "string") {
-        server.close();
-        reject(new Error("Failed to allocate port"));
-        return;
-      }
-
-      server.close((error) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-
-        resolve(address.port);
-      });
-    });
-    server.once("error", reject);
-  });
-}
+import { allocateFetchPort as allocatePort } from "./support/allocate-fetch-port.mjs";
 
 async function requestJson(url, init = {}) {
   const response = await fetch(url, init);

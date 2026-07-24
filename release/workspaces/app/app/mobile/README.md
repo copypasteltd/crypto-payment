@@ -116,8 +116,11 @@ Standalone workspace exports expose the same commands from their generated root 
 - 本次任务的材料、参数与目标由 Codex 在完整对话中动态收集。
 - 任务详情顶部摘要支持折叠，主要视区持续承载对话。
 - 任务、文件与审批均使用真实 API 和实时事件流。
+- 对话流只渲染后端持久化消息；文件与审批分别使用对应 API 投影，不根据运行状态或文件名生成模拟消息。
 - Dashboard 创建的 Creator Source Run 会进入同一任务列表，并标记为 `Creator Source Session`，移动端可继续完整对话与查看文件。
 - 明暗主题同步页面背景、导航栏、TabBar 与系统色彩。
+
+Conversation history renders persisted backend messages only. Files and approvals use their dedicated API projections and never synthesize conversation entries from run status or filenames.
 - H5 与小程序统一以 375 设计宽度构建。
 - 登录态恢复完成前隐藏业务 TabBar，防止认证页和主导航叠加。
 
@@ -129,28 +132,68 @@ Session Capture does not add a bottom navigation tab. The product navigation rem
 
 ## 当前状态 / Current Status
 
-截至 2026-07-19，H5 已接入认证、工作区、工坊、服务、任务、实时对话、上传、文件、审批、Provider 选择、配额摘要、Session Capture 与个人中心主链。微信小程序生产构建、`Taro.login` 登录入口、统一认证令牌接入与请求运行时已完成。
+截至 2026-07-24，H5 已接入认证、工作区、工坊、服务、任务、实时对话、上传、文件、审批、Provider 选择、配额摘要、Session Capture、实例生命周期与个人中心主链。微信小程序生产构建、`Taro.login` 登录入口、统一认证令牌、请求运行时、任务附件、消息复制和实例生命周期入口已完成。
 
-As of 2026-07-19, the H5 client covers the complete mobile workflow. The WeChat Mini Program production build, `Taro.login` entry point, shared authentication tokens, and request runtime are implemented.
+As of 2026-07-24, the H5 client covers the complete mobile workflow, including run lifecycle management. The WeChat Mini Program production build, `Taro.login` entry point, shared authentication tokens, request runtime, task attachments, message copying, and lifecycle actions are implemented.
 
 | 验证项 | 结果 |
 | --- | --- |
 | TypeScript | 通过 |
 | H5 production build | 通过 |
 | WeChat Mini Program production build | 通过 |
+| 最新微信交付产物 | `r12`，63 个文件，`515,824 Byte`，SHA-256 `59C76E47CEE9470F33C0007A9216FA3CF23D355D388ADCEF272AE05C7C2DC8CC` |
 | Public API health | `GET https://codex-miniapp.sidcloud.cn/health` 返回 `200` |
 | WeChat login API local smoke | 通过 |
 | Public WeChat login route | 已部署；无效 code 返回 `401 / AUTH_WECHAT_CODE_INVALID / 40029` |
 | Current AppID account type | `gameApp=false / appType=0 / compileType=weapp` |
-| WeChat Developer Tools Preview | 通过，产物 `1,105,719 Byte` |
+| WeChat Developer Tools Preview | 2026-07-22 通过，官方 CLI 预览包 `1,225,374 Byte` |
+| WeChat attachment picker smoke | 2026-07-24 通过，原生文件选择生成附件草稿，运行时异常与错误日志均为 0 |
+| WeChat message copy smoke | 2026-07-24 通过，完整消息进入 `setClipboardData`，长按选择属性与按钮布局验证通过 |
 | Real WeChat login | 两次 `wx.login` code 均成功换取会话，并复用用户 `usr_00000012` 与工作区 `wsp_00000012` |
-| Playwright Dashboard/Admin/H5 E2E | 33/33 通过 |
+| Playwright Dashboard/Admin/H5 E2E | 34/34 通过，包含实例停止与释放链路 |
 | Mobile 页面状态视觉检查 | 14/14 通过 |
 | 当前验收地址 | `http://192.168.31.20:38120/` |
 
-微信认证后端与公网路由已上线。当前使用 `灵办` 微信小程序凭证，并需在微信公众平台登记 `https://codex-miniapp.sidcloud.cn` 为 `request` 合法域名。文件上传、下载、预览和订阅消息需要继续完成微信端专项适配。支付宝端能力保持后续计划。
+## 微信小程序交付包 / WeChat Mini Program Deliverable
 
-Credentialed WeChat device testing, file APIs, subscription messages, and review configuration remain before production submission.
+微信开发者工具可直接导入 `app/mobile/dist`。该目录的 `project.config.json` 使用 `miniprogramRoot: "./"`，AppID 为 `wx4b21e9b9200dcf9b`，基础库固定为 `3.15.2`。
+
+最新发布快照保留独立目录 `release/mini-program/lingban-weapp-20260724-r12` 和压缩包 `release/mini-program/lingban-weapp-20260724-r12.zip`。压缩包解压后可直接作为微信开发者工具项目导入。
+
+WeChat Developer Tools can import `app/mobile/dist` directly. The release snapshot also contains a standalone directory and ZIP package whose root includes `app.js`, `app.json`, `app.wxss`, and `project.config.json`.
+
+微信认证后端与公网路由已上线。当前使用 `灵办` 微信小程序凭证，并需在微信公众平台登记 `https://codex-miniapp.sidcloud.cn` 为 `request` 合法域名。任务附件上传、下载以及 Agent 图片和视频预览已进入微信构建产物；订阅消息与提审配置保持后续计划。支付宝端能力保持后续计划。
+
+The WeChat build includes authenticated task file transfer and Agent image/video previews. Subscription messages and review configuration remain before production submission.
+
+## 2026-07-24 WeChat Attachments / 2026-07-24 微信附件
+
+- 任务输入区按运行平台选择文件：H5 使用浏览器文件选择器，微信小程序使用 `Taro.chooseMessageFile`。
+- 微信临时文件通过 `Taro.getFileSystemManager().readFile` 读取为 `ArrayBuffer`，沿用任务附件预签名上传链路。
+- 单次最多选择 9 个文件，单文件上限 50 MB；超限文件在读取和上传前被拒绝。
+- 用户取消选择时保持当前草稿，不显示错误提示；上传失败后的重试会重新读取同一临时路径。
+- 微信构建门禁检查跨端选择入口、`chooseMessageFile`、文件系统读取与浏览器专用实现泄漏。
+
+The task composer now uses the native WeChat message-file picker and file-system API while preserving the browser picker on H5. Attachment selection, cancellation, limits, repeatable reads, and build markers have dedicated regression coverage.
+
+## 2026-07-24 Message Copy / 2026-07-24 消息复制
+
+- 每条系统、用户和 Agent 消息提供独立复制图标，调用 `Taro.setClipboardData` 写入完整原始正文并显示操作结果。
+- 消息正文使用微信 `Text` 组件，并同时启用 `selectable` 与 `userSelect`，支持长按选择局部文本。
+- 复制按钮使用稳定的 27px 触控尺寸和 14px 图标，不挤压角色、时间和消息正文。
+- 微信构建门禁检查剪贴板 API、复制按钮及原生文本选择属性。
+- 开发者工具验收通过 API 调用拦截核对完整多行文本；运行时异常与错误日志均为 0。
+
+Every system, user, and Agent message now supports full-message clipboard copying and native long-press text selection in the WeChat Mini Program.
+
+## 微信分享 / WeChat Sharing
+
+- 工坊首页、工坊详情和服务详情支持右上角菜单转发、页面内转发按钮及朋友圈分享。
+- 工坊与服务详情分享会保留资源 ID；已登录用户直接进入详情，未登录用户完成微信登录后恢复分享目标。
+- 任务会话、任务文件、Creator 和账户页面禁止分享，避免工作区消息、文件和运行状态进入外部分享链路。
+- 分享接收方仍需通过 API 工作区权限校验，分享链接不会放宽目录可见范围。
+
+Workshop discovery and service detail pages support WeChat friend and Timeline sharing with authenticated deep-link restoration. Private task, Creator, file, and account surfaces remain outside the sharing boundary.
 
 ## 2026-07-20 Creator Loop / 2026-07-20 Creator 闭环
 
@@ -179,3 +222,77 @@ The Creator pages now apply explicit cross-platform component classes, stable fo
 如果微信开发者工具同时加载旧页面块和新公共块，应关闭项目与 IDE，清理该项目的 `WeappCompileCache` 后重新执行 `pnpm build:weapp` 和预览。`scripts/verify-weapp-build.mjs` 会校验基础库版本、API 地址、直接查询适配层和页面查询边界。
 
 The WeChat runtime dispatches API calls through a dedicated lifecycle adapter while H5 retains TanStack Query. Route-bound pages mount their query content after Taro exposes route parameters. Production verification pins base library `3.15.2` and rejects direct TanStack `useQuery` calls in WeChat pages.
+
+## 2026-07-21 Lifecycle Confirmation / 2026-07-21 生命周期确认
+
+任务列表与任务详情的停止确认按钮统一使用 4 字文案“确认停止”，满足 Taro H5 与微信小程序 `showModal.confirmText` 长度限制。ActionSheet 取消仅结束菜单交互，弹窗创建失败会显示错误提示，业务动作异常不会被菜单取消逻辑吞掉。
+
+微信构建校验会扫描所有 `confirmText` 常量并按平台加权长度规则拒绝超限文案。H5 E2E 会打开生命周期菜单、确认停止、断言 `POST /v1/runs/:runId/stop` 的 `graceful` 请求，并检查页面进入“运行环境已释放”状态。
+
+Task-list and task-detail stop confirmations use a platform-compliant four-character label. Build verification rejects oversized modal labels, while H5 E2E asserts the stop request and released runtime state.
+
+## 2026-07-24 会话检查点与只读分享 / Checkpoints and Read-only Sharing
+
+- 任务详情的“固化”入口提供“建立检查点”和“固化并结束”两种模式。
+- “建立检查点”冻结当前已完成 Turn，会话和运行环境保持可用，用户可以继续发送消息并重复建立新检查点。
+- “固化并结束”冻结终结边界，并在 Capture 验证完成后进入实例释放流程。
+- 任务详情的“分享”入口可选择当前会话或任一安全检查通过的固化记录。
+- 分享范围支持链接可见、工作区可见和指定用户；同时支持过期时间、系统消息和附件开关。
+- 生成分享后可直接转发给微信好友、分享到朋友圈、复制路径、预览只读页或撤销分享。
+- 只读分享页支持完整消息时间线、逐条复制、全文复制、图片预览、视频播放和附件打开。
+- 公开分享允许未登录访问；工作区和指定用户分享会先完成微信登录，再恢复原分享地址。
+- 分享快照独立保存，释放源实例不会删除已经生成的只读分享。
+
+微信开发者工具导入路径：`app/mobile`，其中 `project.config.json` 指向 `dist/`。最终交付前必须执行 `pnpm build:weapp`，确保 `dist/` 保存微信小程序产物。
+
+Verification:
+
+```bash
+pnpm typecheck
+pnpm test:creator-flow
+pnpm build:h5
+pnpm build:weapp
+```
+
+H5、分享 API 与固化恢复链路已部署到 HZ01 Release `20260724T114552Z`。微信小程序最终离线交付包仍为 `release/mini-program/lingban-weapp-20260724-r12.zip`；本次固化恢复属于后端兼容更新，无需重新提交微信审核。
+
+The H5 client, sharing API, and capture recovery path are deployed in HZ01 release `20260724T114552Z`. The verified offline Mini Program artifact remains `release/mini-program/lingban-weapp-20260724-r12.zip`; the capture recovery change is backend-compatible and does not require a new WeChat review submission.
+
+## 2026-07-22 Agent 图片渲染 / Agent Image Rendering
+
+- 任务对话支持 Markdown 图片、HTML `img`、消息附件以及普通相对路径中的 `png/jpeg/gif/webp/svg` 文件引用。
+- 本地路径统一归一化为当前 Run `targetPath` 下的逻辑相对路径；远程 URL、目录越界路径和无关绝对路径不会进入预览链路。
+- 图片通过 `GET /v1/runs/:runId/files/preview` 获取短期内联票据，H5 与微信小程序共享同一鉴权和文件权限边界。
+- 文件索引延迟期间最多轮询 15 次；票据到期前自动续签。失败后可重新加载或跳转到当前任务的文件页，并自动选中对应路径。
+- 图片容器使用稳定宽高比与 `aspectFit`。点按图片进入系统预览，微信端支持长按菜单，错误状态不会遮挡消息正文或输入区。
+
+The conversation surface resolves agent-generated local image references against the current run target directory, requests authorized inline preview tickets, and renders the result consistently in H5 and WeChat. Escaped paths and remote sources remain outside this local-file rendering path.
+
+验证命令：
+
+```bash
+pnpm typecheck
+pnpm test:message-images
+pnpm build:h5
+pnpm build:weapp
+```
+
+## 2026-07-23 Agent 视频渲染 / Agent Video Rendering
+
+- 任务会话识别 Markdown 链接、HTML `video/source`、消息附件和普通文本中的本地视频路径。
+- 支持 `mp4`、`webm`、`mov`、`m4v`、`ogv`、`ogg`；最终播放能力同时受浏览器、微信基础库和视频编码格式约束。
+- H5 与微信小程序使用 Taro `Video` 组件，播放器固定为 16:9，提供播放、进度拖动和全屏控制。
+- 文件页对 `video` 预览模式直接显示播放器；失败时保留重新加载、文件页查看和下载路径。
+- 视频与图片共享 target path 校验、短期内联票据、索引等待和到期前续签逻辑。
+- 微信构建门禁检查会话播放器、文件页播放器、API 地址和私有页面分享边界。
+
+The mobile conversation and file surfaces render authorized agent-generated videos with stable 16:9 controls in H5 and WeChat. Local media paths remain scoped to the active run target and use short-lived inline preview tickets.
+
+验证命令：
+
+```bash
+pnpm typecheck
+pnpm test:message-media
+pnpm build:h5
+pnpm build:weapp
+```

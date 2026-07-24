@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { spawn } from "node:child_process";
 import tar from "tar-stream";
 import { ZstdCodec } from "zstd-codec";
 import { minimatch } from "minimatch";
@@ -153,6 +154,97 @@ function getCodecRuntime() {
   return codecRuntimePromise;
 }
 
+const nativeZstdUnavailableCodes = new Set(["ENOENT", "EACCES"]);
+
+async function runNativeZstd(
+  content: Uint8Array,
+  args: string[],
+  maxOutputBytes: number
+): Promise<Uint8Array | null> {
+  const binary = process.env.LINGBAN_ZSTD_BIN?.trim() || "zstd";
+  return new Promise((resolve, reject) => {
+    const child = spawn(binary, ["-q", "-c", ...args], {
+      stdio: ["pipe", "pipe", "pipe"],
+      windowsHide: true,
+    });
+    const chunks: Buffer[] = [];
+    const stderrChunks: Buffer[] = [];
+    let outputBytes = 0;
+    let stderrBytes = 0;
+    let settled = false;
+
+    const fail = (error: Error) => {
+      if (settled) return;
+      settled = true;
+      child.kill();
+      reject(error);
+    };
+
+    child.once("error", (error: NodeJS.ErrnoException) => {
+      if (settled) return;
+      settled = true;
+      if (error.code && nativeZstdUnavailableCodes.has(error.code)) {
+        resolve(null);
+        return;
+      }
+      reject(error);
+    });
+    child.stdout.on("data", (chunk: Buffer | Uint8Array) => {
+      if (settled) return;
+      const buffer = Buffer.from(chunk);
+      outputBytes += buffer.byteLength;
+      if (outputBytes > maxOutputBytes) {
+        fail(new Error(`Session Pack zstd output limit exceeded: ${maxOutputBytes}`));
+        return;
+      }
+      chunks.push(buffer);
+    });
+    child.stderr.on("data", (chunk: Buffer | Uint8Array) => {
+      if (stderrBytes >= 64 * 1024) return;
+      const remaining = 64 * 1024 - stderrBytes;
+      const buffer = Buffer.from(chunk).subarray(0, remaining);
+      stderrBytes += buffer.byteLength;
+      stderrChunks.push(buffer);
+    });
+    child.once("close", (code) => {
+      if (settled) return;
+      settled = true;
+      if (code !== 0) {
+        const detail = Buffer.concat(stderrChunks).toString("utf8").trim();
+        reject(new Error(`Session Pack zstd process failed with exit code ${code}${detail ? `: ${detail}` : ""}`));
+        return;
+      }
+      resolve(new Uint8Array(Buffer.concat(chunks, outputBytes)));
+    });
+    child.stdin.once("error", (error) => fail(error));
+    child.stdin.end(Buffer.from(content));
+  });
+}
+
+async function compressZstd(content: Uint8Array, compressionLevel: number) {
+  const level = Math.max(1, Math.min(19, Math.trunc(compressionLevel)));
+  const native = await runNativeZstd(
+    content,
+    [`-${level}`],
+    defaultSessionPackArchiveLimits.maxArchiveBytes
+  );
+  if (native) return native;
+  const runtime = await getCodecRuntime();
+  return new Uint8Array(new runtime.Simple().compress(content, level));
+}
+
+async function decompressZstd(content: Uint8Array, maxOutputBytes: number) {
+  const native = await runNativeZstd(content, ["-d"], maxOutputBytes);
+  if (native) return native;
+  const runtime = await getCodecRuntime();
+  const decompressed = new runtime.Simple().decompress(content);
+  if (!decompressed) throw new Error("Failed to decompress tar.zst archive");
+  if (decompressed.byteLength > maxOutputBytes) {
+    throw new Error(`Session Pack expanded size limit exceeded: ${maxOutputBytes}`);
+  }
+  return new Uint8Array(decompressed);
+}
+
 function toBuffer(content: Uint8Array | string) {
   return typeof content === "string" ? Buffer.from(content, "utf8") : Buffer.from(content);
 }
@@ -238,10 +330,7 @@ export async function unpackTarZstdEntries(
 ) {
   const limits = { ...defaultSessionPackArchiveLimits, ...limitOverrides };
   if (archive.byteLength > limits.maxArchiveBytes) throw new Error(`Session Pack archive size limit exceeded: ${limits.maxArchiveBytes}`);
-  const runtime = await getCodecRuntime();
-  const decompressed = new runtime.Simple().decompress(archive);
-  if (!decompressed) throw new Error("Failed to decompress tar.zst archive");
-  if (decompressed.byteLength > limits.maxExpandedBytes) throw new Error(`Session Pack expanded size limit exceeded: ${limits.maxExpandedBytes}`);
+  const decompressed = await decompressZstd(archive, limits.maxExpandedBytes);
   if (archive.byteLength > 0 && decompressed.byteLength > 64 * 1024 * 1024 && decompressed.byteLength / archive.byteLength > limits.maxCompressionRatio) {
     throw new Error(`Session Pack compression ratio limit exceeded: ${limits.maxCompressionRatio}`);
   }
@@ -254,8 +343,7 @@ export async function packTarZstdEntries(entries: Map<string, Uint8Array>, compr
     Buffer.from(content),
   ]));
   const tarContent = await buildTar(tarEntries);
-  const runtime = await getCodecRuntime();
-  return new Uint8Array(new runtime.Simple().compress(tarContent, compressionLevel));
+  return compressZstd(tarContent, compressionLevel);
 }
 
 export async function filterWorkspaceTarZstd(
@@ -382,8 +470,7 @@ export async function packSessionVersionV2(input: PackSessionV2Input) {
   };
   files.set("manifest.json", Buffer.from(JSON.stringify(manifest, null, 2) + "\n", "utf8"));
   const tarContent = await buildTar(files);
-  const runtime = await getCodecRuntime();
-  const archive = Buffer.from(new runtime.Simple().compress(tarContent, input.compressionLevel ?? 9));
+  const archive = Buffer.from(await compressZstd(tarContent, input.compressionLevel ?? 9));
   return {
     archive: new Uint8Array(archive),
     sha256: sha256(archive),

@@ -9,6 +9,7 @@ import {
   type CreatorState,
 } from "@lingban/db";
 import { buildAtomicTempPath } from "@lingban/shared";
+import { isDemoDataEnabled } from "../../app/demo-data.js";
 import { getApiRuntimeConfig } from "../../app/runtime.js";
 import {
   ensureApiDatabaseReady,
@@ -42,7 +43,7 @@ class FileBackedCreatorRepository extends CachedCreatorRepository {
 
   async init() {
     await super.init();
-    if (isEmptyCreatorState(this.getState())) {
+    if (isDemoDataEnabled() && isEmptyCreatorState(this.getState())) {
       await this.replaceState(creatorStateSchema.parse(seedCreatorState));
     }
   }
@@ -73,7 +74,7 @@ class FileBackedCreatorRepository extends CachedCreatorRepository {
 class PostgresCreatorRepository extends SharedPostgresCreatorRepository {
   async init() {
     await super.init();
-    if (isEmptyCreatorState(this.getState())) {
+    if (isDemoDataEnabled() && isEmptyCreatorState(this.getState())) {
       await this.replaceState(creatorStateSchema.parse(seedCreatorState));
     }
   }
