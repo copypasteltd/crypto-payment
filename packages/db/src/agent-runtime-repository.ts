@@ -8,6 +8,7 @@ import type { PostgresRepositoryOptions } from "./postgres-types.js";
 
 export interface AgentRuntimeRepository {
   getThreadByRunId(runId: string): Promise<AgentThreadRecord | null>;
+  getEventHighWatermark(runId: string): Promise<number>;
   upsertThread(thread: AgentThreadRecord): Promise<AgentThreadRecord>;
   appendEvent(event: AgentRuntimeEventRecord): Promise<AgentRuntimeEventRecord>;
   listEvents(runId: string, options?: { afterSequence?: number; throughSequence?: number }): Promise<AgentRuntimeEventRecord[]>;
@@ -20,6 +21,14 @@ export class InMemoryAgentRuntimeRepository implements AgentRuntimeRepository {
 
   async getThreadByRunId(runId: string) {
     return this.#threads.get(runId) ?? null;
+  }
+
+  async getEventHighWatermark(runId: string) {
+    let highWatermark = 0;
+    for (const sequence of this.#events.get(runId)?.keys() ?? []) {
+      highWatermark = Math.max(highWatermark, sequence);
+    }
+    return highWatermark;
   }
 
   async upsertThread(thread: AgentThreadRecord) {
@@ -73,6 +82,15 @@ export class PostgresAgentRuntimeRepository implements AgentRuntimeRepository {
       [runId]
     );
     return result.rows[0] ? agentThreadRecordSchema.parse(result.rows[0].thread_json) : null;
+  }
+
+  async getEventHighWatermark(runId: string) {
+    const queryable = await this.#getQueryable();
+    const result = await queryable.query<{ event_high_watermark: string | number }>(
+      "SELECT COALESCE(MAX(sequence), 0) AS event_high_watermark FROM lingban_run_agent_events WHERE run_id = $1",
+      [runId]
+    );
+    return Number(result.rows[0]?.event_high_watermark ?? 0);
   }
 
   async upsertThread(thread: AgentThreadRecord) {

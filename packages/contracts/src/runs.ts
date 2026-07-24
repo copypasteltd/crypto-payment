@@ -22,7 +22,7 @@ import {
 import { credentialMountSchema, mcpBindingSchema } from "./runtime.js";
 import { mcpNetworkPolicySchema } from "./mcp.js";
 import { resolvedRunProviderSchema, runProviderSelectionSchema } from "./providers.js";
-import { agentThreadSummarySchema } from "./agent-runtime.js";
+import { agentThreadSummarySchema, agentTurnStateSchema } from "./agent-runtime.js";
 import { sessionCaptureSummarySchema } from "./session-captures.js";
 
 export const runStatusSchema = z.enum([
@@ -655,6 +655,9 @@ export const startRunJobPayloadSchema = z.object({
   run: runRecordSchema,
   initialPrompt: z.string().min(1),
   requestedInitialMessage: z.string().min(1).nullable().default(null),
+  resumeThreadId: z.string().trim().min(1).max(240).nullable().default(null),
+  resumeThroughTurnId: z.string().trim().min(1).max(240).nullable().default(null),
+  resumeThroughTurnState: agentTurnStateSchema.nullable().default(null),
   bindings: createRunBindingSchema.default({
     firstPartyMcpIds: [],
     externalConnectorRefs: [],

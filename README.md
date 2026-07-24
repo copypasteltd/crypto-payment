@@ -63,3 +63,12 @@ pnpm --filter @lingban/db test
 ```
 
 Standalone exports use the transitive `workspace:*` dependency closure, allowing each deliverable to retain the same contract sources used by the monorepo.
+
+## 2026-07-25 会话恢复契约 / Session Capture Recovery
+
+- `contracts` 增加 `resumeThreadId`、`resumeThroughTurnId` 与 `resumeThroughTurnState`，统一 API、Worker 和 Runtime Bridge 的恢复语义。
+- `db` 提供事件高水位查询，避免 Capture 恢复期间重复消费已持久化事件。
+- `session-pack` 使用原生 Zstandard 流式解压并限制输出体积；小型负载保留 WASM 兼容路径。
+- 当前验证结果：Shared DB `30/30`，Session Pack `24/24`。
+
+The shared recovery contracts preserve Codex thread and turn checkpoints across API, Worker, and Runtime Bridge. Capture extraction is output-bounded and covered by the shared database and session-pack test suites.

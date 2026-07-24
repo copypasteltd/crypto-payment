@@ -313,6 +313,25 @@ export class PostgresWorkshopCatalogRepository extends CachedWorkshopCatalogRepo
     );
   }
 
+  override async saveContext(context: WorkspaceContextSummary) {
+    await this.init();
+    const parsed = workspaceContextSummarySchema.parse(context);
+    const queryable = await this.#getQueryable();
+    await queryable.query(
+      `INSERT INTO lingban_workshop_contexts (context_key, runtime_workspace_id, context_json)
+       VALUES ($1, $2, $3::jsonb)
+       ON CONFLICT (context_key) DO UPDATE
+       SET runtime_workspace_id = EXCLUDED.runtime_workspace_id,
+           context_json = EXCLUDED.context_json`,
+      [parsed.contextKey, parsed.runtimeWorkspaceId, JSON.stringify(parsed)]
+    );
+    this.updateCachedState((state) => ({
+      ...state,
+      contexts: replaceByKey(state.contexts, parsed, (item) => item.contextKey),
+    }));
+    return parsed;
+  }
+
   override async saveWorkshop(workshop: WorkshopCatalogRecord) {
     await this.init();
     const parsed = workshopCatalogRecordSchema.parse(workshop);
@@ -331,25 +350,6 @@ export class PostgresWorkshopCatalogRepository extends CachedWorkshopCatalogRepo
     this.updateCachedState((state) => ({
       ...state,
       services: replaceByKey(state.services, parsed, (item) => item.serviceId),
-    }));
-    return parsed;
-  }
-
-  override async saveContext(context: WorkspaceContextSummary) {
-    await this.init();
-    const parsed = workspaceContextSummarySchema.parse(context);
-    const queryable = await this.#getQueryable();
-    await queryable.query(
-      `INSERT INTO lingban_workshop_contexts (context_key, runtime_workspace_id, context_json)
-       VALUES ($1, $2, $3::jsonb)
-       ON CONFLICT (context_key) DO UPDATE
-       SET runtime_workspace_id = EXCLUDED.runtime_workspace_id,
-           context_json = EXCLUDED.context_json`,
-      [parsed.contextKey, parsed.runtimeWorkspaceId, JSON.stringify(parsed)]
-    );
-    this.updateCachedState((state) => ({
-      ...state,
-      contexts: replaceByKey(state.contexts, parsed, (item) => item.contextKey),
     }));
     return parsed;
   }
