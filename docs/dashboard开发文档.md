@@ -775,3 +775,18 @@ Revision、Review、Replay、Seal、Binding 和 Package Create 成功后统一�
 | 390×844 | 单列内容，顶部操作换行，无横向溢出 |
 
 生产构建、Oxlint 和 E2E 均通过；浏览器 Console 无 Error/Warning。
+
+## 19. 2026-07-20 生产布局复验
+
+| 验收项 | 结果 |
+|---|---|
+| 实例页 | 多任务列表、中央完整对话、右侧概览/文件/运行/审计均加载真实数据 |
+| Provider 页 | 当前工作区绑定、默认路由、凭证要求与模型覆盖策略可见 |
+| Creator 页 | 空白 Session 入口、项目列表、Capture/Draft/Seal/Package 状态链可见 |
+| 抽屉侧栏 | Rail、展开、收起和主内容位移正常；状态写入 `body[data-sidebar]` |
+| 可访问性 | Rail 和抽屉开关具备动态中英文名称；视觉遮罩设置 `aria-hidden=true` |
+| 多语言 | 中文、英文切换通过 |
+| 主题 | 深色、浅色切换通过 |
+| 响应式 | 1440x900、1024x768 无横向溢出与可见元素越界 |
+
+生产浏览器验收对应 HZ01 Release `20260720T124152Z`。完整证据见 `docs/20260720真实运行闭环与前端验收记录.md`。
