@@ -1,7 +1,7 @@
 import type { RunFileEntry } from "@lingban/contracts";
 import { matchesSearchQuery } from "@lingban/domain-models";
 import { useMobileQuery as useQuery } from "../../lib/useMobileQuery";
-import { Button, Image, Input, View } from "@tarojs/components";
+import { Button, Image, Input, Video, View } from "@tarojs/components";
 import Taro from "@tarojs/taro";
 import { useEffect, useMemo, useState } from "react";
 import { mobileRunsApi, requestMobileRunFileDownloadUrl } from "../../lib/api";
@@ -16,6 +16,8 @@ import { useMobileRunStream } from "../../lib/runStream";
 import { useResolvedMobileWorkspace } from "../../lib/useMobileWorkspace";
 import { useMobileRouteParams } from "../../lib/useMobileRouteParams";
 import { useMobilePageShellClass } from "../../components/MobilePageShell";
+import { useMobileShareDisabled } from "../../lib/mobileShare";
+import { normalizeAgentMediaPath } from "../../lib/agentMessageImages";
 
 function ensureTrailingSlash(value: string) {
   return value.endsWith("/") ? value : `${value}/`;
@@ -114,15 +116,16 @@ function toTestIdSegment(value: string) {
 }
 
 export default function TaskFilesPage() {
-  const params = useMobileRouteParams<{ id?: string }>();
+  useMobileShareDisabled();
+  const params = useMobileRouteParams<{ id?: string; path?: string }>();
   const pageShellClass = useMobilePageShellClass();
   if (!params) {
     return <View className={pageShellClass}><View className="section-copy">正在加载文件路由</View></View>;
   }
-  return <TaskFilesContent id={params.id} />;
+  return <TaskFilesContent id={params.id} initialFilePath={params.path} />;
 }
 
-function TaskFilesContent({ id }: { id?: string }) {
+function TaskFilesContent({ id, initialFilePath }: { id?: string; initialFilePath?: string }) {
   const pageShellClass = useMobilePageShellClass();
   const liveTaskId = isLiveTaskId(id);
   const currentWorkspace = useResolvedMobileWorkspace();
@@ -261,9 +264,19 @@ function TaskFilesContent({ id }: { id?: string }) {
     const nextPath = pathOptions[0]?.path ?? task.targetPath;
     setCurrentPath(nextPath);
     setInputPath(nextPath);
-    setSelectedFilePath(fileItems[0]?.path ?? "");
+    const requestedRelativePath = initialFilePath
+      ? normalizeAgentMediaPath(initialFilePath, task.targetPath)
+      : null;
+    const requestedAbsolutePath = requestedRelativePath
+      ? `${ensureTrailingSlash(task.targetPath)}${requestedRelativePath}`
+      : null;
+    setSelectedFilePath(
+      fileItems.find(
+        (item) => item.path === initialFilePath || item.path === requestedAbsolutePath
+      )?.path ?? fileItems[0]?.path ?? ""
+    );
     setFileSearch("");
-  }, [fileItems, pathOptions, task]);
+  }, [fileItems, initialFilePath, pathOptions, task]);
 
   const visibleFiles = useMemo(() => {
     if (!task) {
@@ -546,6 +559,17 @@ function TaskFilesContent({ id }: { id?: string }) {
                   className="preview-image"
                   src={filePreviewQuery.data.downloadUrl}
                   mode="widthFix"
+                />
+              </View>
+            ) : filePreviewQuery.data.mode === "video" && filePreviewQuery.data.downloadUrl ? (
+              <View className="preview-media-shell preview-video-shell">
+                <Video
+                  className="preview-video"
+                  src={filePreviewQuery.data.downloadUrl}
+                  controls
+                  objectFit="contain"
+                  showCenterPlayBtn
+                  enableProgressGesture
                 />
               </View>
             ) : filePreviewQuery.data.mode === "pdf" && filePreviewQuery.data.downloadUrl ? (

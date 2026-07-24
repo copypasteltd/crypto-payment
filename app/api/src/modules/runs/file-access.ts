@@ -6,6 +6,7 @@ import {
   resolvePathWithinRoot,
   toPosixPath,
 } from "@lingban/files";
+import { resolveByteRange } from "../uploads/byte-range.js";
 import {
   runFileEntrySchema,
   runFilePreviewResponseSchema,
@@ -663,10 +664,12 @@ export class RunFileAccessService {
     options: {
       requestedByUserId?: string | null;
       enforceQuota?: boolean;
+      rangeHeader?: string;
     } = {}
   ) {
     const resolved = await this.#resolveRunFile(runId, requestedPath);
     const { file, indexed } = resolved;
+    const byteRange = resolveByteRange(options.rangeHeader, file.sizeBytes);
 
     if (file.path.endsWith("/")) {
       throw new AppError(400, "FILE_PATH_INVALID", "目录不可下载");
@@ -773,7 +776,11 @@ export class RunFileAccessService {
         file,
         absolutePath: path.resolve(file.path),
         mimeType: indexed.mimeType ?? guessRunFileMimeType(file.path),
-        stream: await this.#dependencies.objectStore.createReadStream(indexed.objectKey),
+        stream: await this.#dependencies.objectStore.createReadStream(
+          indexed.objectKey,
+          byteRange ?? undefined
+        ),
+        byteRange,
       };
     }
 
@@ -781,7 +788,11 @@ export class RunFileAccessService {
       file,
       absolutePath: path.resolve(file.path),
       mimeType: indexed.mimeType ?? guessRunFileMimeType(file.path),
-      stream: createReadStream(path.resolve(file.path)),
+      stream: createReadStream(
+        path.resolve(file.path),
+        byteRange ? { start: byteRange.start, end: byteRange.end } : undefined
+      ),
+      byteRange,
     };
   }
 }

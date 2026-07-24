@@ -1,11 +1,14 @@
 import { uploadRunAttachment } from "@lingban/api-sdk";
 import type {
   ApproveRunInput,
+  ConversationShareAccessScope,
+  ConversationShareSummary,
   ReviewRunInformationAnswerDecision,
   RunConversationAttachment,
   RunConversationMessage,
   RunInformationCollection,
   SessionCaptureRecord,
+  SessionCaptureMode,
   SendRunMessageInput,
 } from "@lingban/contracts";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -14,7 +17,7 @@ import Taro from "@tarojs/taro";
 import { useMobileQuery as useQuery } from "../../lib/useMobileQuery";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { MobileTaskMessage } from "../../data/mobileData";
-import { formatAttachmentSize, pickBrowserAttachments, type BrowserAttachmentDraft } from "../../lib/attachments";
+import { formatAttachmentSize, pickLocalAttachments, type AttachmentDraft } from "../../lib/attachments";
 import {
   billingCostBasisLabel,
   billingSourceLabel,
@@ -22,10 +25,19 @@ import {
   formatBillingQuantity,
   formatBillingUsd,
 } from "../../lib/billing";
-import { mobileBillingApi, mobileQuotaApi, mobileRunsApi, mobileSessionCapturesApi } from "../../lib/api";
+import {
+  mobileAuthApi,
+  mobileBillingApi,
+  mobileConversationSharesApi,
+  mobileQuotaApi,
+  mobileRunsApi,
+  mobileSessionCapturesApi,
+} from "../../lib/api";
 import archiveIcon from "../../assets/archive.svg";
 import chevronDownIcon from "../../assets/chevron-down.svg";
+import copyIcon from "../../assets/copy.svg";
 import moreHorizontalIcon from "../../assets/more-horizontal.svg";
+import shareIcon from "../../assets/share.svg";
 import { isLiveTaskId, mapRunSnapshotToMobileTask } from "../../lib/liveTaskAdapters";
 import {
   formatQuotaValue,
@@ -43,6 +55,9 @@ import { useMobileRunStream } from "../../lib/runStream";
 import { useResolvedMobileWorkspace } from "../../lib/useMobileWorkspace";
 import { useMobileRouteParams } from "../../lib/useMobileRouteParams";
 import { useMobilePageShellClass } from "../../components/MobilePageShell";
+import { MobileMessageContent } from "../../components/MobileMessageContent";
+import { isAgentMediaAttachment } from "../../lib/agentMessageImages";
+import { buildMobileH5ShareUrl, useMobileShare } from "../../lib/mobileShare";
 import {
   useMobileUiStore,
   type MobileOutgoingMessageRecord,
@@ -60,6 +75,40 @@ function formatQuotaTime(value: string) {
     minute: "2-digit",
     hour12: false,
   });
+}
+
+function nextShareRequestId() {
+  return `share_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function buildShareExpiry(days: number | null) {
+  return days == null ? null : new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+}
+
+function shareAccessLabel(scope: ConversationShareAccessScope) {
+  if (scope === "workspace") return "工作区成员";
+  if (scope === "invited_users") return "指定用户";
+  return "持有链接的人";
+}
+
+function shareStatusLabel(status: ConversationShareSummary["status"]) {
+  if (status === "revoked") return "已撤销";
+  if (status === "expired") return "已过期";
+  return "有效";
+}
+
+async function copyMessageText(text: string) {
+  if (!text.trim()) {
+    await Taro.showToast({ title: "当前消息没有可复制文本", icon: "none" });
+    return;
+  }
+
+  try {
+    await Taro.setClipboardData({ data: text });
+    await Taro.showToast({ title: "消息已复制", icon: "success" });
+  } catch {
+    await Taro.showToast({ title: "复制失败，请重试", icon: "none" });
+  }
 }
 
 function formatBillingTime(value: string | null) {
@@ -453,10 +502,21 @@ function TaskDetailContent({ id }: { id?: string }) {
   const currentWorkspace = useResolvedMobileWorkspace();
   const runStream = useMobileRunStream(liveTaskId ? id ?? null : null, liveTaskId);
   const outgoingPayloadsRef = useRef<
-    Record<string, { text: string; drafts: BrowserAttachmentDraft[] }>
+    Record<string, { text: string; drafts: AttachmentDraft[] }>
   >({});
   const [captureSheetOpen, setCaptureSheetOpen] = useState(false);
   const [submittedCaptureId, setSubmittedCaptureId] = useState<string | null>(null);
+  const [captureMode, setCaptureMode] = useState<SessionCaptureMode>("checkpoint");
+  const [shareSheetOpen, setShareSheetOpen] = useState(false);
+  const [shareSourceCaptureId, setShareSourceCaptureId] = useState<string | null>(null);
+  const [shareAccessScope, setShareAccessScope] =
+    useState<ConversationShareAccessScope>("public_link");
+  const [shareExpiryDays, setShareExpiryDays] = useState<number | null>(7);
+  const [shareIncludeSystem, setShareIncludeSystem] = useState(true);
+  const [shareIncludeAttachments, setShareIncludeAttachments] = useState(true);
+  const [selectedShareUserIds, setSelectedShareUserIds] = useState<string[]>([]);
+  const [shareRequestId, setShareRequestId] = useState(nextShareRequestId);
+  const [preparedShare, setPreparedShare] = useState<ConversationShareSummary | null>(null);
 
   const liveTaskQuery = useQuery({
     enabled: liveTaskId,
@@ -484,6 +544,21 @@ function TaskDetailContent({ id }: { id?: string }) {
       query.state.data?.some((capture) => !["CAPTURED", "FAILED", "CANCELLED"].includes(capture.status))
         ? 1_500
         : 8_000,
+  });
+  const conversationSharesQuery = useQuery({
+    enabled: liveTaskId && Boolean(id),
+    queryKey: ["mobile", "conversation-shares", id],
+    queryFn: async () => (await mobileConversationSharesApi.list(id!)).items,
+    retry: false,
+  });
+  const workspaceMembersQuery = useQuery({
+    enabled:
+      shareSheetOpen &&
+      shareAccessScope === "invited_users" &&
+      currentWorkspace.source === "auth",
+    queryKey: ["mobile", "workspace-members", currentWorkspace.id],
+    queryFn: () => mobileAuthApi.listWorkspaceMembers(currentWorkspace.id),
+    retry: false,
   });
   const pendingApproval = useMemo(
     () => liveSnapshot?.approvals.find((item) => item.state === "pending") ?? null,
@@ -723,7 +798,7 @@ function TaskDetailContent({ id }: { id?: string }) {
     Record<string, ReviewFormState>
   >({});
   const [attachmentDraftsByTask, setAttachmentDraftsByTask] = useState<
-    Record<string, BrowserAttachmentDraft[]>
+    Record<string, AttachmentDraft[]>
   >({});
   const draft = task ? taskDrafts[task.id] ?? "" : "";
   const attachmentDrafts = task ? attachmentDraftsByTask[task.id] ?? [] : [];
@@ -738,11 +813,14 @@ function TaskDetailContent({ id }: { id?: string }) {
     liveSnapshot && ["STOP_REQUESTED", "STOPPING"].includes(liveSnapshot.lifecycle.runtimeStatus)
   );
   const runInteractive = Boolean(liveSnapshot && !runTerminal && !runtimeTransitioning);
-  const activeCapture =
-    capturesQuery.data?.find((capture) => capture.captureId === submittedCaptureId) ??
-    capturesQuery.data?.find((capture) => !["CAPTURED", "FAILED", "CANCELLED"].includes(capture.status)) ??
-    capturesQuery.data?.[0] ??
-    null;
+  const activeCapture = submittedCaptureId
+    ? capturesQuery.data?.find((capture) => capture.captureId === submittedCaptureId) ?? null
+    : capturesQuery.data?.find(
+        (capture) => !["CAPTURED", "FAILED", "CANCELLED"].includes(capture.status)
+      ) ?? null;
+  const capturedSessions = (capturesQuery.data ?? []).filter(
+    (capture) => capture.status === "CAPTURED" && capture.securityState === "clean"
+  );
   const captureReady =
     liveSnapshot?.agentThread?.currentTurnState === "completed" &&
     Boolean(liveSnapshot.agentThread.currentTurnId);
@@ -750,7 +828,7 @@ function TaskDetailContent({ id }: { id?: string }) {
     mutationFn: async () => {
       if (!task || !liveSnapshot) throw new Error("当前任务不可固化");
       return mobileSessionCapturesApi.create(task.id, {
-        mode: "terminal",
+        mode: captureMode,
         throughTurnId: liveSnapshot.agentThread?.currentTurnId ?? null,
         workspaceSelection: {
           targetPath: liveSnapshot.run.targetPath,
@@ -771,7 +849,7 @@ function TaskDetailContent({ id }: { id?: string }) {
         },
         destinationSessionId: null,
         createDraft: true,
-        idempotencyKey: `mobile:${task.id}:${liveSnapshot.agentThread?.currentTurnId ?? "terminal"}`,
+        idempotencyKey: `mobile:${task.id}:${captureMode}:${liveSnapshot.agentThread?.currentTurnId ?? "terminal"}`,
       });
     },
     onSuccess: async (result) => {
@@ -785,6 +863,65 @@ function TaskDetailContent({ id }: { id?: string }) {
     onError: (error) => {
       Taro.showToast({ title: error instanceof Error ? error.message : "固化提交失败", icon: "none" });
     },
+  });
+  const shareMutation = useMutation({
+    mutationFn: async () => {
+      if (!task) throw new Error("当前任务不可分享");
+      if (shareAccessScope === "invited_users" && selectedShareUserIds.length === 0) {
+        throw new Error("请至少选择一位接收人");
+      }
+      const sourceCapture = capturedSessions.find(
+        (capture) => capture.captureId === shareSourceCaptureId
+      );
+      return mobileConversationSharesApi.create(task.id, {
+        sourceType: sourceCapture ? "session_capture" : "run",
+        captureId: sourceCapture?.captureId ?? null,
+        title: `${task.title} · ${sourceCapture ? "固化记录" : "会话记录"}`,
+        accessScope: shareAccessScope,
+        invitedUserIds:
+          shareAccessScope === "invited_users" ? selectedShareUserIds : [],
+        expiresAt: buildShareExpiry(shareExpiryDays),
+        includeSystemMessages: shareIncludeSystem,
+        includeAttachments: shareIncludeAttachments,
+        idempotencyKey: shareRequestId,
+      });
+    },
+    onSuccess: async (result) => {
+      setPreparedShare(result.share);
+      await queryClient.invalidateQueries({
+        queryKey: ["mobile", "conversation-shares", id],
+      });
+      await Taro.showToast({ title: "只读分享已生成", icon: "success" });
+    },
+    onError: (error) => {
+      void Taro.showToast({
+        title: error instanceof Error ? error.message : "创建分享失败",
+        icon: "none",
+      });
+    },
+  });
+  const revokeShareMutation = useMutation({
+    mutationFn: (shareId: string) => mobileConversationSharesApi.revoke(shareId),
+    onSuccess: async (view) => {
+      if (preparedShare?.shareId === view.share.shareId) setPreparedShare(view.share);
+      await queryClient.invalidateQueries({
+        queryKey: ["mobile", "conversation-shares", id],
+      });
+      await Taro.showToast({ title: "分享已撤销", icon: "success" });
+    },
+    onError: (error) => {
+      void Taro.showToast({
+        title: error instanceof Error ? error.message : "撤销分享失败",
+        icon: "none",
+      });
+    },
+  });
+  useMobileShare({
+    title: preparedShare?.title ?? "灵办词元会话记录",
+    timelineTitle: preparedShare?.title ?? "灵办词元会话记录",
+    route: "/pages/shares/conversation",
+    query: { id: preparedShare?.shareId ?? null },
+    enabled: preparedShare?.status === "active",
   });
   const refreshLifecycleQueries = async (runId: string) => {
     await Promise.all([
@@ -867,6 +1004,21 @@ function TaskDetailContent({ id }: { id?: string }) {
     });
     if (result.confirm) deleteMutation.mutate(task.id);
   };
+  const openShareSheet = (captureId: string | null = null) => {
+    setShareSourceCaptureId(captureId);
+    setPreparedShare(null);
+    setShareRequestId(nextShareRequestId());
+    setShareSheetOpen(true);
+  };
+  const copyPreparedSharePath = async () => {
+    if (!preparedShare) return;
+    const sharePath =
+      process.env.TARO_ENV === "h5" && typeof window !== "undefined"
+        ? buildMobileH5ShareUrl(window.location.origin, preparedShare.publicPath)
+        : preparedShare.publicPath;
+    await Taro.setClipboardData({ data: sharePath });
+    await Taro.showToast({ title: "分享地址已复制", icon: "success" });
+  };
   const openLifecycleActions = async () => {
     if (!task || !liveSnapshot) return;
     const actions: Array<{ label: string; run: () => void | Promise<void> }> = [];
@@ -874,7 +1026,8 @@ function TaskDetailContent({ id }: { id?: string }) {
       actions.push({ label: "恢复到任务列表", run: () => restoreMutation.mutate(task.id) });
       actions.push({ label: "永久删除实例", run: confirmDelete });
     } else if (runInteractive) {
-      actions.push({ label: "固化并结束", run: () => setCaptureSheetOpen(true) });
+      actions.push({ label: "固化会话", run: () => setCaptureSheetOpen(true) });
+      actions.push({ label: "分享只读会话", run: () => openShareSheet() });
       actions.push({ label: "立即停止并释放", run: confirmStop });
     } else if (liveSnapshot.lifecycle.runtimeStatus === "RELEASE_FAILED" || liveSnapshot.lifecycle.runtimeStatus === "ORPHANED") {
       actions.push({ label: "重试释放运行环境", run: confirmStop });
@@ -912,7 +1065,7 @@ function TaskDetailContent({ id }: { id?: string }) {
     setTaskDraft(task.id, value);
     setComposerExpanded(true);
   };
-  const setTaskAttachments = (taskId: string, next: BrowserAttachmentDraft[]) => {
+  const setTaskAttachments = (taskId: string, next: AttachmentDraft[]) => {
     setAttachmentDraftsByTask((current) => ({
       ...current,
       [taskId]: next,
@@ -958,7 +1111,7 @@ function TaskDetailContent({ id }: { id?: string }) {
   };
   const rememberOutgoingPayload = (
     localId: string,
-    payload: { text: string; drafts: BrowserAttachmentDraft[] }
+    payload: { text: string; drafts: AttachmentDraft[] }
   ) => {
     outgoingPayloadsRef.current[localId] = payload;
   };
@@ -1013,7 +1166,7 @@ function TaskDetailContent({ id }: { id?: string }) {
       taskId: string;
       createdAt: string;
       text: string;
-      drafts: BrowserAttachmentDraft[];
+      drafts: AttachmentDraft[];
     }) => {
       const activeTaskId = task?.id ?? input.taskId;
       if (!activeTaskId) {
@@ -1024,10 +1177,10 @@ function TaskDetailContent({ id }: { id?: string }) {
       const attachments = await Promise.all(
         input.drafts.map(async (draftAttachment) =>
           uploadRunAttachment(mobileRunsApi, activeTaskId, {
-            fileName: draftAttachment.file.name,
+            fileName: draftAttachment.fileName,
             contentType: draftAttachment.contentType,
             sizeBytes: draftAttachment.sizeBytes,
-            content: await draftAttachment.file.arrayBuffer(),
+            content: await draftAttachment.readContent(),
             label: draftAttachment.label,
           })
         )
@@ -1107,7 +1260,7 @@ function TaskDetailContent({ id }: { id?: string }) {
           createdAt: variables.createdAt,
           attachments: variables.drafts.map((item) => ({
             label: item.label,
-            path: item.file.name,
+            path: item.fileName,
           })),
           status: "failed" as const,
           errorMessage: null,
@@ -1295,7 +1448,7 @@ function TaskDetailContent({ id }: { id?: string }) {
     });
   };
 
-  const queueOutgoingMessage = (text: string, drafts: BrowserAttachmentDraft[]) => {
+  const queueOutgoingMessage = (text: string, drafts: AttachmentDraft[]) => {
     if (!task) {
       return;
     }
@@ -1310,7 +1463,7 @@ function TaskDetailContent({ id }: { id?: string }) {
       createdAt,
       attachments: drafts.map((item) => ({
         label: item.label,
-        path: item.file.name,
+        path: item.fileName,
       })),
       status: drafts.length > 0 ? "uploading" : "sending",
       errorMessage: null,
@@ -1444,6 +1597,14 @@ function TaskDetailContent({ id }: { id?: string }) {
         >
           <Image className="inline-action-icon" src={archiveIcon} mode="aspectFit" />
           固化
+        </Button>
+        <Button
+          className="tab-btn capture-tab-btn"
+          data-testid="mobile-task-share-session"
+          onClick={() => openShareSheet()}
+        >
+          <Image className="inline-action-icon" src={shareIcon} mode="aspectFit" />
+          分享
         </Button>
         <Button
           className="tab-btn lifecycle-menu-btn"
@@ -2063,9 +2224,29 @@ function TaskDetailContent({ id }: { id?: string }) {
                   <View className={`message-role-marker ${message.kind}`} />
                   <View className="role">{message.role}</View>
                 </View>
-                <View className="time">{message.time}</View>
+                <View className="message-head-actions">
+                  <View className="time">{message.time}</View>
+                  <Button
+                    aria-label={`复制${message.role}消息`}
+                    className="message-copy-button"
+                    data-testid={`mobile-message-copy-${index}`}
+                    onClick={() => void copyMessageText(message.body)}
+                  >
+                    <Image className="message-copy-icon" src={copyIcon} mode="aspectFit" />
+                  </Button>
+                </View>
               </View>
-              <View className="message-body">{message.body}</View>
+              <MobileMessageContent
+                runId={task.id}
+                targetPath={task.targetPath}
+                text={message.body}
+                attachments={message.attachments}
+                onOpenFile={(filePath) =>
+                  Taro.navigateTo({
+                    url: `/pages/tasks/files?id=${encodeURIComponent(task.id)}&path=${encodeURIComponent(filePath)}`,
+                  })
+                }
+              />
               {message.deliveryStatus ? (
                 <View className="message-status-row">
                   <View className={`pill ${deliveryStatusTone(message.deliveryStatus)}`}>
@@ -2076,14 +2257,20 @@ function TaskDetailContent({ id }: { id?: string }) {
                   ) : null}
                 </View>
               ) : null}
-              {message.attachments?.length ? (
+              {message.attachments?.some(
+                (attachment) => !isAgentMediaAttachment(attachment.path, task.targetPath)
+              ) ? (
                 <View className="message-attachment-list">
-                  {message.attachments.map((attachment) => (
-                    <View className="message-attachment-chip" key={`${attachment.path}-${attachment.label}`}>
-                      <View className="message-attachment-label">{attachment.label}</View>
-                      <View className="message-attachment-meta mono">{attachment.path}</View>
-                    </View>
-                  ))}
+                  {message.attachments
+                    .filter(
+                      (attachment) => !isAgentMediaAttachment(attachment.path, task.targetPath)
+                    )
+                    .map((attachment) => (
+                      <View className="message-attachment-chip" key={`${attachment.path}-${attachment.label}`}>
+                        <View className="message-attachment-label">{attachment.label}</View>
+                        <View className="message-attachment-meta mono">{attachment.path}</View>
+                      </View>
+                    ))}
                 </View>
               ) : null}
             </View>
@@ -2289,7 +2476,7 @@ function TaskDetailContent({ id }: { id?: string }) {
                   disabled={sendMessageMutation.isPending || hasInFlightOutgoing}
                   onClick={async () => {
                     try {
-                      const picked = await pickBrowserAttachments({ multiple: true });
+                      const picked = await pickLocalAttachments({ multiple: true });
                       if (!picked.length || !task) {
                         return;
                       }
@@ -2404,36 +2591,329 @@ function TaskDetailContent({ id }: { id?: string }) {
                 ) : null}
                 {activeCapture.status === "CAPTURED" ? (
                   <>
-                    <View className="capture-mobile-success">Capture 已验证，Draft 已进入当前项目的固化流程。</View>
-                    <Button
-                      className="send-btn"
-                      onClick={() => {
-                        const projectId = liveSnapshot?.run.sessionProjectId;
-                        Taro.navigateTo({
-                          url: projectId
-                            ? `/pages/creator/project?id=${encodeURIComponent(projectId)}`
-                            : "/pages/creator/projects",
-                        });
-                      }}
-                    >
-                      审核并固化
-                    </Button>
+                    <View className="capture-mobile-success">
+                      {activeCapture.mode === "checkpoint"
+                        ? "检查点已验证，会话保持运行，可继续对话或进入 Creator。"
+                        : "终结固化已验证，实例将结束并释放运行环境。"}
+                    </View>
+                    <View className="capture-result-actions">
+                      {activeCapture.securityState === "clean" ? (
+                        <Button
+                          className="pill active"
+                          onClick={() => {
+                            setCaptureSheetOpen(false);
+                            openShareSheet(activeCapture.captureId);
+                          }}
+                        >
+                          分享此次固化
+                        </Button>
+                      ) : null}
+                      <Button
+                        className="pill"
+                        onClick={() => {
+                          const projectId = liveSnapshot?.run.sessionProjectId;
+                          Taro.navigateTo({
+                            url: projectId
+                              ? `/pages/creator/project?id=${encodeURIComponent(projectId)}`
+                              : "/pages/creator/projects",
+                          });
+                        }}
+                      >
+                        进入 Creator
+                      </Button>
+                      {activeCapture.mode === "checkpoint" ? (
+                        <Button className="pill" onClick={() => setCaptureSheetOpen(false)}>
+                          继续对话
+                        </Button>
+                      ) : null}
+                      <Button className="pill" onClick={() => setSubmittedCaptureId(null)}>
+                        新建固化
+                      </Button>
+                    </View>
                   </>
                 ) : null}
               </View>
             ) : (
               <>
+                <View className="capture-mode-selector" data-testid="mobile-capture-mode-selector">
+                  <Button
+                    className={`capture-mode-option ${captureMode === "checkpoint" ? "active" : ""}`}
+                    onClick={() => setCaptureMode("checkpoint")}
+                  >
+                    <View className="capture-mode-title">建立检查点</View>
+                    <View className="capture-mode-copy">固化当前边界，保留实例并继续对话</View>
+                  </Button>
+                  <Button
+                    className={`capture-mode-option ${captureMode === "terminal" ? "warn" : ""}`}
+                    onClick={() => setCaptureMode("terminal")}
+                  >
+                    <View className="capture-mode-title">固化并结束</View>
+                    <View className="capture-mode-copy">固化当前边界，随后释放运行环境</View>
+                  </Button>
+                </View>
                 <View className="capture-mobile-grid capture-mobile-source">
                   <View><View className="summary-label">Thread</View><View className="summary-value mono">{liveSnapshot?.agentThread?.threadId ?? "--"}</View></View>
                   <View><View className="summary-label">Turn</View><View className="summary-value mono">{liveSnapshot?.agentThread?.currentTurnId ?? "--"}</View></View>
                   <View><View className="summary-label">路径</View><View className="summary-value mono">{liveSnapshot?.run.targetPath ?? "--"}</View></View>
                 </View>
-                <View className="capture-mobile-note">系统将排除 Git、依赖目录、环境文件、Secret、缓存和 Runtime 临时目录。固化成功后当前任务结束。</View>
+                <View className="capture-mobile-note">
+                  系统将排除 Git、依赖目录、环境文件、Secret、缓存和 Runtime 临时目录。
+                  {captureMode === "checkpoint"
+                    ? "检查点完成后当前实例保持可用。"
+                    : "终结固化完成后当前实例进入释放流程。"}
+                </View>
                 {!captureReady ? <View className="inline-error-banner">当前 Turn 尚未完成，完成回复后才能固化。</View> : null}
                 {captureMutation.error ? <View className="inline-error-banner">{captureMutation.error.message}</View> : null}
                 <Button className="send-btn" disabled={!captureReady || captureMutation.isPending} onClick={() => captureMutation.mutate()}>
-                  {captureMutation.isPending ? "提交中" : "固化并结束任务"}
+                  {captureMutation.isPending
+                    ? "提交中"
+                    : captureMode === "checkpoint"
+                      ? "建立检查点"
+                      : "固化并结束任务"}
                 </Button>
+              </>
+            )}
+          </View>
+        </View>
+      ) : null}
+
+      {shareSheetOpen ? (
+        <View className="capture-sheet-layer">
+          <View className="capture-sheet-backdrop" onClick={() => setShareSheetOpen(false)} />
+          <View className="capture-sheet conversation-share-sheet" data-testid="mobile-task-share-sheet">
+            <View className="sheet-handle" />
+            <View className="capture-sheet-head">
+              <View className="capture-sheet-title-wrap">
+                <Image className="capture-sheet-icon" src={shareIcon} mode="aspectFit" />
+                <View>
+                  <View className="section-title">分享只读会话</View>
+                  <View className="section-copy">冻结消息边界并生成独立访问地址</View>
+                </View>
+              </View>
+              <Button className="pill" onClick={() => setShareSheetOpen(false)}>关闭</Button>
+            </View>
+
+            {preparedShare ? (
+              <View className="share-prepared-panel">
+                <View className="capture-mobile-success">
+                  <View className="share-prepared-title">{preparedShare.title}</View>
+                  <View className="share-prepared-meta">
+                    {shareStatusLabel(preparedShare.status)} · {shareAccessLabel(preparedShare.accessScope)} · {preparedShare.messageCount} 条消息
+                  </View>
+                </View>
+                <View className="share-prepared-actions">
+                  {preparedShare.status === "active" ? (
+                    <Button className="send-btn" openType="share">微信分享</Button>
+                  ) : null}
+                  <Button className="pill active" onClick={() => void Taro.navigateTo({ url: preparedShare.publicPath })}>
+                    预览只读页
+                  </Button>
+                  <Button className="pill" onClick={() => void copyPreparedSharePath()}>
+                    复制地址
+                  </Button>
+                  {preparedShare.status === "active" ? (
+                    <Button
+                      className="pill warn"
+                      disabled={revokeShareMutation.isPending}
+                      onClick={() => revokeShareMutation.mutate(preparedShare.shareId)}
+                    >
+                      撤销分享
+                    </Button>
+                  ) : null}
+                  <Button
+                    className="pill"
+                    onClick={() => {
+                      setPreparedShare(null);
+                      setShareRequestId(nextShareRequestId());
+                    }}
+                  >
+                    新建分享
+                  </Button>
+                </View>
+              </View>
+            ) : (
+              <>
+                <View className="share-config-section">
+                  <View className="share-config-label">分享来源</View>
+                  <View className="share-source-list">
+                    <Button
+                      className={`share-source-option ${shareSourceCaptureId === null ? "active" : ""}`}
+                      onClick={() => {
+                        setShareSourceCaptureId(null);
+                        setShareRequestId(nextShareRequestId());
+                      }}
+                    >
+                      <View className="share-source-title">当前会话</View>
+                      <View className="share-source-copy">冻结当前已保存的全部消息</View>
+                    </Button>
+                    {capturedSessions.map((capture) => (
+                      <Button
+                        className={`share-source-option ${shareSourceCaptureId === capture.captureId ? "active" : ""}`}
+                        key={capture.captureId}
+                        onClick={() => {
+                          setShareSourceCaptureId(capture.captureId);
+                          setShareRequestId(nextShareRequestId());
+                        }}
+                      >
+                        <View className="share-source-title">
+                          {capture.mode === "checkpoint" ? "检查点" : "终结固化"} · {formatBillingTime(capture.capturedAt)}
+                        </View>
+                        <View className="share-source-copy mono">{capture.captureId}</View>
+                      </Button>
+                    ))}
+                  </View>
+                </View>
+
+                <View className="share-config-section">
+                  <View className="share-config-label">访问范围</View>
+                  <View className="share-choice-row">
+                    {([
+                      ["public_link", "链接"],
+                      ["workspace", "工作区"],
+                      ["invited_users", "指定用户"],
+                    ] as const).map(([value, label]) => (
+                      <Button
+                        className={`pill ${shareAccessScope === value ? "active" : ""}`}
+                        key={value}
+                        onClick={() => {
+                          setShareAccessScope(value);
+                          setShareRequestId(nextShareRequestId());
+                        }}
+                      >
+                        {label}
+                      </Button>
+                    ))}
+                  </View>
+                  <View className="share-config-help">{shareAccessLabel(shareAccessScope)}</View>
+                </View>
+
+                {shareAccessScope === "invited_users" ? (
+                  <View className="share-config-section">
+                    <View className="share-config-label">接收人</View>
+                    <View className="share-member-list">
+                      {workspaceMembersQuery.isPending ? (
+                        <View className="section-copy">正在读取工作区成员</View>
+                      ) : (workspaceMembersQuery.data ?? []).length === 0 ? (
+                        <View className="inline-error-banner">当前工作区没有可选择成员。</View>
+                      ) : (
+                        (workspaceMembersQuery.data ?? []).map((member) => {
+                          const selected = selectedShareUserIds.includes(member.user.userId);
+                          return (
+                            <Button
+                              className={`share-member-option ${selected ? "active" : ""}`}
+                              key={member.user.userId}
+                              onClick={() => {
+                                setSelectedShareUserIds((current) =>
+                                  selected
+                                    ? current.filter((userId) => userId !== member.user.userId)
+                                    : [...current, member.user.userId]
+                                );
+                                setShareRequestId(nextShareRequestId());
+                              }}
+                            >
+                              <View>
+                                <View className="share-source-title">{member.user.displayName}</View>
+                                <View className="share-source-copy">{member.membership.role}</View>
+                              </View>
+                              <View className={`share-check ${selected ? "selected" : ""}`} />
+                            </Button>
+                          );
+                        })
+                      )}
+                    </View>
+                  </View>
+                ) : null}
+
+                <View className="share-config-section">
+                  <View className="share-config-label">有效期</View>
+                  <View className="share-choice-row">
+                    {([
+                      [1, "1 天"],
+                      [7, "7 天"],
+                      [30, "30 天"],
+                      [null, "长期"],
+                    ] as const).map(([value, label]) => (
+                      <Button
+                        className={`pill ${shareExpiryDays === value ? "active" : ""}`}
+                        key={label}
+                        onClick={() => {
+                          setShareExpiryDays(value);
+                          setShareRequestId(nextShareRequestId());
+                        }}
+                      >
+                        {label}
+                      </Button>
+                    ))}
+                  </View>
+                </View>
+
+                <View className="share-toggle-list">
+                  <View className="share-toggle-row">
+                    <View>
+                      <View className="share-source-title">包含系统消息</View>
+                      <View className="share-source-copy">敏感凭证和内部根路径将自动隐藏</View>
+                    </View>
+                    <Switch
+                      checked={shareIncludeSystem}
+                      color="#6674ff"
+                      onChange={(event) => {
+                        setShareIncludeSystem(event.detail.value);
+                        setShareRequestId(nextShareRequestId());
+                      }}
+                    />
+                  </View>
+                  <View className="share-toggle-row">
+                    <View>
+                      <View className="share-source-title">包含会话附件</View>
+                      <View className="share-source-copy">图片、视频和附件将复制到分享存储</View>
+                    </View>
+                    <Switch
+                      checked={shareIncludeAttachments}
+                      color="#6674ff"
+                      onChange={(event) => {
+                        setShareIncludeAttachments(event.detail.value);
+                        setShareRequestId(nextShareRequestId());
+                      }}
+                    />
+                  </View>
+                </View>
+
+                {shareMutation.error ? (
+                  <View className="inline-error-banner">{shareMutation.error.message}</View>
+                ) : null}
+                <Button
+                  className="send-btn"
+                  disabled={
+                    shareMutation.isPending ||
+                    (shareAccessScope === "invited_users" && selectedShareUserIds.length === 0)
+                  }
+                  onClick={() => shareMutation.mutate()}
+                >
+                  {shareMutation.isPending ? "正在生成只读快照" : "生成分享"}
+                </Button>
+
+                {(conversationSharesQuery.data ?? []).length > 0 ? (
+                  <View className="share-history">
+                    <View className="share-config-label">已有分享</View>
+                    {(conversationSharesQuery.data ?? []).map((share) => (
+                      <Button
+                        className="share-history-item"
+                        key={share.shareId}
+                        onClick={() => setPreparedShare(share)}
+                      >
+                        <View>
+                          <View className="share-source-title">{share.title}</View>
+                          <View className="share-source-copy">
+                            {formatBillingTime(share.createdAt)} · {shareAccessLabel(share.accessScope)}
+                          </View>
+                        </View>
+                        <View className={`pill ${share.status === "active" ? "success" : "warn"}`}>
+                          {shareStatusLabel(share.status)}
+                        </View>
+                      </Button>
+                    ))}
+                  </View>
+                ) : null}
               </>
             )}
           </View>

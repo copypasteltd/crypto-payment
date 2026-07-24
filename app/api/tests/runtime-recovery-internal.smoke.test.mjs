@@ -40,7 +40,7 @@ async function requestJson(url, init = {}) {
   return text ? JSON.parse(text) : null;
 }
 
-function createAggregate(runId, status, runtime = {}) {
+function createAggregate(runId, status, runtime = {}, agentThread = null) {
   const createdAt = "2026-07-09T03:00:00.000Z";
   const run = {
     runId,
@@ -81,6 +81,7 @@ function createAggregate(runId, status, runtime = {}) {
     files: [],
     artifacts: [],
     approvals: [],
+    agentThread,
     input,
     startJob: {
       run,
@@ -143,14 +144,38 @@ test("internal runtime recovery endpoints expose startable, active-bridge, and o
     await runsRepository.save(createAggregate("run_internal_created", "CREATED"));
     await runsRepository.save(createAggregate("run_internal_running_bridge", "RUNNING"));
     await runsRepository.save(createAggregate("run_internal_running_orphan", "RUNNING"));
-    await runsRepository.save(createAggregate("run_internal_running_finished", "RUNNING", {
+    await runsRepository.save(createAggregate(
+      "run_internal_running_finished",
+      "RUNNING",
+      {
+        launchMode: "docker",
+        containerName: "lingban-run-run_internal_running_finished",
+        startedAt: "2026-07-09T03:01:00.000Z",
+        readyAt: "2026-07-09T03:01:05.000Z",
+        finishedAt: "2026-07-09T03:04:00.000Z",
+        exitCode: null,
+        exitSignal: "SIGTERM",
+      },
+      {
+        protocol: "app-server",
+        threadId: "thread_internal_running_finished",
+        currentTurnId: "turn_internal_running_finished",
+        currentTurnState: "completed",
+        connectionState: "stopped",
+        eventHighWatermark: 42,
+        codexVersion: "0.1.0-test",
+        protocolVersion: "1",
+        lastEventAt: "2026-07-09T03:03:59.000Z",
+      }
+    ));
+    await runsRepository.save(createAggregate("run_internal_running_finished_stale_bridge", "RUNNING", {
       launchMode: "docker",
-      containerName: "lingban-run-run_internal_running_finished",
+      containerName: "lingban-run-run_internal_running_finished_stale_bridge",
       startedAt: "2026-07-09T03:01:00.000Z",
       readyAt: "2026-07-09T03:01:05.000Z",
-      finishedAt: "2026-07-09T03:04:00.000Z",
-      exitCode: null,
-      exitSignal: "SIGTERM",
+      finishedAt: "2026-07-09T03:05:00.250Z",
+      exitCode: 0,
+      exitSignal: null,
     }));
     await runsRepository.save(createAggregate("run_internal_running_stale", "RUNNING"));
 
@@ -161,6 +186,21 @@ test("internal runtime recovery endpoints expose startable, active-bridge, and o
       targetPath: "C:/tmp/run_internal_running_bridge",
       control: {
         baseUrl: "http://127.0.0.1:39998",
+        authToken: "control-token",
+      },
+      supportedCommands: ["sendMessage", "approve", "cancel", "ping", "syncFiles", "flushArtifacts"],
+      connectedAt: "2026-07-09T03:05:00.000Z",
+      lastSeenAt: "2026-07-09T03:05:00.000Z",
+    });
+    await bridgeRegistry.flushPersistence();
+
+    bridgeRegistry.register({
+      bridgeId: "brg_internal_running_finished_stale_bridge",
+      runId: "run_internal_running_finished_stale_bridge",
+      workspaceId: "wsp_internal_recovery",
+      targetPath: "C:/tmp/run_internal_running_finished_stale_bridge",
+      control: {
+        baseUrl: "http://127.0.0.1:39996",
         authToken: "control-token",
       },
       supportedCommands: ["sendMessage", "approve", "cancel", "ping", "syncFiles", "flushArtifacts"],
@@ -214,6 +254,22 @@ test("internal runtime recovery endpoints expose startable, active-bridge, and o
     assert.equal(
       byRunId.get("run_internal_running_finished")?.startJob?.run?.runId,
       "run_internal_running_finished"
+    );
+    assert.equal(
+      byRunId.get("run_internal_running_finished")?.startJob?.resumeThreadId,
+      "thread_internal_running_finished"
+    );
+    assert.equal(
+      byRunId.get("run_internal_running_finished")?.startJob?.resumeThroughTurnId,
+      "turn_internal_running_finished"
+    );
+    assert.equal(
+      byRunId.get("run_internal_running_finished")?.startJob?.resumeThroughTurnState,
+      "completed"
+    );
+    assert.equal(
+      byRunId.get("run_internal_running_finished_stale_bridge")?.action,
+      "enqueue-start"
     );
     assert.equal(byRunId.get("run_internal_running_stale")?.action, "mark-orphan-failed");
     assert.equal(byRunId.get("run_internal_running_stale")?.bridge?.registered, false);

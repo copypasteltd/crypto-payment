@@ -127,6 +127,10 @@ test("Creator writes a draft Workshop, Service, and immutable Task Version", asy
     assert.equal(bundle.workshop.status, "draft");
     assert.equal(bundle.service.status, "draft");
     assert.equal(bundle.taskVersion.sessionVersionId, "sev_catalog_write_smoke");
+    assert.equal(
+      bundle.taskVersion.targetRoot,
+      `${auth.currentWorkspace.root.replace(/\/$/, "")}/runs/${bundle.service.serviceId}`
+    );
     assert.equal(bundle.taskVersion.contentSha256.length, 64);
     const replayedBundle = await requestJson(`${baseUrl}/v1/workshops`, {
       method: "POST",

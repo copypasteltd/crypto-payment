@@ -49,6 +49,7 @@ const envKeys = [
   "API_PORT",
   "DATABASE_URL",
   "LINGBAN_DATA_DIR",
+  "LINGBAN_ENABLE_DEMO_DATA",
   "LINGBAN_CATALOG_STORE",
   "LINGBAN_WORKSHOP_CATALOG_STORE",
   "LINGBAN_CREATOR_STORE",
@@ -77,6 +78,7 @@ try {
   process.env.API_PORT = String(port);
   process.env.DATABASE_URL = "postgres://fake/lingban";
   process.env.LINGBAN_DATA_DIR = path.join(smokeRoot, "api-data");
+  process.env.LINGBAN_ENABLE_DEMO_DATA = "1";
   process.env.LINGBAN_CATALOG_STORE = "file";
   process.env.LINGBAN_WORKSHOP_CATALOG_STORE = "postgres";
   process.env.LINGBAN_CREATOR_STORE = "postgres";

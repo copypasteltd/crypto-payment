@@ -447,7 +447,10 @@ export class MeService {
                 updatedAt: file.updatedAt,
                 previewMode,
                 previewable:
-                  previewMode === "text" || previewMode === "image" || previewMode === "pdf",
+                  previewMode === "text" ||
+                  previewMode === "image" ||
+                  previewMode === "video" ||
+                  previewMode === "pdf",
                 downloadable: !isDirectoryPath(file.path),
               };
             });

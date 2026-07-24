@@ -37,13 +37,17 @@ type CreateDownloadUrlInput = {
   fileName: string;
   contentType?: string | null;
   expiresInSeconds: number;
+  disposition?: "attachment" | "inline";
 };
 
 export interface ObjectStore {
   putBuffer(objectKey: string, input: PutObjectBufferInput): Promise<StoredObjectInfo>;
   putBufferImmutable(objectKey: string, input: PutObjectBufferInput): Promise<StoredObjectInfo>;
   putPath(objectKey: string, input: PutObjectPathInput): Promise<StoredObjectInfo>;
-  createReadStream(objectKey: string): Promise<NodeJS.ReadableStream>;
+  createReadStream(
+    objectKey: string,
+    range?: { start: number; end: number }
+  ): Promise<NodeJS.ReadableStream>;
   copyObjectToPath(objectKey: string, absolutePath: string): Promise<void>;
   copyObject(sourceObjectKey: string, targetObjectKey: string): Promise<void>;
   deleteObject(objectKey: string): Promise<void>;
@@ -84,9 +88,9 @@ async function buildFileSha256(absolutePath: string) {
   return hash.digest("hex");
 }
 
-function buildContentDisposition(fileName: string) {
+function buildContentDisposition(fileName: string, disposition: "attachment" | "inline" = "attachment") {
   const fallback = fileName.replace(/[^\x20-\x7e]+/g, "_").replace(/["\\]/g, "_").trim() || "download.bin";
-  return `attachment; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
+  return `${disposition}; filename="${fallback}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 }
 
 function encodeCopySource(bucket: string, objectKey: string) {
@@ -181,8 +185,11 @@ class FilesystemObjectStore implements ObjectStore {
     };
   }
 
-  async createReadStream(objectKey: string) {
-    return createReadStream(this.#resolveObjectPath(objectKey));
+  async createReadStream(objectKey: string, range?: { start: number; end: number }) {
+    return createReadStream(
+      this.#resolveObjectPath(objectKey),
+      range ? { start: range.start, end: range.end } : undefined
+    );
   }
 
   async copyObjectToPath(objectKey: string, absolutePath: string) {
@@ -338,11 +345,12 @@ class S3ObjectStore implements ObjectStore {
     };
   }
 
-  async createReadStream(objectKey: string) {
+  async createReadStream(objectKey: string, range?: { start: number; end: number }) {
     const response = await this.#client.send(
       new GetObjectCommand({
         Bucket: this.#bucket,
         Key: objectKey,
+        Range: range ? `bytes=${range.start}-${range.end}` : undefined,
       })
     );
 
@@ -390,7 +398,10 @@ class S3ObjectStore implements ObjectStore {
       new GetObjectCommand({
         Bucket: this.#bucket,
         Key: input.objectKey,
-        ResponseContentDisposition: buildContentDisposition(input.fileName),
+        ResponseContentDisposition: buildContentDisposition(
+          input.fileName,
+          input.disposition ?? "attachment"
+        ),
         ResponseContentType: input.contentType ?? undefined,
       }),
       {
