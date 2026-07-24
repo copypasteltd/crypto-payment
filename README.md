@@ -14,13 +14,17 @@ Lingban Workshop is a cloud agent-workshop platform for organizations and indivi
 | Backend API | 已部署，`http://192.168.31.20:38130` |
 | Session Control v2 | 已部署，Migration `0030_session_control` 已应用 |
 | Frontend E2E | 34/34 通过 |
-| Backend smoke | 62/62 通过 |
+| Backend 固化与分享聚焦测试 | 4/4 通过 |
 | Run Worker tests | 33/33 通过 |
-| Runtime Bridge tests | 25/25 通过 |
+| Runtime Bridge tests | 34/34 通过 |
+| DB tests | 30/30 通过 |
 | Session Pack tests | 24/24 通过 |
 | Dashboard 视觉状态 | 1440×1000、1024×768、390×844 通过 |
 | Run lifecycle API | 关闭、释放、归档、恢复与永久销毁已完成 |
-| 最近验证日期 | 2026-07-21 |
+| Session Capture 恢复 | 原 Thread/Turn 恢复、持久化重试、原生 zstd 和大对象上传已验证 |
+| 会话分享 | 活跃会话与已固化边界均支持独立只读快照 |
+| HZ01 当前发布 | `20260724T114552Z` |
+| 最近验证日期 | 2026-07-25 |
 
 当前地址属于 HZ01 验收环境。生产扩容仍需完成外部 PostgreSQL、Redis、对象存储、集中密钥管理、告警、备份和多节点容量验证。
 
@@ -118,6 +122,18 @@ pnpm standalone:export:all
 本地开发与验证使用原生 Node.js/pnpm。当前工作约束禁止调用本地 Docker、WSL 或其他虚拟化环境；需要隔离 Runtime 的验收在指定服务器完成。
 
 Local development and verification use native Node.js and pnpm. The current workspace policy prohibits local Docker, WSL, and other virtualization; isolated-runtime acceptance runs on the designated server.
+
+## 2026-07-25 固化恢复与只读分享 / Capture Recovery and Read-only Sharing
+
+- 活跃会话支持检查点固化和终结固化。检查点完成后原实例继续运行，终结固化完成后进入 Runtime 释放流程。
+- Runtime 恢复携带原 Codex Thread、已完成 Turn 和事件水位，Bridge 使用 `thread/resume` 接续会话。
+- Capture 调度与处理均持久化重试状态、错误码和尝试次数，并设置明确的重试上限。
+- 工作区快照和 Session Pack 优先使用宿主机原生 `zstd`，大型归档不再进入固定内存的 WASM 压缩路径。
+- Capture 内部对象上传使用独立请求体限制，公开 API 继续保留原有请求边界。
+- 活跃会话与已固化 Capture 均可生成带范围、有效期和附件策略的只读分享快照。
+- HZ01 已验证 5 类 Capture 对象、Draft Revision、SHA-256 和 `zstd -t` 完整性；线上未残留未完成 Capture Job。
+
+Active and terminal captures now preserve the original Codex thread boundary across runtime recovery, persist bounded retries, stream large archives through native zstd, and verify immutable capture objects before Draft creation. Conversation sharing stores independent read-only snapshots for live conversations and captured boundaries.
 
 ## 拆分分支 / Snapshot Branches
 
